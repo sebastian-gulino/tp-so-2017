@@ -1,8 +1,46 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <commons/config.h>
+
+typedef struct config_t {
+
+	char * ipKernel;
+	char * puertoKernel;
+
+} t_configuracion;
+
+t_configuracion configuracion;
+
+void cargarConfiguracion(void) {
+
+	t_config * config;
+
+	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/consola/config.txt");
+
+	configuracion.ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
+	configuracion.puertoKernel = strdup(config_get_string_value(config, "PUERTO_KERNEL"));
 
 
-int main(void) {
-puts("!!!Hello World!!!"); /* prints !!!Hello World!!! */
-return 0;
 }
+
+
+
+int main(int arc, char * argv[]) {
+
+	cargarConfiguracion();
+
+	printf("El puerto del Kernel %s\n",configuracion.puertoKernel);
+	printf("La IP del Kernel %s\n",configuracion.ipKernel);
+
+	return 0;
+
+}
+
+
+
+
+
+
+
+
+

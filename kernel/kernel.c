@@ -24,7 +24,7 @@ typedef struct config_t {
 
 t_configuracion configuracion;
 
-void cargarConfiguracionKernel(void) {
+void cargarConfiguracion(void) {
 	t_config * config;
 
 	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/kernel/config.txt");
@@ -49,7 +49,7 @@ void cargarConfiguracionKernel(void) {
 
 int main(int arc, char * argv[]) {
 
-	cargarConfiguracionKernel();
+	cargarConfiguracion();
 
 	printf("El puerto de la CPU es %s\n",configuracion.puertoCpu);
 	printf("La IP de la Memoria es %s\n",configuracion.ipMemoria);
