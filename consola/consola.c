@@ -15,7 +15,7 @@ void cargarConfiguracion(void) {
 
 	t_config * config;
 
-	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/consola/config.txt");
+	config = config_create("./config.txt");
 
 	configuracion.ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
 	configuracion.puertoKernel = strdup(config_get_string_value(config, "PUERTO_KERNEL"));

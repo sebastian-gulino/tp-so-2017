@@ -14,7 +14,7 @@ void cargarConfiguracion(void){
 
 	t_config * config;
 
-	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/filesystem/config.txt");
+	config = config_create("./config.txt");
 
 	configuracion.puerto = strdup(config_get_string_value(config, "PUERTO"));
 	configuracion.puertoMontaje = strdup(config_get_string_value(config, "PUERTO_MONTAJE"));

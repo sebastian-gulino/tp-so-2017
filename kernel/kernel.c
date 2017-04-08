@@ -27,7 +27,7 @@ t_configuracion configuracion;
 void cargarConfiguracion(void) {
 	t_config * config;
 
-	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/kernel/config.txt");
+	config = config_create("./config.txt");
 
 	configuracion.puertoCpu = strdup(config_get_string_value(config, "PUERTO_CPU"));
 	configuracion.ipMemoria = strdup(config_get_string_value(config, "IP_MEMORIA"));

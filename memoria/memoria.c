@@ -20,7 +20,7 @@ t_configuracion configuracion;
 void cargarConfiguracion(void) {
 	t_config * config;
 
-	config = config_create("/home/utnso/Escritorio/UTNSOTP/tp-2017-1c-Codeando-por-un-sueldo/memoria/config.txt");
+	config = config_create("./config.txt");
 
 	configuracion.puerto = strdup(config_get_string_value(config, "PUERTO"));
 	configuracion.marcos = strdup(config_get_string_value(config, "MARCOS"));
