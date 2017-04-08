@@ -122,4 +122,5 @@
 			<resource resourceType="PROJECT" workspacePath="/tp-2017-1c-Codeando-por-un-sueldo"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

@@ -13,14 +13,5 @@ EXECUTABLES :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
-memoria \
-memoria/Debug \
-kernel \
-kernel/Debug \
-filesystem \
-filesystem/Debug \
-cpu \
-cpu/Debug \
-consola \
-consola/Debug \
+. \
 

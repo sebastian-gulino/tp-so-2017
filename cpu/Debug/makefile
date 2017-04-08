@@ -8,16 +8,6 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
--include memoria/Debug/subdir.mk
--include memoria/subdir.mk
--include kernel/Debug/subdir.mk
--include kernel/subdir.mk
--include filesystem/Debug/subdir.mk
--include filesystem/subdir.mk
--include cpu/Debug/subdir.mk
--include cpu/subdir.mk
--include consola/Debug/subdir.mk
--include consola/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -32,19 +22,19 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: tp-2017-1c-Codeando-por-un-sueldo
+all: cpu
 
 # Tool invocations
-tp-2017-1c-Codeando-por-un-sueldo: $(OBJS) $(USER_OBJS)
+cpu: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc  -o "tp-2017-1c-Codeando-por-un-sueldo" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc  -o "cpu" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) tp-2017-1c-Codeando-por-un-sueldo
+	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) cpu
 	-@echo ' '
 
 .PHONY: all clean dependents
