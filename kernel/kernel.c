@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <commons/config.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 typedef struct config_t {
 
@@ -23,6 +25,66 @@ typedef struct config_t {
 } t_configuracion;
 
 t_configuracion configuracion;
+
+//socket_desc: Socket del servidor.
+//client_sock: Socker del cliente a aceptar.
+//c: Tamaño de la estructura del socket cliente.
+//read_size: Tamaño del mensaje leido.
+int socket_desc , client_sock , c , read_size;
+
+//server: Direcciones del server (puerto, ip, etc).
+//client: Direcciones del cliente.
+struct sockaddr_in server , client;
+
+//client_message[2000]: Buffer donde se almacena el mensaje recivido.
+char client_message[2000];
+
+
+//Funcion para crear el servidor.
+int crearServidor(void){
+
+	    //Se crea el socket
+	    socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+	    if (socket_desc == -1)
+	    {
+	        printf("El socket no pudo ser creado.");
+	        return EXIT_FAILURE;
+	    }
+	    puts("El socket fue creado exitosamente.");
+
+	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
+	    server.sin_family = AF_INET; //Especifica familia de direcciones.
+	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
+	    server.sin_port = htons( 8300 ); //Especifica el puerto del servidor.
+
+	    //Se liga (bind) el socket servidor con sus direcciones.
+	    if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
+	    {
+	        perror("Bind fallo. Error");
+	        return 1;
+	    }
+	    puts("Bind realizado exitosamente.");
+
+	    //Pone al servidor en modo listen (puede recibir llamados).
+	    listen(socket_desc , 3);
+
+	    puts("Servidor creado con exito.");
+	    puts("Esperando por conexiones entrantes...");
+
+	    //Se guarda el tamaño de la estructura "sockaddr_in" para ser utilizada en accept.
+	    c = sizeof(struct sockaddr_in);
+
+	    //Acepta la conexión de un cliente.
+	    client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
+	    if (client_sock < 0)
+	    {
+	        perror("accept failed");
+	        return 1;
+	    }
+	    puts("Connection accepted");
+
+    return 0;
+}
 
 void cargarConfiguracion(void) {
 	t_config * config;
@@ -64,7 +126,16 @@ int main(int arc, char * argv[]) {
 	printf("La Sem IDS es %s\n",configuracion.semIDS);
 	printf("La Sem INIT es %s\n",configuracion.semINIT);
 	printf("Las variables compartidas son %s\n",configuracion.sharedVars);
-	printf("El tamanio del Stack es %s\n",configuracion.stackSize);
+	printf("El tamaño del Stack es %s\n",configuracion.stackSize);
+
+	int se;//Toma el return de crearServidor() para saber si hubo error en la creación del servidor.
+
+	se = crearServidor();
+
+		if(se){
+			printf("El servidor no se ha creado");
+			return EXIT_FAILURE;
+		}
 
 	return 0;
 
