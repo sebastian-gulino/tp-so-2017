@@ -3,6 +3,9 @@
 #include <commons/config.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <pthread.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 typedef struct config_t {
 
@@ -30,15 +33,17 @@ t_configuracion configuracion;
 //client_sock: Socker del cliente a aceptar.
 //c: Tamaño de la estructura del socket cliente.
 //read_size: Tamaño del mensaje leido.
-int socket_desc , client_sock , c , read_size;
+//*new_sock: Socket del cliente, parametro para la creación del thread.
+int socket_desc , client_sock , c , read_size, *new_sock;
 
 //server: Direcciones del server (puerto, ip, etc).
 //client: Direcciones del cliente.
 struct sockaddr_in server , client;
 
-//client_message[2000]: Buffer donde se almacena el mensaje recivido.
+//client_message[2000]: Buffer donde se almacena el mensaje recibido.
 char client_message[2000];
 
+void *atender_cliente(void *);
 
 //Funcion para crear el servidor.
 int crearServidor(void){
@@ -55,7 +60,7 @@ int crearServidor(void){
 	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
 	    server.sin_family = AF_INET; //Especifica familia de direcciones.
 	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
-	    server.sin_port = htons( 8300 ); //Especifica el puerto del servidor.
+	    server.sin_port = htons( 8301 ); //Especifica el puerto del servidor.
 
 	    //Se liga (bind) el socket servidor con sus direcciones.
 	    if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
@@ -71,20 +76,64 @@ int crearServidor(void){
 	    puts("Servidor creado con exito.");
 	    puts("Esperando por conexiones entrantes...");
 
-	    //Se guarda el tamaño de la estructura "sockaddr_in" para ser utilizada en accept.
-	    c = sizeof(struct sockaddr_in);
+	    while(1)
+	    	{
+	    		int cl; //Socket cliente ACEPTADO
+	    		struct sockaddr addr; //Direcciones del cliente
+	    		socklen_t addrlen = sizeof(addr); //Tamaño de las direcciones del cliente
+	    		pthread_t threadID; //ID del thread creado
 
-	    //Acepta la conexión de un cliente.
-	    client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
-	    if (client_sock < 0)
-	    {
-	        perror("accept failed");
-	        return 1;
-	    }
-	    puts("Connection accepted");
+	    		cl = accept(socket_desc, &addr, &addrlen); //Se acepta el socket
+	    		if(cl < 0)
+	    		{
+	    			perror("accept");
+	    			return EXIT_FAILURE;
+	    		}
+	    		pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
+	    	}
 
     return 0;
 }
+
+void *atender_cliente(void *arg)
+{
+	int cl = (long)arg; //Socket cliente aceptado
+	int tam_mens; //Tamaño del return de recv() (tamaño del mensaje recibido)
+	char mens_cliente[500]; //Buffer donde se almacena el mensaje del cliente
+
+	//Mensajes de bienvenida
+	write(cl, "Hola!, hoy voy a atenderlo\n",27 );
+	write(cl, "Por favor digame su problema\n", 30);
+
+	//While infinito, para que atienda al cliente hasta que el cliente haga el cierre
+	while(1){
+
+		tam_mens = recv(cl, mens_cliente, 500, 0); //Recibe mensaje del cliente (cl)
+
+		if(tam_mens > 4){ //Responde al mensaje
+			write (cl, "Solucionaremos su problema a la brevedad\n", 43);
+
+			write (cl, "Algun otro problema?\n", 20);
+		}
+		 else{ //Si el mensaje es muy corto (Menor de 4 bytes, por ejemplo NO) corta la conexión --- TODO: Que reconozca el NO y no se fije en la longitud del string
+				write (cl, "Gracias por comunicarse con ACME S.A.\n", 38);
+				close(cl); //Cierra la comunicación
+				return EXIT_SUCCESS;
+
+		} if (tam_mens == -1){ //Reconoce error al recibir
+			perror("No se pudo recibir mensaje\n");
+			return EXIT_FAILURE;
+		}
+
+			}
+
+	return NULL;
+
+	}
+
+
+
+
 
 void cargarConfiguracion(void) {
 	t_config * config;
