@@ -96,7 +96,7 @@ int main(int arc, char * argv[]){
 	printf("El Puerto es %s\n", configuracion.puerto);
 	printf("El Puerto de Montaje es %s\n", configuracion.puertoMontaje);
 
-	return 0;
+
 
 	int se;
 
@@ -106,6 +106,6 @@ int main(int arc, char * argv[]){
 			printf("No se creo cliente");
 			return EXIT_FAILURE;
 		}
-
+		return 0;
 }
 
