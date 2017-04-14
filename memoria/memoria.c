@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <sockets/sockets.h>
 
 typedef struct config_t {
 
@@ -102,27 +103,37 @@ void cargarConfiguracion(void) {
 
 
 
-int main(int arc, char * argv[]) {
+int main(void) {
 
-	cargarConfiguracion();
+	setvbuf (stdout, NULL, _IONBF, 0);
 
-	printf("El Puerto es %s\n",configuracion.puerto);
-	printf("La cantidad de Marcos es %s\n",configuracion.marcos);
-	printf("El tamaño de cada Marco es %s\n",configuracion.marcoSize);
-	printf("Las entradas en Cache son %s\n",configuracion.entradasCache);
-	printf("La cantidad maxima de de entradas de la cache asignables a cada programa es %s\n",configuracion.cacheXProc);
-	printf("El reemplazo de cache es %s\n",configuracion.reemplazoCache);
-	printf("El retardo de la Memoria es %s\n",configuracion.retardoMemoria);
+	char * prueba = "prueba";
+p
+	char * mensaje = empaquetar('C', prueba);
 
-	int se;
+	printf("El Mensaje es %s\n",desempaquetar(mensaje));
 
-		se = crearCliente();//Se guarda el return de crearCliente() para saber si hubo algún error.
+	printf("El Emisor es %s\n",procesoEmisor(mensaje));
 
-		if(se){
-			printf("No se creo cliente");
-			return EXIT_FAILURE;
-		}
-
-	return 0;
+//	cargarConfiguracion();
+//
+//	printf("El Puerto es %s\n",configuracion.puerto);
+//	printf("La cantidad de Marcos es %s\n",configuracion.marcos);
+//	printf("El tamaño de cada Marco es %s\n",configuracion.marcoSize);
+//	printf("Las entradas en Cache son %s\n",configuracion.entradasCache);
+//	printf("La cantidad maxima de de entradas de la cache asignables a cada programa es %s\n",configuracion.cacheXProc);
+//	printf("El reemplazo de cache es %s\n",configuracion.reemplazoCache);
+//	printf("El retardo de la Memoria es %s\n",configuracion.retardoMemoria);
+//
+//	int se;
+//
+//		se = crearCliente();//Se guarda el return de crearCliente() para saber si hubo algún error.
+//
+//		if(se){
+//			printf("No se creo cliente");
+//			return EXIT_FAILURE;
+//		}
+//
+//	return 0;
 
 }

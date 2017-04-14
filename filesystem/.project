@@ -3,6 +3,7 @@
 	<name>filesystem</name>
 	<comment></comment>
 	<projects>
+		<project>cpus-commons</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
