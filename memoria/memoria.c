@@ -62,7 +62,7 @@ int crearCliente(void){
 	       while(1)
 	       {
 
-	    	 write(sock, "Soy consola", 15);
+
 	    	 while(recv(sock , respuesta , 2000 , 0)>0){
 	    		 puts(respuesta);
 	    	 }

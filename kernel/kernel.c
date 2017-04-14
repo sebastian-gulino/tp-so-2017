@@ -34,7 +34,7 @@ t_configuracion configuracion;
 //c: Tamaño de la estructura del socket cliente.
 //read_size: Tamaño del mensaje leido.
 //*new_sock: Socket del cliente, parametro para la creación del thread.
-int socket_desc , client_sock , c , read_size, *new_sock;
+int socket_desc , client_sock , c , read_size, *new_sock, clientes[5], i;
 
 //server: Direcciones del server (puerto, ip, etc).
 //client: Direcciones del cliente.
@@ -78,6 +78,8 @@ int crearServidor(void){
 	    puts("Servidor creado con exito.");
 	    puts("Esperando por conexiones entrantes...");
 
+	    i = 0;
+
 	    while(1)
 	    	{
 	    		int cl; //Socket cliente ACEPTADO
@@ -86,7 +88,12 @@ int crearServidor(void){
 	    		pthread_t threadID; //ID del thread creado
 
 
+
 	    		cl = accept(socket_desc, &addr, &addrlen); //Se acepta el socket
+
+	    		clientes[i] = cl;
+	    		i++;
+
 	    		if(cl < 0)
 	    		{
 	    			perror("accept");
@@ -107,22 +114,18 @@ void *atender_cliente(void *arg)
 	char mens_cliente[500]; //Buffer donde se almacena el mensaje del cliente
 
 
+
 	while(1){
+		int j;
 
 		tam_mens = recv(cl, mens_cliente, 500, 0); //Recibe mensaje del cliente (cl)
 		puts(mens_cliente);
 
-		if(tam_mens > 4){ //Responde al mensaje
-			write (cl, "Solucionaremos su problema a la brevedad\n", 43);
-
-			write (cl, "Algun otro problema?\n", 20);
+		for(j = 0; j<5; j++){
+			write(clientes[j], mens_cliente, sizeof(mens_cliente));
 		}
-		 else{ //Si el mensaje es muy corto (Menor de 4 bytes, por ejemplo NO) corta la conexión --- TODO: Que reconozca el NO y no se fije en la longitud del string
-				write (cl, "Gracias por comunicarse con ACME S.A.\n", 38);
-				close(cl); //Cierra la comunicación
-				return EXIT_SUCCESS;
 
-		} if (tam_mens == -1){ //Reconoce error al recibir
+		if (tam_mens == -1){ //Reconoce error al recibir
 			perror("No se pudo recibir mensaje\n");
 			return EXIT_FAILURE;
 		}
