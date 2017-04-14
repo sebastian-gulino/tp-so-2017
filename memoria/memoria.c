@@ -63,7 +63,7 @@ int crearCliente(void){
 	       while(1)
 	       {
 
-	    	 write(sock, "Soy consola", 15);
+
 	    	 while(recv(sock , respuesta , 2000 , 0)>0){
 	    		 puts(respuesta);
 	    	 }
@@ -108,7 +108,7 @@ int main(void) {
 	setvbuf (stdout, NULL, _IONBF, 0);
 
 	char * prueba = "prueba";
-p
+
 	char * mensaje = empaquetar('C', prueba);
 
 	printf("El Mensaje es %s\n",desempaquetar(mensaje));
