@@ -3,6 +3,7 @@
 #include <commons/config.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <unistd.h>
 
 typedef struct config_t {
 
@@ -13,9 +14,14 @@ typedef struct config_t {
 t_configuracion configuracion;
 
 //sock: Socket del cliente.
-int sock;
+//cc: Return de la conexión
+//ms: Return del envio de mensaje
+int sock, cc, ms;
 //server: Estructura de las direcciones del servidor a conectarse.
 struct sockaddr_in server;
+//mensaje: Mensaje a enviar
+//respuesta: Respuesta del servidor
+char mensaje[500] , respuesta[2000], unMensaje[500];
 
 int crearCliente(void){
 
@@ -28,25 +34,49 @@ int crearCliente(void){
 	    puts("Socket creado exitosamente");
 
 	   //Se instancian las direcciones del servidor a conectarse.
-	   server.sin_addr.s_addr = inet_addr("127.0.0.1");//"127.0.0.1" es la ip de la maquina (localhost).
-	   server.sin_family = AF_INET;//Familia de direcciones.
-	   server.sin_port = htons( 8300 );//"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
+	   server.sin_addr.s_addr = inet_addr("127.0.0.1"); //"127.0.0.1" es la ip de la maquina (localhost).
+	   server.sin_family = AF_INET; //Familia de direcciones.
+	   server.sin_port = htons( 8002 ); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
 
 	   puts("Cliente creado.");
 	   puts("Intentando conexión...");
 
 	  //Hace la conexión al servidor.
-	   if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
-	    {
+	   cc = connect(sock , (struct sockaddr *)&server , sizeof(server));
+
+	    if(cc < 0){
 	        perror("Conexión fallida. Error");
 	        return 1;
 	    }
 
 	    puts("Conexión exitosa!\n");
 
+
+	       while(1)
+	       {
+
+	    	 write(sock, "Soy consola", 15);
+	    	 while(recv(sock , respuesta , 2000 , 0)>0){
+	    		 puts(respuesta);
+	    	 }
+
+	    	    if( send(sock , mensaje , 300 , 0) > 5)
+	    	       {
+	    	        recv(sock, respuesta, 2000, 0);
+	    	           puts(respuesta);
+
+	    	        } else {
+	    	        	perror("No se pudo enviar el mensaje");
+	    	        	return EXIT_FAILURE;
+	    	        }
+
+
+	       }
+
 	    close(sock); //Cierra la conexión.
 	    return 0;
 }
+
 
 void cargarConfiguracion(void){
 

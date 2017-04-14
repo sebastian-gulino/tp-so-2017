@@ -60,8 +60,10 @@ int crearServidor(void){
 	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
 	    server.sin_family = AF_INET; //Especifica familia de direcciones.
 	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
-	    server.sin_port = htons( 8301 ); //Especifica el puerto del servidor.
+	    server.sin_port = htons( 8002); //Especifica el puerto del servidor.
 
+
+	    printf("%s\n", inet_ntoa(server.sin_addr));
 	    //Se liga (bind) el socket servidor con sus direcciones.
 	    if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
 	    {
@@ -83,14 +85,17 @@ int crearServidor(void){
 	    		socklen_t addrlen = sizeof(addr); //Tamaño de las direcciones del cliente
 	    		pthread_t threadID; //ID del thread creado
 
+
 	    		cl = accept(socket_desc, &addr, &addrlen); //Se acepta el socket
 	    		if(cl < 0)
 	    		{
 	    			perror("accept");
 	    			return EXIT_FAILURE;
 	    		}
-	    		pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
-	    	}
+
+	    			    		pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
+	    		}
+
 
     return 0;
 }
@@ -101,14 +106,11 @@ void *atender_cliente(void *arg)
 	int tam_mens; //Tamaño del return de recv() (tamaño del mensaje recibido)
 	char mens_cliente[500]; //Buffer donde se almacena el mensaje del cliente
 
-	//Mensajes de bienvenida
-	write(cl, "Hola!, hoy voy a atenderlo\n",27 );
-	write(cl, "Por favor digame su problema\n", 30);
 
-	//While infinito, para que atienda al cliente hasta que el cliente haga el cierre
 	while(1){
 
 		tam_mens = recv(cl, mens_cliente, 500, 0); //Recibe mensaje del cliente (cl)
+		puts(mens_cliente);
 
 		if(tam_mens > 4){ //Responde al mensaje
 			write (cl, "Solucionaremos su problema a la brevedad\n", 43);
@@ -130,8 +132,6 @@ void *atender_cliente(void *arg)
 	return NULL;
 
 	}
-
-
 
 
 

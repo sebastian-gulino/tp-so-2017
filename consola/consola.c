@@ -37,7 +37,7 @@ int crearCliente(void){
 	   //Se instancian las direcciones del servidor a conectarse.
 	   server.sin_addr.s_addr = inet_addr("127.0.0.1"); //"127.0.0.1" es la ip de la maquina (localhost).
 	   server.sin_family = AF_INET; //Familia de direcciones.
-	   server.sin_port = htons( 8301 ); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
+	   server.sin_port = htons( 8002 ); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
 
 	   puts("Cliente creado.");
 	   puts("Intentando conexión...");
@@ -55,6 +55,8 @@ int crearCliente(void){
 
 	       while(1)
 	       {
+
+	    	 write(sock, "Soy consola", 15);
 	    	 while(recv(sock , respuesta , 2000 , 0)>0){
 	    		 puts(respuesta);
 	    	 }
