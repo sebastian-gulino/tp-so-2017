@@ -27,21 +27,30 @@ typedef struct config_t {
 
 } t_configuracion;
 
+typedef struct config_clientID{
+
+	int fd;
+	char * cosa;
+} s_clientID;
+
 t_configuracion configuracion;
+
 
 //socket_desc: Socket del servidor.
 //client_sock: Socker del cliente a aceptar.
 //c: Tamaño de la estructura del socket cliente.
 //read_size: Tamaño del mensaje leido.
 //*new_sock: Socket del cliente, parametro para la creación del thread.
-int socket_desc , client_sock , c , read_size, *new_sock, clientes[5], i;
+int socket_desc , client_sock , c , read_size, *new_sock, i;
+
+s_clientID clientes[5];
 
 //server: Direcciones del server (puerto, ip, etc).
 //client: Direcciones del cliente.
 struct sockaddr_in server , client;
 
-//client_message[2000]: Buffer donde se almacena el mensaje recibido.
-char client_message[2000];
+////Buffer donde se almacena el mensaje del cliente
+char mens_cliente[500];;
 
 void *atender_cliente(void *);
 
@@ -72,6 +81,12 @@ int crearServidor(void){
 	    }
 	    puts("Bind realizado exitosamente.");
 
+	    int yes = 1;
+	    	if (setsockopt(socket_desc,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
+	    	    perror("setsockopt");
+	    	    exit(1);
+	    	}
+
 	    //Pone al servidor en modo listen (puede recibir llamados).
 	    listen(socket_desc , 3);
 
@@ -87,21 +102,32 @@ int crearServidor(void){
 	    		socklen_t addrlen = sizeof(addr); //Tamaño de las direcciones del cliente
 	    		pthread_t threadID; //ID del thread creado
 
-
-
 	    		cl = accept(socket_desc, &addr, &addrlen); //Se acepta el socket
 
-	    		clientes[i] = cl;
-	    		i++;
-
 	    		if(cl < 0)
-	    		{
-	    			perror("accept");
-	    			return EXIT_FAILURE;
-	    		}
+	    			  {
+	    			    perror("accept");
+	    			    return EXIT_FAILURE;
+	    			  }
 
-	    			    		pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
+	    		recv(cl, mens_cliente, 20, 0);
+
+
+	    		if(verificarCliente(mens_cliente)==0){
+
+	    			s_clientID clientID;
+
+
+	    			clientID.fd = cl;
+	    			clientID.cosa = mens_cliente;
+
+	    			clientes[i]= clientID;
+
+	    			i++;
+
+	    			pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
 	    		}
+	    	}
 
 
     return 0;
@@ -111,26 +137,26 @@ void *atender_cliente(void *arg)
 {
 	int cl = (long)arg; //Socket cliente aceptado
 	int tam_mens; //Tamaño del return de recv() (tamaño del mensaje recibido)
-	char mens_cliente[500]; //Buffer donde se almacena el mensaje del cliente
 
 
 
 	while(1){
 		int j;
 
-		tam_mens = recv(cl, mens_cliente, 500, 0); //Recibe mensaje del cliente (cl)
+		tam_mens = recv(cl, mens_cliente, 20, 0); //Recibe mensaje del cliente (cl)
 		puts(mens_cliente);
 
 		for(j = 0; j<5; j++){
-			write(clientes[j], mens_cliente, sizeof(mens_cliente));
+			write(clientes[j].fd, mens_cliente, sizeof(mens_cliente));
 		}
 
 		if (tam_mens == -1){ //Reconoce error al recibir
 			perror("No se pudo recibir mensaje\n");
 			return EXIT_FAILURE;
 		}
+	}
 
-			}
+
 
 	return NULL;
 
@@ -159,7 +185,12 @@ void cargarConfiguracion(void) {
 	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
 }
 
+int verificarCliente(char*mensaje){
 
+		puts("Credenciales verificadas...");
+		return 0;
+
+}
 
 int main(int arc, char * argv[]) {
 
