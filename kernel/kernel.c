@@ -28,21 +28,30 @@ typedef struct config_t {
 
 } t_configuracion;
 
+typedef struct config_clientID{
+
+	int fd;
+	char * cosa;
+} s_clientID;
+
 t_configuracion configuracion;
+
 
 //socket_desc: Socket del servidor.
 //client_sock: Socker del cliente a aceptar.
 //c: Tamaño de la estructura del socket cliente.
 //read_size: Tamaño del mensaje leido.
 //*new_sock: Socket del cliente, parametro para la creación del thread.
-int socket_desc , client_sock , c , read_size, *new_sock, clientes[5], i;
+int socket_desc , client_sock , c , read_size, *new_sock, i;
+
+s_clientID clientes[5];
 
 //server: Direcciones del server (puerto, ip, etc).
 //client: Direcciones del cliente.
 struct sockaddr_in server , client;
 
-//client_message[2000]: Buffer donde se almacena el mensaje recibido.
-char client_message[2000];
+////Buffer donde se almacena el mensaje del cliente
+char mens_cliente[500];;
 
 void *atender_cliente(void *);
 
@@ -58,7 +67,7 @@ int recibirConexiones (int socketServidor){
 				perror("accept");
 				return EXIT_FAILURE;
 			}
-
+			
 			pthread_t hiloCliente;
 
 			pthread_create(&hiloCliente, NULL, atender_cliente, (void *) clienteConectado);
@@ -71,26 +80,26 @@ void *atender_cliente(void *arg)
 {
 	int cl = (long)arg; //Socket cliente aceptado
 	int tam_mens; //Tamaño del return de recv() (tamaño del mensaje recibido)
-	char mens_cliente[500]; //Buffer donde se almacena el mensaje del cliente
 
 
 
 	while(1){
 		int j;
 
-		tam_mens = recv(cl, mens_cliente, 500, 0); //Recibe mensaje del cliente (cl)
+		tam_mens = recv(cl, mens_cliente, 20, 0); //Recibe mensaje del cliente (cl)
 		puts(mens_cliente);
 
 		for(j = 0; j<5; j++){
-			write(clientes[j], mens_cliente, sizeof(mens_cliente));
+			write(clientes[j].fd, mens_cliente, sizeof(mens_cliente));
 		}
 
 		if (tam_mens == -1){ //Reconoce error al recibir
 			perror("No se pudo recibir mensaje\n");
 			return EXIT_FAILURE;
 		}
+	}
 
-			}
+
 
 	return NULL;
 
@@ -117,6 +126,21 @@ void cargarConfiguracion(void) {
 	configuracion.semINIT = strdup(config_get_string_value(config, "SEM_INIT"));
 	configuracion.sharedVars = strdup(config_get_string_value(config, "SHARED_VARS"));
 	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
+<<<<<<< HEAD
+=======
+}
+
+int verificarCliente(char*mensaje){
+
+		puts("Credenciales verificadas...");
+		return 0;
+
+}
+
+int main(int arc, char * argv[]) {
+
+	cargarConfiguracion();
+>>>>>>> 0a8ddf84ea78c834b6603a81c521b7c4e37c9ef7
 
 	printf("El puerto de la CPU es %s\n",configuracion.puertoCpu);
 	printf("La IP de la Memoria es %s\n",configuracion.ipMemoria);
