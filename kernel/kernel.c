@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sockets.h>
 
 typedef struct config_t {
 
@@ -45,67 +46,26 @@ char client_message[2000];
 
 void *atender_cliente(void *);
 
-//Funcion para crear el servidor.
-int crearServidor(void){
+int recibirConexiones (int socketServidor){
+	while (1) {
 
-	    //Se crea el socket
-	    socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-	    if (socket_desc == -1)
-	    {
-	        printf("El socket no pudo ser creado.");
-	        return EXIT_FAILURE;
-	    }
-	    puts("El socket fue creado exitosamente.");
+			struct sockaddr_storage addr;
+			socklen_t addrlen = sizeof (addr);
 
-	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
-	    server.sin_family = AF_INET; //Especifica familia de direcciones.
-	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
-	    server.sin_port = htons( 8002); //Especifica el puerto del servidor.
+			int clienteConectado = accept(socketServidor, (struct sockaddr *) &addr, &addrlen);
 
+			if (clienteConectado<0){
+				perror("accept");
+				return EXIT_FAILURE;
+			}
 
-	    printf("%s\n", inet_ntoa(server.sin_addr));
-	    //Se liga (bind) el socket servidor con sus direcciones.
-	    if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
-	    {
-	        perror("Bind fallo. Error");
-	        return 1;
-	    }
-	    puts("Bind realizado exitosamente.");
+			pthread_t hiloCliente;
 
-	    //Pone al servidor en modo listen (puede recibir llamados).
-	    listen(socket_desc , 3);
+			pthread_create(&hiloCliente, NULL, atender_cliente, (void *) clienteConectado);
+		}
 
-	    puts("Servidor creado con exito.");
-	    puts("Esperando por conexiones entrantes...");
-
-	    i = 0;
-
-	    while(1)
-	    	{
-	    		int cl; //Socket cliente ACEPTADO
-	    		struct sockaddr addr; //Direcciones del cliente
-	    		socklen_t addrlen = sizeof(addr); //Tamaño de las direcciones del cliente
-	    		pthread_t threadID; //ID del thread creado
-
-
-
-	    		cl = accept(socket_desc, &addr, &addrlen); //Se acepta el socket
-
-	    		clientes[i] = cl;
-	    		i++;
-
-	    		if(cl < 0)
-	    		{
-	    			perror("accept");
-	    			return EXIT_FAILURE;
-	    		}
-
-	    			    		pthread_create(&threadID, NULL, atender_cliente, (void*)(long)cl); //Se crea el thread con el socket aceptado (cl) y la funcion atender_cliente que lo maneje
-	    		}
-
-
-    return 0;
 }
+
 
 void *atender_cliente(void *arg)
 {
@@ -157,13 +117,6 @@ void cargarConfiguracion(void) {
 	configuracion.semINIT = strdup(config_get_string_value(config, "SEM_INIT"));
 	configuracion.sharedVars = strdup(config_get_string_value(config, "SHARED_VARS"));
 	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
-}
-
-
-
-int main(int arc, char * argv[]) {
-
-	cargarConfiguracion();
 
 	printf("El puerto de la CPU es %s\n",configuracion.puertoCpu);
 	printf("La IP de la Memoria es %s\n",configuracion.ipMemoria);
@@ -180,14 +133,17 @@ int main(int arc, char * argv[]) {
 	printf("Las variables compartidas son %s\n",configuracion.sharedVars);
 	printf("El tamaño del Stack es %s\n",configuracion.stackSize);
 
-	int se;//Toma el return de crearServidor() para saber si hubo error en la creación del servidor.
+}
 
-	se = crearServidor();
 
-		if(se){
-			printf("El servidor no se ha creado");
-			return EXIT_FAILURE;
-		}
+
+int main(int arc, char * argv[]) {
+
+	cargarConfiguracion();
+
+	int socketServer = crearServidor();
+
+	recibirConexiones(socketServer);
 
 	return 0;
 

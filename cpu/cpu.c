@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <sockets.h>
 
 typedef struct config_t {
 
@@ -29,46 +30,19 @@ struct sockaddr_in server;
 //respuesta: Respuesta del servidor
 char mensaje[500] , respuesta[2000], unMensaje[500];
 
-int crearCliente(void){
-
-	 //Se crea el socket del cliente.
-	  sock = socket(AF_INET , SOCK_STREAM , 0);
-	    if (sock == -1)
-	    {
-	        printf("No se pudo crear el socket");
-	    }
-	    puts("Socket creado exitosamente");
-
-	   //Se instancian las direcciones del servidor a conectarse.
-	   server.sin_addr.s_addr = inet_addr("127.0.0.1"); //"127.0.0.1" es la ip de la maquina (localhost).
-	   server.sin_family = AF_INET; //Familia de direcciones.
-	   server.sin_port = htons( 8002 ); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
-
-	   puts("Cliente creado.");
-	   puts("Intentando conexión...");
-
-	  //Hace la conexión al servidor.
-	   cc = connect(sock , (struct sockaddr *)&server , sizeof(server));
-
-	    if(cc < 0){
-	        perror("Conexión fallida. Error");
-	        return 1;
-	    }
-
-	    puts("Conexión exitosa!\n");
-
+int enviarMensaje(int socketCliente){
 
 	       while(1)
 	       {
 
 
-	    	 while(recv(sock , respuesta , 2000 , 0)>0){
+	    	 while(recv(socketCliente , respuesta , 2000 , 0)>0){
 	    		 puts(respuesta);
 	    	 }
 
-	    	    if( send(sock , mensaje , 300 , 0) > 5)
+	    	    if( send(socketCliente , mensaje , 300 , 0) > 5)
 	    	       {
-	    	        recv(sock, respuesta, 2000, 0);
+	    	        recv(socketCliente, respuesta, 2000, 0);
 	    	           puts(respuesta);
 
 	    	        } else {
@@ -84,22 +58,11 @@ int crearCliente(void){
 }
 
 
-
-
-
-
 int main(int arc, char * argv[]) {
 
+	int socketCliente = crearCliente();
 
-
-	int se;
-
-		se = crearCliente();//Se guarda el return de crearCliente() para saber si hubo algún error.
-
-		if(se){
-			printf("No se creo cliente");
-			return EXIT_FAILURE;
-		}
+	enviarMensaje(socketCliente);
 
 	return 0;
 
