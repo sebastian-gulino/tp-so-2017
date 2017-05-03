@@ -11,7 +11,10 @@
 #include <stdlib.h>
 #include "sockets.h"
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 int socketServer , client_sock , c , read_size, *new_sock, clientes[5], i;
 
@@ -19,48 +22,7 @@ int socketServer , client_sock , c , read_size, *new_sock, clientes[5], i;
 //client: Direcciones del cliente.
 struct sockaddr_in client;
 
-//client_message[2000]: Buffer donde se almacena el mensaje recibido.
-char client_message[2000];
-
-char * empaquetar(char * inicioMensaje, char * mensaje)
-{
-	int size = strlen(mensaje);
-	char * buffer = malloc(size + 1);
-	memcpy(buffer, &inicioMensaje,1);
-	strcat(buffer,mensaje);
-	return buffer;
-}
-
-char * desempaquetar(char * mensajeEmpaquetado){
-	int tamanio = strlen(mensajeEmpaquetado);
-	char * subbuff = malloc(tamanio + 1);
-	memcpy( subbuff, &mensajeEmpaquetado[1], tamanio );
-	subbuff[tamanio-1] = '\0';
-	return subbuff;
-}
-
-char * procesoEmisor(char * mensajeEmpaquetado){
-	char * proceso;
-	switch(mensajeEmpaquetado[0]){
-		case 'C':
-			proceso = "Consola";
-			break;
-		case 'M':
-			proceso = "Memoria";
-			break;
-		case 'P':
-			proceso = "CPU";
-			break;
-		case 'F':
-			proceso = "FileSystem";
-			break;
-		default:
-			break;
-	}
-	return proceso;
-}
-
-int crearServidor(void){
+int crearServidor(int puertoEscucha){
 
 		struct sockaddr_in server;
 
@@ -77,7 +39,7 @@ int crearServidor(void){
 	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
 	    server.sin_family = AF_INET; //Especifica familia de direcciones.
 	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
-	    server.sin_port = htons( 8002); //Especifica el puerto del servidor.
+	    server.sin_port = htons(puertoEscucha); //Especifica el puerto del servidor.
 
 
 	    printf("%s\n", inet_ntoa(server.sin_addr));
@@ -91,7 +53,7 @@ int crearServidor(void){
 	    puts("Bind realizado exitosamente.");
 
 	    //Pone al servidor en modo listen (puede recibir llamados).
-	    listen(socketServer , 3);
+	    listen(socketServer , 5);
 
 	    puts("Servidor creado con exito.");
 	    puts("Esperando por conexiones entrantes...");
@@ -99,37 +61,139 @@ int crearServidor(void){
     return socketServer;
 }
 
+int crearCliente(char* ipServidor,int puertoServidor, t_log* logger){
 
-int crearCliente(void){
-
-	int socketClient, cc, ms;
+	int socketClient, cc;
 	//server: Estructura de las direcciones del servidor a conectarse.
 	struct sockaddr_in server;
 	 //Se crea el socket del cliente.
 	  socketClient = socket(AF_INET , SOCK_STREAM , 0);
 	    if (socketClient == -1)
 	    {
-	        puts("No se pudo crear el socket");
+	    	log_error(logger,"Error al crear socket cliente");
 	    }
-	    puts("Socket creado exitosamente");
+	    log_info(logger,"Socket cliente generado exitosamente");
 
 	   //Se instancian las direcciones del servidor a conectarse.
-	   server.sin_addr.s_addr = inet_addr("127.0.0.1"); //"127.0.0.1" es la ip de la maquina (localhost).
+	   server.sin_addr.s_addr = inet_addr(ipServidor); //"127.0.0.1" es la ip de la maquina (localhost).
 	   server.sin_family = AF_INET; //Familia de direcciones.
-	   server.sin_port = htons( 8002 ); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
-
-	   puts("Cliente creado.");
-	   puts("Intentando conexión...");
+	   server.sin_port = htons(puertoServidor); //"8300" es el puerto del servidor a conectarse (en este caso es el servidor KERNEL{kernel.c}).
 
 	  //Hace la conexión al servidor.
 	   cc = connect(socketClient , (struct sockaddr *)&server , sizeof(server));
 
 	    if(cc < 0){
+	    	log_error(logger,"Error al conectar con servidor");
 	        perror("Conexión fallida. Error");
 	        return 1;
 	    }
 
-	    puts("Conexión exitosa!\n");
+	    log_info(logger,"Cliente conectado correctamente al servidor");
 
 	    return socketClient;
 	}
+
+int aceptarCliente(int socketEscucha){
+	int socketNuevaConexion;
+	unsigned int size_sockAddrIn;
+	struct sockaddr_in suSocket;
+	size_sockAddrIn = sizeof(struct sockaddr_in);
+	socketNuevaConexion = accept(socketEscucha, (struct sockaddr *)&suSocket, &size_sockAddrIn);
+	if(socketNuevaConexion < 0) {
+		perror("Error al aceptar conexion entrante");
+		return -1;
+	}
+	return socketNuevaConexion;
+}
+
+//Combina los conjuntos de descriptores de consolas y cpus
+fd_set combinar_master_fd(fd_set* master1, fd_set* master2, int maxfd){
+	fd_set combinado;
+	FD_ZERO(&combinado);
+	int i;
+
+	for(i=0; i <= maxfd; i++){
+		if(FD_ISSET(i, master1) || FD_ISSET(i, master2)){
+			FD_SET(i, &combinado);
+		}
+	}
+
+	return combinado;
+}
+
+int socket_enviar(int socketReceptor, t_tipoEstructura tipoEstructura, void* estructura){
+	int cantBytesEnviados;
+
+	t_stream * paquete = serialize(tipoEstructura, estructura);
+
+	cantBytesEnviados = send(socketReceptor, paquete->data, paquete->length, 0);
+	free(paquete->data);
+	free(paquete);
+	if( cantBytesEnviados == -1){
+		perror("Server no encontrado\n");
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
+int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** estructura){
+	int cantBytesRecibidos;
+	t_header header;
+	char* buffer;
+	char* bufferHeader;
+
+	bufferHeader = malloc(sizeof(t_header));
+
+	cantBytesRecibidos = recv(socketEmisor, bufferHeader, sizeof(t_header), MSG_WAITALL);	//ReciBo por partes, primero el header.
+	if(cantBytesRecibidos == -1){
+		free(bufferHeader);
+		perror("Error al recibir datos\n");
+		return 0;
+	}
+
+	//Si se recibe 0, es porque se desconectó el socketEmisor
+	if(cantBytesRecibidos == 0){
+		free(bufferHeader);
+		return -1;
+	}
+
+	header = desempaquetarHeader(bufferHeader);
+
+	free(bufferHeader);
+
+	if (tipoEstructura != NULL) {
+		*tipoEstructura = header.tipoEstructura;
+	}
+
+	if(header.length == 0){	//Si recivo mensaje con length 0 retorno 1 y *estructura NULL.
+		if (estructura != NULL) {
+			*estructura = NULL;
+		}
+		return 1;
+	}
+
+	buffer = malloc(header.length);
+	cantBytesRecibidos = recv(socketEmisor, buffer, header.length, MSG_WAITALL);	//Recivo el resto del mensaje con el tamaño justo de buffer.
+	if(cantBytesRecibidos == -1){
+		free(buffer);
+		perror("Error al recibir datos\n");
+		return 0;
+	}
+
+	//Si se recibe 0, es porque se desconectó el socketEmisor
+	if(cantBytesRecibidos == 0){
+		free(buffer);
+		return -1;
+	}
+
+	if(estructura != NULL) {
+		*estructura = deserialize(header.tipoEstructura, buffer, header.length);
+	}
+
+	free(buffer);
+
+	return 1;
+}
+

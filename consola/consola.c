@@ -1,57 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <commons/config.h>
+#include <commons/log.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
+#include <estructuras.h>
 
 typedef struct config_t {
 
 	char * ipKernel;
-	char * puertoKernel;
+	int puertoKernel;
 
 } t_configuracion;
 
 t_configuracion configuracion;
 
-//sock: Socket del cliente.
-//cc: Return de la conexión
-//ms: Return del envio de mensaje
-int sock, cc, ms;
-//server: Estructura de las direcciones del servidor a conectarse.
-struct sockaddr_in server;
-//mensaje: Mensaje a enviar
-//respuesta: Respuesta del servidor
-char mensaje[500] , respuesta[2000], unMensaje[500];
+t_log* logger;
 
-int enviarMensaje(int socketCliente){
-
-	       while(1)
-	       {
-
-	    	 write(socketCliente, "Soy consola", 15);
-	    	 while(recv(socketCliente , respuesta , 2000 , 0)>0){
-	    		 puts(respuesta);
-	    	 }
-
-	    	    if( send(socketCliente , mensaje , 300 , 0) > 5)
-	    	       {
-	    	        recv(socketCliente, respuesta, 2000, 0);
-	    	           puts(respuesta);
-
-	    	        } else {
-	    	        	perror("No se pudo enviar el mensaje");
-	    	        	return EXIT_FAILURE;
-	    	        }
-
-
-	       }
-
-	    close(sock); //Cierra la conexión.
-	    return 0;
-}
-
+char buffLog[80];
 
 void cargarConfiguracion(void) {
 
@@ -60,33 +28,45 @@ void cargarConfiguracion(void) {
 	config = config_create("./config.txt");
 
 	configuracion.ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
-	configuracion.puertoKernel = strdup(config_get_string_value(config, "PUERTO_KERNEL"));
+	sprintf(buffLog,"IP_KERNEL = [%s]",configuracion.ipKernel);
+	log_debug(logger,buffLog);
 
-
+	configuracion.puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
+	sprintf(buffLog,"PUERTO_KERNEL = [%d]",configuracion.puertoKernel);
+	log_debug(logger,buffLog);
 }
 
+t_log* crearLog(){
 
+	char cad[80];
+	char *directorioActual = getcwd(NULL, 0);
+
+	strcat(cad,directorioActual);
+	strcat(cad,"/consola.log");
+
+	logger = log_create(cad, "CONSOLA", 0, LOG_LEVEL_TRACE);
+	log_info(logger,"Comienza a ejecutar el proceso consola");
+
+	return logger;
+}
 
 int main(int arc, char * argv[]) {
 
+	//Genera archivo log para poder escribir el trace de toda la ejecución
+	t_log* logger = crearLog();
+
+	//Levanta la configuración del proceso consola
 	cargarConfiguracion();
 
-	printf("El puerto del Kernel %s\n",configuracion.puertoKernel);
-	printf("La IP del Kernel %s\n",configuracion.ipKernel);
+	//Genera el socket cliente y lo conecta al kernel
+	int socketCliente = crearCliente(configuracion.ipKernel,configuracion.puertoKernel,logger);
 
-	int socketCliente = crearCliente();
-
-	enviarMensaje(socketCliente);
+	//Se realiza el handshake con el kernel
+	t_struct_numero* es_consola = malloc(sizeof(t_struct_numero));
+	es_consola->numero = ES_CONSOLA;
+	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_consola);
+	free(es_consola);
 
 	return 0;
 
 }
-
-
-
-
-
-
-
-
-

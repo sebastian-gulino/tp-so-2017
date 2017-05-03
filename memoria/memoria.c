@@ -86,9 +86,9 @@ int main(void) {
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
-	char * prueba = "prueba";
+//	char * prueba = "prueba";
 
-	char * mensaje = empaquetar('C', prueba);
+//	char * mensaje = empaquetar('C', prueba);
 
 	printf("El Mensaje es %s\n",desempaquetar(mensaje));
 
@@ -101,6 +101,6 @@ int main(void) {
 //
 //	enviarMensaje(socketCliente);
 //
-//	return 0;
+	return 0;
 
 }
