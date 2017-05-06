@@ -6,18 +6,8 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
-
-typedef struct config_t {
-
-	char * puerto;
-	char * marcos;
-	char * marcoSize;
-	char * entradasCache;
-	char * cacheXProc;
-	char * reemplazoCache;
-	char * retardoMemoria;
-
-} t_configuracion;
+#include <commons/collections/list.h>
+#include "manejoMemoria.h"
 
 t_configuracion configuracion;
 
@@ -90,9 +80,9 @@ int main(void) {
 
 //	char * mensaje = empaquetar('C', prueba);
 
-	printf("El Mensaje es %s\n",desempaquetar(mensaje));
-
-	printf("El Emisor es %s\n",procesoEmisor(mensaje));
+//	printf("El Mensaje es %s\n",desempaquetar(mensaje));
+//
+//	printf("El Emisor es %s\n",procesoEmisor(mensaje));
 
 //	cargarConfiguracion();
 //
@@ -101,6 +91,22 @@ int main(void) {
 //
 //	enviarMensaje(socketCliente);
 //
+	cargarConfiguracion();
+
+	void* memoriaPrincipal = crearMemoriaPrincipal(atoi(configuracion.marcos),atoi(configuracion.marcoSize));
+
+	crearEstructurasAdministrativas(memoriaPrincipal,atoi(configuracion.marcos));
+
+	t_filaTablaInvertida* fila = (t_filaTablaInvertida*)memoriaPrincipal;
+
+	escribirEnMemoria(6,"prueba de escritura en memoria");
+
+	void* pagina = leerPagina(6);
+	char* aver = (char*)pagina;
+	printf("%s",aver);
+
+	liberarMemoriaPrincipal(memoriaPrincipal);
+
 	return 0;
 
 }

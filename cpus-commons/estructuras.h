@@ -57,4 +57,14 @@
 		char * string;
 	} __attribute__ ((__packed__)) t_struct_string;
 
+	//MEMORIA
+
+	typedef struct FilaTablaInvertida {
+		int frame;
+		int pid;
+		int pagina;
+	} t_filaTablaInvertida;
+
+
+
 #endif /* ESTRUCTURAS_H_ */
