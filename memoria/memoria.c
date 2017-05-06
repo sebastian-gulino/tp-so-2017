@@ -103,7 +103,7 @@ int main(void) {
 
 	void* pagina = leerPagina(6);
 	char* aver = (char*)pagina;
-	printf("%s",aver);
+	printf("%s",aver); //Leo lo que escribi en la página 6
 
 	liberarMemoriaPrincipal(memoriaPrincipal);
 
