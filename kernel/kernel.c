@@ -36,14 +36,14 @@ t_configuracion configuracion;
 
 t_log* logger;
 
+t_list *listaCpus;
+t_list *listaConsolas;
+
 pthread_t threadAtenderConexiones;
 
 //Declaro los conjuntos de descriptores que contendran a los clientes conectados
 fd_set master_consola;
 fd_set master_cpu;
-
-//Utilizado para funcion inicializarListas
-t_list* consolas;
 
 t_log* crearLog(){
 
@@ -60,6 +60,7 @@ t_log* crearLog(){
 }
 
 void cargarConfiguracion(void) {
+
 	t_config * config;
 
 	config = config_create("./config.txt");
@@ -108,9 +109,26 @@ void cargarConfiguracion(void) {
 
 void manejarCpu(int i){
 
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Cpu %d cerró la conexión.",i);
+		removerClientePorCierreDeConexion(i,listaCpus,&master_cpu);
+	} else {
+	}
 };
 
 void manejarConsola(int i){
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"La Consola %d cerró la conexión.",i);
+		removerClientePorCierreDeConexion(i,listaConsolas,&master_consola);
+	} else {
+	}
 
 };
 
@@ -129,18 +147,16 @@ void administrarConexiones (){
 	int fdmax = socketServidor;
 	int i;
 
-
 	while(1){
 
 		read_fds = combinar_master_fd(&master_cpu, &master_consola, fdmax); // se copia el master al temporal
 		// Añado el descriptor del socket escucha al conjunto
 		FD_SET(socketServidor, &read_fds);
 
-
 		if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
-		 perror("select");
-		   exit(1);
-		 }
+			perror("select");
+			exit(1);
+		}
 
 		for(i = 0; i <= fdmax; i++) {
 
@@ -180,13 +196,17 @@ void manejarNuevaConexion(int listener, int *fdmax){
 		printf("No se recibio correctamente a quien atiendo en el kernel\n");
 	}
 
-		switch(((t_struct_numero *)structRecibido)->numero){
+	switch(((t_struct_numero *)structRecibido)->numero){
 		case ES_CONSOLA:
 
 			puts("SE CONECTO UNA CONSOLA");
 			//conexion_consola(socketCliente);
 
 			FD_SET(socketCliente, &master_consola);
+
+			list_add(listaConsolas, (void*)socketCliente);
+
+			log_info(logger,"La consola %d se conectó.", socketCliente);
 
 			break;
 
@@ -197,14 +217,18 @@ void manejarNuevaConexion(int listener, int *fdmax){
 
 			FD_SET(socketCliente, &master_cpu);
 
+			list_add(listaCpus, (void*)socketCliente);
+
+			log_info(logger,"El Cpu %d se conectó.",socketCliente);
+
 			break;
-		}
+	}
 
-		if (socketCliente>*fdmax){
-			*fdmax = socketCliente;
-		}
+	if (socketCliente>*fdmax){
+		*fdmax = socketCliente;
+	}
 
-		free(structRecibido);
+	free(structRecibido);
 
 }
 
@@ -215,8 +239,8 @@ void crearThreadAtenderConexiones(){
 }
 
 void inicializarListas(){
-	consolas = list_create();
-
+	listaConsolas = list_create();
+	listaCpus = list_create();
 }
 
 
@@ -234,5 +258,18 @@ int main(int arc, char * argv[]) {
 	pthread_join(threadAtenderConexiones, NULL);
 
 	return 0;
+
+}
+
+int removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet) {
+
+	//Elimino el cliente de la lista
+	bool _es_cliente_numero(int elemento) {
+		return (elemento == cliente);
+	}
+	list_remove_by_condition(lista, (void*) _es_cliente_numero);
+
+	//Elimino el cliente del fd_set
+	FD_CLR(cliente,fdSet);
 
 }

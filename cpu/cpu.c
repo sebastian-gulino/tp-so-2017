@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sockets.h>
 #include <estructuras.h>
+#include <commons/collections/list.h>
 
 typedef struct config_t {
 
@@ -65,6 +66,10 @@ int main(int arc, char * argv[]) {
 	es_cpu->numero = ES_CPU;
 	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_cpu);
 	free(es_cpu);
+
+//	t_struct_string* unString = malloc(sizeof(t_struct_string));
+//	unString->string = "Hola soy tu cpu 1";
+//	socket_enviar(socketCliente, D_STRUCT_STRING, unString);
 
 	return 0;
 
