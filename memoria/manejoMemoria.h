@@ -10,26 +10,22 @@
 #ifndef MANEJOMEMORIA_H_
 #define MANEJOMEMORIA_H_
 
-typedef struct config_t {
+void* crearMemoriaPrincipal();
 
-	char * puerto;
-	char * marcos;
-	char * marcoSize;
-	char * entradasCache;
-	char * cacheXProc;
-	char * reemplazoCache;
-	char * retardoMemoria;
+void liberarMemoriaPrincipal();
 
-} t_configuracion;
+void crearEstructurasAdministrativas();
 
-void* crearMemoriaPrincipal(int frames, int frameSize);
-
-void liberarMemoriaPrincipal(void* punteroMemoriaPrincipal);
-
-void crearEstructurasAdministrativas(void* punteroMemoriaPrincipal,int frames);
-
-void escribirEnMemoria(int pagina, char* texto);
+void escribirPagina(int pagina, void* bytes, int size, int offset);
 
 void* leerPagina(int pagina);
+
+void vaciarCache();
+
+void crearCache();
+
+void crearCache();
+
+void imprimirTablaPaginas();
 
 #endif /* MANEJOMEMORIA_H_ */
