@@ -8,7 +8,7 @@
 #include <estructuras.h>
 #include <commons/collections/list.h>
 #include <unistd.h>
-#include <commons/log.h>
+#include "manejoMemoria.h"
 
 #define CANTIDAD_ELEMENTOS_CACHE 15
 
@@ -44,33 +44,16 @@ t_cache* cache;
 
 t_configuracion configuracion;
 
-t_log* logger;
-
 char buffLog[80];
 
 t_filaTablaInvertida* tablaInvertida;
 
 void* memoriaPrincipal;
 
-void crearLog(){
-
-	char cad[80];
-	char *directorioActual = getcwd(NULL, 0);
-
-	strcat(cad,directorioActual);
-	strcat(cad,"/memoria.log");
-
-	logger = log_create(cad, "MEMORIA", 0, LOG_LEVEL_TRACE);
-	log_info(logger,"Comienza a ejecutar el proceso MEMORIA");
-}
-
-
 void cargarConfiguracion(void) {
 	t_config * config;
 
 	config = config_create("./config.txt");
-
-	crearLog();
 
 	configuracion.puerto = strdup(config_get_string_value(config, "PUERTO"));
 	configuracion.marcos = strdup(config_get_string_value(config, "MARCOS"));
@@ -265,17 +248,17 @@ void imprimirTablaPaginas(){
 }
 
 void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames){
-	switch(solicitante){
-		case "kernel":
-			//reservar memoria para codigo
-			asignarPaginasProceso(pid,cantidadFrames);
-			break;
-		case "cpu":
-			//reservar memoria para stack o heap
-			asignarPaginasProceso(pid,cantidadFrames);
-			//escribir en stack o heap
-			break;
-		default:
-			break;
-	}
+//	switch(solicitante){
+//		case "kernel":
+//			//reservar memoria para codigo
+//			asignarPaginasProceso(pid,cantidadFrames);
+//			break;
+//		case "cpu":
+//			//reservar memoria para stack o heap
+//			asignarPaginasProceso(pid,cantidadFrames);
+//			//escribir en stack o heap
+//			break;
+//		default:
+//			break;
+//	}
 }

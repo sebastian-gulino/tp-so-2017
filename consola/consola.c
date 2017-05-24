@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <commons/config.h>
-#include <commons/log.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
+#include <logger.h>
 #include <estructuras.h>
 
 typedef struct config_t {
@@ -16,8 +16,6 @@ typedef struct config_t {
 } t_configuracion;
 
 t_configuracion configuracion;
-
-t_log* logger;
 
 char buffLog[80];
 
@@ -36,24 +34,13 @@ void cargarConfiguracion(void) {
 	log_debug(logger,buffLog);
 }
 
-t_log* crearLog(){
-
-	char cad[80];
-	char *directorioActual = getcwd(NULL, 0);
-
-	strcat(cad,directorioActual);
-	strcat(cad,"/consola.log");
-
-	logger = log_create(cad, "CONSOLA", 0, LOG_LEVEL_TRACE);
-	log_info(logger,"Comienza a ejecutar el proceso consola");
-
-	return logger;
-}
 
 int main(int arc, char * argv[]) {
 
 	//Genera archivo log para poder escribir el trace de toda la ejecución
-	t_log* logger = crearLog();
+	logger = malloc(sizeof(t_log));
+
+	crearLog("/CONSOLA");
 
 	//Levanta la configuración del proceso consola
 	cargarConfiguracion();

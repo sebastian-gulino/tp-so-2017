@@ -6,11 +6,12 @@
  */
 
 #include <commons/config.h>
+#include <logger.h>
 
 #ifndef MANEJOMEMORIA_H_
 #define MANEJOMEMORIA_H_
 
-void* crearMemoriaPrincipal();
+void crearMemoriaPrincipal();
 
 void liberarMemoriaPrincipal();
 
@@ -18,7 +19,7 @@ void crearEstructurasAdministrativas();
 
 void escribirPagina(int pagina, void* bytes, int size, int offset);
 
-void* leerPagina(int pagina);
+void* leerPagina(int pagina, int pid);
 
 void vaciarCache();
 

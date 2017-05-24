@@ -5,14 +5,18 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
+#include <logger.h>
+#include <estructuras.h>
 
 typedef struct config_t {
 
-	char * puerto;
-	char * puertoMontaje;
+	char * puertoFS;
+	char * puntoMontaje;
 } t_configuracion;
 
 t_configuracion configuracion;
+
+char buffLog[80];
 
 //sock: Socket del cliente.
 //cc: Return de la conexión
@@ -24,54 +28,37 @@ struct sockaddr_in server;
 //respuesta: Respuesta del servidor
 char mensaje[500] , respuesta[2000], unMensaje[500];
 
-int enviarMensaje(int socketCliente){
 
-	       while(1)
-	       {
-
-
-	    	 while(recv(socketCliente , respuesta , 2000 , 0)>0){
-	    		 puts(respuesta);
-	    	 }
-
-	    	    if( send(socketCliente , mensaje , 300 , 0) > 5)
-	    	       {
-	    	        recv(socketCliente, respuesta, 2000, 0);
-	    	           puts(respuesta);
-
-	    	        } else {
-	    	        	perror("No se pudo enviar el mensaje");
-	    	        	return EXIT_FAILURE;
-	    	        }
-
-
-	       }
-
-	    close(sock); //Cierra la conexión.
-	    return 0;
-}
-
-
-void cargarConfiguracion(void){
+void cargarConfiguracion(void) {
 
 	t_config * config;
 
 	config = config_create("./config.txt");
 
-	configuracion.puerto = strdup(config_get_string_value(config, "PUERTO"));
-	configuracion.puertoMontaje = strdup(config_get_string_value(config, "PUERTO_MONTAJE"));
+	configuracion.puertoFS = config_get_int_value(config, "PUERTO");
+	sprintf(buffLog,"PUERTO_FS = [%d]",configuracion.puertoFS);
+	log_debug(logger,buffLog);
 
-	printf("El Puerto es %s\n", configuracion.puerto);
-	printf("El Puerto de Montaje es %s\n", configuracion.puertoMontaje);
+	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
+	sprintf(buffLog,"PUNTO_MONTAJE = [%s]",configuracion.puntoMontaje);
+	log_debug(logger,buffLog);
+
 }
+
 
 int main(int arc, char * argv[]){
 
+		//Genera archivo log para poder escribir el trace de toda la ejecución
+		logger = malloc(sizeof(t_log));
+
+		crearLog("/FILESYSTEM");
+
+		//Levanta la configuración del proceso filesystem
 		cargarConfiguracion();
 
-		int socketCliente = crearCliente();
+		//int socketCliente = crearCliente();
 
-		enviarMensaje(socketCliente);
+		//enviarMensaje(socketCliente);
 		return 0;
 
 }

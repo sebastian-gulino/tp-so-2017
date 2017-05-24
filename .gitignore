@@ -33,3 +33,6 @@
 *.su
 /Debug/
 /Release/
+
+# Log files
+*.log

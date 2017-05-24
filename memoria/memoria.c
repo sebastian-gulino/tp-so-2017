@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sockets.h>
 #include <commons/collections/list.h>
+#include <logger.h>
 #include "manejoMemoria.h"
 
 
@@ -50,6 +51,12 @@ int enviarMensaje(int socketCliente){
 
 
 int main(void) {
+
+	//Genera archivo log para poder escribir el trace de toda la ejecución
+	logger = malloc(sizeof(t_log));
+
+	crearLog("/MEMORIA");
+
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
