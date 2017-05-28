@@ -3,23 +3,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <commons/log.h>
 #include <commons/config.h>
+#include <logger.h>
 #include <string.h>
 #include <unistd.h>
 
 typedef struct config_t {
 
-	char * puertoProg;
-	char * puertoCpu;
+	int puertoProg;
+	int puertoCpu;
 	char * ipMemoria;
-	char * puertoMemoria;
+	int puertoMemoria;
 	char * ipFS;
-	char * puertoFS;
-	char * quantum;
+	int puertoFS;
+	int quantum;
 	char * quantumSleep;
 	char * algoritmo;
-	char * gradoMultiprog;
+	int gradoMultiprog;
 	char * semIDS;
 	char * semINIT;
 	char * sharedVars;
@@ -31,5 +31,8 @@ typedef struct config_t {
 t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
+
+
+char buffLog[100];
 
 #endif /* KERNELHELPER_H_ */

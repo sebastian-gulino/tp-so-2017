@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <sockets.h>
 #include <estructuras.h>
-#include <logger.h>
 #include <commons/collections/queue.h>
 #include "kernelHelper.h"
 
@@ -162,7 +161,6 @@ int main(int arc, char * argv[]) {
 
 	//Genera archivo log para poder escribir el trace de toda la ejecución
 	logger = malloc(sizeof(t_log));
-
 	crearLog("/KERNEL");
 
 	//Levanta la configuración del proceso filesystem
