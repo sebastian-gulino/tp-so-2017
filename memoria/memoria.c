@@ -1,16 +1,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <commons/config.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
 #include <commons/collections/list.h>
-#include <logger.h>
 #include "manejoMemoria.h"
-
-
 
 //sock: Socket del cliente.
 //cc: Return de la conexión
@@ -54,9 +50,9 @@ int main(void) {
 
 	//Genera archivo log para poder escribir el trace de toda la ejecución
 	logger = malloc(sizeof(t_log));
-
 	crearLog("/MEMORIA");
 
+	configuracion = cargarConfiguracion();
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
@@ -75,7 +71,7 @@ int main(void) {
 //
 //	enviarMensaje(socketCliente);
 //
-	cargarConfiguracion();
+
 
 	crearMemoriaPrincipal();
 

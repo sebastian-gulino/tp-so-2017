@@ -1,9 +1,5 @@
-/*
- * sockets.h
- *
- *  Created on: 14/4/2017
- *      Author: utnso
- */
+#ifndef SOCKETS_SOCKETS_H_
+#define SOCKETS_SOCKETS_H_
 
 #include <stddef.h>
 #include <string.h>
@@ -11,14 +7,16 @@
 #include <stdlib.h>
 #include "estructuras.h"
 #include "serializacion.h"
-#include <commons/log.h>
-
-#ifndef SOCKETS_SOCKETS_H_
-#define SOCKETS_SOCKETS_H_
+#include "logger.h"
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 int crearServidor(int puertoEscucha);
 
-int crearCliente(char* ipServidor,int puertoServidor, t_log* logger);
+int crearCliente(char* ipServidor,int puertoServidor);
 
 int aceptarCliente(int socketEscucha);
 

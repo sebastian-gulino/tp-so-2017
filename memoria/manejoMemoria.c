@@ -16,19 +16,6 @@ void* memoriaPrincipal;
 
 typedef unsigned char frame[500];
 
-typedef struct config_t {
-
-	char * puerto;
-	char * marcos;
-	char * marcoSize;
-	char * entradasCache;
-	char * cacheXProc;
-	char * reemplazoCache;
-	char * retardoMemoria;
-	char * stackSize;
-
-} t_configuracion;
-
 typedef struct cache_t {
 	int pid;
 	int pagina;
@@ -42,36 +29,50 @@ typedef struct resultado_busqueda_cache_t {
 
 t_cache* cache;
 
-t_configuracion configuracion;
-
 char buffLog[80];
 
 t_filaTablaInvertida* tablaInvertida;
 
 void* memoriaPrincipal;
 
-void cargarConfiguracion(void) {
+t_configuracion cargarConfiguracion() {
+
 	t_config * config;
+	t_configuracion configuracion;
 
 	config = config_create("./config.txt");
 
-	configuracion.puerto = strdup(config_get_string_value(config, "PUERTO"));
-	configuracion.marcos = strdup(config_get_string_value(config, "MARCOS"));
-	configuracion.marcoSize = strdup(config_get_string_value(config, "MARCO_SIZE"));
-	configuracion.entradasCache = strdup(config_get_string_value(config, "ENTRADAS_CACHE"));
-	configuracion.cacheXProc = strdup(config_get_string_value(config, "CACHE_X_PROC"));
-	configuracion.reemplazoCache = strdup(config_get_string_value(config, "REEMPLAZO_CACHE"));
-	configuracion.retardoMemoria = strdup(config_get_string_value(config, "RETARDO_MEMORIA"));
-	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
+		if(config == NULL){
 
-	log_info(logger,"El Puerto es %s\n",configuracion.puerto);
-	log_info(logger,"La cantidad de Marcos es %s\n",configuracion.marcos);
-	log_info(logger,"El tamaño de cada Marco es %s\n",configuracion.marcoSize);
-	log_info(logger,"Las entradas en Cache son %s\n",configuracion.entradasCache);
-	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %s\n",configuracion.cacheXProc);
-	log_info(logger,"El reemplazo de cache es %s\n",configuracion.reemplazoCache);
-	log_info(logger,"El retardo de la Memoria es %s\n",configuracion.retardoMemoria);
-	log_info(logger,"La cantidad de paginas asignada al Stack es %s\n",configuracion.stackSize);
+			config = config_create("../config.txt");
+
+		}
+
+	configuracion.puerto = config_get_int_value(config, "PUERTO");
+	log_info(logger,"El Puerto es %d",configuracion.puerto);
+
+	configuracion.marcos = strdup(config_get_string_value(config, "MARCOS"));
+	log_info(logger,"La cantidad de Marcos es %s",configuracion.marcos);
+
+	configuracion.marcoSize = strdup(config_get_string_value(config, "MARCO_SIZE"));
+	log_info(logger,"El tamaño de cada Marco es %s",configuracion.marcoSize);
+
+	configuracion.entradasCache = strdup(config_get_string_value(config, "ENTRADAS_CACHE"));
+	log_info(logger,"Las entradas en Cache son %s",configuracion.entradasCache);
+
+	configuracion.cacheXProc = strdup(config_get_string_value(config, "CACHE_X_PROC"));
+	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %s",configuracion.cacheXProc);
+
+	configuracion.reemplazoCache = strdup(config_get_string_value(config, "REEMPLAZO_CACHE"));
+	log_info(logger,"El reemplazo de cache es %s",configuracion.reemplazoCache);
+
+	configuracion.retardoMemoria = strdup(config_get_string_value(config, "RETARDO_MEMORIA"));
+	log_info(logger,"El retardo de la Memoria es %s",configuracion.retardoMemoria);
+
+	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
+	log_info(logger,"La cantidad de paginas asignada al Stack es %s",configuracion.stackSize);
+
+	return configuracion;
 }
 
 void crearMemoriaPrincipal() {

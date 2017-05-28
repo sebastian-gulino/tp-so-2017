@@ -5,63 +5,46 @@
  *      Author: utnso
  */
 
-#include <stddef.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "sockets.h"
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <unistd.h>
-
-int socketServer , client_sock , c , read_size, *new_sock, clientes[5], i;
-
-//server: Direcciones del server (puerto, ip, etc).
-//client: Direcciones del cliente.
-struct sockaddr_in client;
 
 int crearServidor(int puertoEscucha){
 
 		struct sockaddr_in server;
 
 	    //Se crea el socket
-	    socketServer = socket(AF_INET , SOCK_STREAM , 0);
+	    int socketServer = socket(AF_INET , SOCK_STREAM , 0);
 
 	    if (socketServer == -1)
 	    {
-	        puts("El socket no pudo ser creado.");
+	        log_error(logger,"El socket no pudo ser creado");
+
 	        return EXIT_FAILURE;
 	    }
-	    puts("El socket fue creado exitosamente.");
+
+	    log_info(logger,"El socket fue creado exitosamente");
 
 	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
 	    server.sin_family = AF_INET; //Especifica familia de direcciones.
 	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
 	    server.sin_port = htons(puertoEscucha); //Especifica el puerto del servidor.
 
-
-	    printf("%s\n", inet_ntoa(server.sin_addr));
-
 	    //Se liga (bind) el socket servidor con sus direcciones.
 	    if( bind(socketServer,(struct sockaddr *)&server , sizeof(server)) < 0)
 	    {
-	        perror("Bind fallo. Error");
+	    	log_error(logger,"Bind fallo. Error");
 	        return 1;
 	    }
-	    puts("Bind realizado exitosamente.");
 
 	    //Pone al servidor en modo listen (puede recibir llamados).
 	    listen(socketServer , 5);
 
-	    puts("Servidor creado con exito.");
-	    puts("Esperando por conexiones entrantes...");
+	    log_info(logger,"Servidor escuchando en el puerto %d", puertoEscucha);
+	    log_info(logger,"Esperando por conexiones entrantes...");
 
     return socketServer;
 }
 
-int crearCliente(char* ipServidor,int puertoServidor, t_log* logger){
+int crearCliente(char* ipServidor,int puertoServidor){
 
 	int socketClient, cc;
 	//server: Estructura de las direcciones del servidor a conectarse.
@@ -72,7 +55,7 @@ int crearCliente(char* ipServidor,int puertoServidor, t_log* logger){
 	    {
 	    	log_error(logger,"Error al crear socket cliente");
 	    }
-	    log_info(logger,"Socket cliente generado exitosamente");
+	    log_info(logger,"Socket generado exitosamente");
 
 	   //Se instancian las direcciones del servidor a conectarse.
 	   server.sin_addr.s_addr = inet_addr(ipServidor); //"127.0.0.1" es la ip de la maquina (localhost).
@@ -84,11 +67,10 @@ int crearCliente(char* ipServidor,int puertoServidor, t_log* logger){
 
 	    if(cc < 0){
 	    	log_error(logger,"Error al conectar con servidor");
-	        perror("Conexión fallida. Error");
 	        return 1;
 	    }
 
-	    log_info(logger,"Cliente conectado correctamente al servidor");
+	    log_info(logger,"Cliente conectado correctamente al servidor IP:%s Puerto: %d", ipServidor, puertoServidor);
 
 	    return socketClient;
 	}
@@ -100,7 +82,7 @@ int aceptarCliente(int socketEscucha){
 	size_sockAddrIn = sizeof(struct sockaddr_in);
 	socketNuevaConexion = accept(socketEscucha, (struct sockaddr *)&suSocket, &size_sockAddrIn);
 	if(socketNuevaConexion < 0) {
-		perror("Error al aceptar conexion entrante");
+		log_error(logger,"Error al aceptar conexion entrante");
 		return -1;
 	}
 	return socketNuevaConexion;
@@ -130,7 +112,7 @@ int socket_enviar(int socketReceptor, t_tipoEstructura tipoEstructura, void* est
 	free(paquete->data);
 	free(paquete);
 	if( cantBytesEnviados == -1){
-		perror("Server no encontrado\n");
+		log_error(logger,"Server no encontrado\n");
 		return 0;
 	}
 	else {
@@ -149,7 +131,7 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	cantBytesRecibidos = recv(socketEmisor, bufferHeader, sizeof(t_header), MSG_WAITALL);	//ReciBo por partes, primero el header.
 	if(cantBytesRecibidos == -1){
 		free(bufferHeader);
-		perror("Error al recibir datos\n");
+		log_error(logger,"Error al recibir datos\n");
 		return 0;
 	}
 
@@ -178,7 +160,7 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	cantBytesRecibidos = recv(socketEmisor, buffer, header.length, MSG_WAITALL);	//Recivo el resto del mensaje con el tamaño justo de buffer.
 	if(cantBytesRecibidos == -1){
 		free(buffer);
-		perror("Error al recibir datos\n");
+		log_error(logger,"Error al recibir datos\n");
 		return 0;
 	}
 
