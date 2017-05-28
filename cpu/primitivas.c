@@ -1,23 +1,33 @@
 #include "primitivas.h"
 
+bool termino = false;
+
+//TODO borrar. constantes de prueba
+static const int CONTENIDO_VARIABLE = 20;
+static const int POSICION_MEMORIA = 0x10;
+
 //FUNCIONES
 t_puntero definirVariable(t_nombre_variable variable) {
-	//TODO implementar
-	return NULL;
+	//TODO borrar. implementación de prueba
+	printf("definir la variable %c\n", variable);
+	return POSICION_MEMORIA;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
-	//TODO implementar
-	return NULL;
+	//TODO borrar. implementación de prueba
+	printf("Obtener posicion de %c\n", variable);
+	return POSICION_MEMORIA;
 }
 
 t_valor_variable dereferenciar(t_puntero puntero) {
-	//TODO implementar
-	return NULL;
+	//TODO borrar. implementación de prueba
+	printf("Dereferenciar %d y su valor es: %d\n", puntero, CONTENIDO_VARIABLE);
+	return CONTENIDO_VARIABLE;
 }
 
 void asignar(t_puntero puntero, t_valor_variable variable) {
-	//TODO implementaR
+	//TODO borrar. implementación de prueba
+	printf("Asignando en %d el valor %d\n", puntero, variable);
 }
 
 t_valor_variable obtenerValorCompartida(t_nombre_compartida variable) {
@@ -43,7 +53,9 @@ void llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar) {
 }
 
 void finalizar(void)  {
-	//TODO implementar
+	//TODO borrar. implementación de prueba
+	termino = true;
+	printf("Finalizar\n");
 }
 
 void retornar(t_valor_variable retorno) {
@@ -93,3 +105,6 @@ void leer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valo
 	//TODO implementar
 }
 
+bool terminoElPrograma() {
+	return termino;
+}
