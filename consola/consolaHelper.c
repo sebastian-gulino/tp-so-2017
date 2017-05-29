@@ -1,5 +1,6 @@
 #include "consolaHelper.h"
 
+
 t_configuracion cargarConfiguracion() {
 
 	t_config * config;
@@ -36,3 +37,77 @@ int conectarAKernel (){
 	return socketCliente;
 
 }
+
+int commandHandler(){
+
+	char value[20];
+
+	printf("Comandos disponibles:\n");
+	printf("iniciar: Dado un path valido da inicio a un programa \n");
+	printf("finalizar: Finaliza el programa especificado \n");
+	printf("desconectar: Desconecta la consola\n");
+	printf("limpiar: Limpia los mensajes en la consola\n");
+	printf("\n");
+
+
+	while(1){
+
+		printf("Ingrese algún comando...\n");
+
+		scanf("%s", &value);
+
+		switch(commandParser(value)){
+
+			case 1:
+
+				printf("Inicia programa\n");
+
+
+				break;
+
+			case 2:
+
+				printf("Finaliza programa\n");
+
+				break;
+
+			case 3:
+
+				printf("Desconecta consola\n");
+
+				break;
+
+			case 4:
+				printf("Limpia consola\n");
+
+				break;
+
+			default:
+				printf("Comando invalido...\n");
+
+				break;
+
+			}
+
+
+	}
+
+	return 0;
+}
+
+int commandParser(char* command){
+
+	if(strcmp(command, "iniciar") == 0){
+		return 1;
+	} else if (strcmp(command, "finalizar") == 0){
+		return 2;
+	} else if(strcmp(command, "desconectar") == 0){
+		return 3;
+	} else if (strcmp(command, "limpiar") == 0){
+		return 4;
+	}else{
+		return 6;
+	}
+
+}
+
