@@ -24,10 +24,12 @@ typedef struct config_t {
 t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
+char path[200];
 
-pthread_t threadIniciar, threadCommandHandler;
+pthread_t threadProgramHandler, threadCommandHandler;
 int conectarAKernel ();
 int commandHandler();
 int commandParser();
+int programHandler();
 
 #endif /* CONSOLAHELPER_H_ */

@@ -38,7 +38,7 @@ int conectarAKernel (){
 
 }
 
-int commandHandler(){
+int commandHandler(int socket){
 
 	char value[20];
 
@@ -60,8 +60,10 @@ int commandHandler(){
 
 			case 1:
 
-				printf("Inicia programa\n");
-
+				printf("Ingrese la ubicación del programa\n");
+				scanf("%s", &path);
+				pthread_create(&threadProgramHandler, NULL, programHandler(path, socket), NULL);
+				pthread_join(&threadProgramHandler, NULL);
 
 				break;
 
@@ -110,4 +112,40 @@ int commandParser(char* command){
 	}
 
 }
+
+int programHandler(char * path, int socketCliente){
+
+	t_struct_string* aPath;
+	aPath->string = path;
+	t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+
+	socket_enviar(socketCliente, D_STRUCT_STRING, aPath);
+
+}
+
+
+
+//	char buf[1024];
+//	char test[20];
+//	FILE *file;
+//	size_t nread;
+//
+//	while(1){
+//
+//		scanf("%s", &test);
+//
+//		file = fopen(path, "r");
+//		if (file) {
+//		    while ((nread = fread(buf, 1, sizeof buf, file)) > 0)
+//		        fwrite(buf, 1, nread, stdout);
+//		    if (ferror(file)) {
+//		        printf("ERROR\n");
+//		        return 0;
+//		    }
+//		    fclose(file);
+//		}
+//
+//	}
+
 
