@@ -135,15 +135,18 @@ void manejarConsola(int i){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
-	char * test[30];
-	t_struct_string* structTest;
+	int numTest = 0;
 
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"La Consola %d cerró la conexión.",i);
 		removerClientePorCierreDeConexion(i,listaConsolas,&master_consola);
 	} else {
-		socket_recibir(i,&tipoEstructura,&structRecibido);
+
+		printf("El path es: %s\n", ((t_struct_string *)structRecibido)->string);
 		log_info(logger,"La Consola %d envió un path", i);
+		numTest = numTest++;
+
+		socket_enviar(i, D_STRUCT_NUMERO, numTest);
 
 
 		}

@@ -59,7 +59,6 @@ int commandHandler(int socket){
 		switch(commandParser(value)){
 
 			case 1:
-
 				printf("Ingrese la ubicación del programa\n");
 				scanf("%s", &path);
 				pthread_create(&threadProgramHandler, NULL, programHandler(path, socket), NULL);
@@ -68,14 +67,15 @@ int commandHandler(int socket){
 				break;
 
 			case 2:
-
 				printf("Finaliza programa\n");
 
 				break;
 
 			case 3:
-
-				printf("Desconecta consola\n");
+				printf("Consola desconectada...\n");
+				pthread_join(&socket, NULL);
+				pthread_exit(&socket);
+				free(&socket);
 
 				break;
 
@@ -90,8 +90,6 @@ int commandHandler(int socket){
 				break;
 
 			}
-
-
 	}
 
 	return 0;
@@ -118,10 +116,14 @@ int programHandler(char * path, int socketCliente){
 
 	t_struct_string* aPath;
 	aPath->string = path;
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
 
 	socket_enviar(socketCliente, D_STRUCT_STRING, aPath);
 
+	socket_recibir(socketCliente ,&tipoEstructura,&structRecibido);
 
+	printf("El PID del programa es: %d", ((t_struct_numero *)structRecibido)->numero);
 }
 
 
