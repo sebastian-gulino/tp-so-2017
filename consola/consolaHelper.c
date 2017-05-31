@@ -99,13 +99,14 @@ int commandHandler(int socket){
 
 int commandParser(char* command){
 
-	if(strcmp(command, "iniciar") == 0){
+
+	if(strcmp(command, "INICIAR") == 0){
 		return 1;
-	} else if (strcmp(command, "finalizar") == 0){
+	} else if (strcmp(command, "FINALIZAR") == 0){
 		return 2;
-	} else if(strcmp(command, "desconectar") == 0){
+	} else if(strcmp(command, "DESCONECTAR") == 0){
 		return 3;
-	} else if (strcmp(command, "limpiar") == 0){
+	} else if (strcmp(command, "LIMPIAR") == 0){
 		return 4;
 	}else{
 		return 6;
@@ -117,10 +118,9 @@ int programHandler(char * path, int socketCliente){
 
 	t_struct_string* aPath;
 	aPath->string = path;
-	t_tipoEstructura tipoEstructura;
-		void * structRecibido;
 
 	socket_enviar(socketCliente, D_STRUCT_STRING, aPath);
+
 
 }
 
