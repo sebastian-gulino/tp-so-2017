@@ -1,39 +1,6 @@
-/*
- * manejoMemoria.c
- *
- *  Created on: 5/5/2017
- *      Author: utnso
- */
-
-#include <estructuras.h>
-#include <commons/collections/list.h>
-#include <unistd.h>
 #include "manejoMemoria.h"
 
 #define CANTIDAD_ELEMENTOS_CACHE 15
-
-void* memoriaPrincipal;
-
-typedef unsigned char frame[500];
-
-typedef struct cache_t {
-	int pid;
-	int pagina;
-	void* contenido;
-} t_cache;
-
-typedef struct resultado_busqueda_cache_t {
-	int cantidad;
-	int indices[15];
-} t_resultado_busqueda_cache;
-
-t_cache* cache;
-
-char buffLog[80];
-
-t_filaTablaInvertida* tablaInvertida;
-
-void* memoriaPrincipal;
 
 t_configuracion cargarConfiguracion() {
 
@@ -75,6 +42,111 @@ t_configuracion cargarConfiguracion() {
 	return configuracion;
 }
 
+void inicializarListas(){
+	listaKernel = list_create();
+	listaCpus = list_create();
+}
+
+void crearThreadAtenderConexiones(){
+
+	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
+
+}
+
+void administrarConexiones(){
+
+	//Creo el servidor de memoria que recibirá las nuevas conexiones
+	int socketServidor = crearServidor(configuracion.puerto);
+//
+//	pthread_t nueva_solicitud;
+//
+//	while(1){
+//		//Por defecto acepto el cliente que se está conectando
+//		int socketCliente = aceptarCliente(socketServidor);
+//
+//		void* structRecibido;
+//
+//		t_tipoEstructura tipoStruct;
+//
+//		//Recibo el mensaje para identificar quien es y hacer el handshake
+//		int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
+//
+//		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
+//			log_info(logger,"No se recibio correctamente a quien atendio la memoria");
+//
+//		} else {
+//
+//			switch(((t_struct_numero*) structRecibido)->numero){
+//						case ES_CONSOLA:
+//
+//							log_info(logger,"Se conecto el Kernel");
+//
+//							list_add(listaKernel, (void*) socketCliente);
+//
+//							pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
+//
+//							break;
+//						case ES_CPU:
+//
+//							log_info(logger,"Se conecto una CPU");
+//
+//							list_add(listaCpus, (void*) socketCliente);
+//
+//							pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
+//
+//							break;
+//
+//						default:
+//
+//							log_error(logger,"No se pudo hacer el handshake");
+//
+//							//Ciero el FD del cliente que había aceptado
+//							close(socketCliente);
+//			}
+//		}
+//
+//		free(structRecibido);
+//	}
+}
+
+void manejarCpu(int i){
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Cpu %d cerró la conexión.",i);
+		removerClientePorCierreDeConexion(i,listaCpus);
+	} else {
+	}
+};
+
+void manejarKernel(int i){
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Kernel %d cerró la conexión.",i);
+		removerClientePorCierreDeConexion(i,listaKernel);
+	} else {
+	}
+
+};
+
+void removerClientePorCierreDeConexion(int cliente, t_list* lista) {
+
+	//Elimino el cliente de la lista
+	bool _es_cliente_numero(int elemento) {
+		return (elemento == cliente);
+	}
+	list_remove_by_condition(lista, (void*) _es_cliente_numero);
+
+	//Cierro el FD correspondiente al cliente
+	close(cliente);
+
+}
+
 void crearMemoriaPrincipal() {
 	memoriaPrincipal = malloc(atoi(configuracion.marcos)*atoi(configuracion.marcoSize));
 }
@@ -106,10 +178,10 @@ void crearEstructurasAdministrativas(){
 }
 
 void escribirPagina(int pagina, void* bytes, int size, int offset){
-	frame* marcosMemoria = &memoriaPrincipal;
+	frame* marcosMemoria = memoriaPrincipal;
 	unsigned char* punteroOffset = marcosMemoria[pagina];
-	memcpy(punteroOffset[offset],bytes,size);
-	log_debug(logger,"Se escribio la pagina %d", pagina);
+	memcpy((void*) punteroOffset[offset],bytes,size);
+	log_info(logger,"Se escribio la pagina %d", pagina);
 }
 
 int cantidadFramesLibres(){
@@ -120,7 +192,7 @@ int cantidadFramesLibres(){
 			framesLibres++;
 		}
 	}
-	log_debug("Quedan %d frames libres.", framesLibres);
+	log_info(logger,"Quedan %d frames libres.", framesLibres);
 	return framesLibres;
 }
 
@@ -164,10 +236,10 @@ void escribirEnMemoria(int pid, void* contenido, int cantidadBytes){
 				}
 			}
 		} else {
-			log_debug(logger,"No se escribio en memoria por que lo que se queria escribir era muy grande.");
+			log_info(logger,"No se escribio en memoria por que lo que se queria escribir era muy grande.");
 		}
 	} else {
-		log_debug(logger,"No se escribio en memoria por falta de paginas libres.");
+		log_info(logger,"No se escribio en memoria por falta de paginas libres.");
 	}
 }
 
@@ -186,7 +258,7 @@ t_resultado_busqueda_cache buscarPIDCache(int pid){
 }
 
 void* leerPagina(int pagina, int pid){
-	frame* marcosMemoria = &memoriaPrincipal;
+	frame* marcosMemoria = memoriaPrincipal;
 	actualizarCache(pid,pagina,marcosMemoria[pagina]);
 	aplicarRetardo(1);
 	return marcosMemoria[pagina];
@@ -222,7 +294,7 @@ void asignarPaginasProceso(int pid, int numeroFramesPedidos){
 			tablaInvertida[indiceFrameLibre].pid = pid;
 		}
 	}
-	log_debug(logger,"Se reservaron %d frames para el proceso %d",numeroFramesPedidos,pid);
+	log_info(logger,"Se reservaron %d frames para el proceso %d",numeroFramesPedidos,pid);
 }
 
 void finalizarPrograma(int pid){
@@ -237,7 +309,7 @@ void finalizarPrograma(int pid){
 	for(i = 0; i < resultado.cantidad; i++){
 		cache[resultado.indices[i]].pid = 0;
 	}
-	log_debug(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
+	log_info(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
 }
 
 void imprimirTablaPaginas(){
@@ -248,7 +320,7 @@ void imprimirTablaPaginas(){
 	}
 }
 
-void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames){
+void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames){}
 //	switch(solicitante){
 //		case "kernel":
 //			//reservar memoria para codigo
@@ -262,4 +334,4 @@ void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames){
 //		default:
 //			break;
 //	}
-}
+
