@@ -21,15 +21,24 @@ typedef struct config_t {
 
 } t_configuracion;
 
+typedef struct dts {
+	char * path;
+	int socket;
+} data_to_send;
+
+t_tipoEstructura tipoEstructura;
+void * structRecibido;
+t_struct_numero confirmation_send;
+
 t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
-char path[200];
+
 
 pthread_t threadProgramHandler, threadCommandHandler;
 int conectarAKernel ();
 int commandHandler();
 int commandParser();
-int programHandler();
+void programHandler();
 
 #endif /* CONSOLAHELPER_H_ */

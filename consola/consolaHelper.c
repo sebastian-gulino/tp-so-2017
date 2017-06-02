@@ -40,7 +40,7 @@ int conectarAKernel (){
 
 int commandHandler(int socket){
 
-	char value[20];
+
 
 	printf("Comandos disponibles:\n");
 	printf("iniciar: Dado un path valido da inicio a un programa \n");
@@ -52,17 +52,27 @@ int commandHandler(int socket){
 
 	while(1){
 
+		char * value = malloc(50);
+
 		printf("Ingrese algún comando...\n");
 
-		scanf("%s", &value);
+		scanf("%s", value);
+
+		char * path = malloc(200);
 
 		switch(commandParser(value)){
 
 			case 1:
-				printf("Ingrese la ubicación del programa\n");
-				scanf("%s", &path);
-				pthread_create(&threadProgramHandler, NULL, programHandler(path, socket), NULL);
-				pthread_join(&threadProgramHandler, NULL);
+
+				puts("Ingrese el path del script ANSiSOP...");
+				scanf("%s", path);
+				data_to_send data;
+				data.socket = socket;
+				data.path  = path;
+
+				pthread_create(&threadProgramHandler, NULL, programHandler, &data);
+				pthread_join(threadProgramHandler, NULL);
+
 
 				break;
 
@@ -72,10 +82,21 @@ int commandHandler(int socket){
 				break;
 
 			case 3:
-				printf("Consola desconectada...\n");
-				pthread_join(&socket, NULL);
-				pthread_exit(&socket);
-				free(&socket);
+
+				confirmation_send.numero = 243;
+
+				socket_enviar(socket, D_STRUCT_NUMERO, &confirmation_send);
+
+				socket_recibir(socket,&tipoEstructura,&structRecibido);
+
+				if(((t_struct_numero *)structRecibido)->numero == 1){
+
+					printf("Consola desconectada...\n");
+					pthread_join(socket, NULL);
+					pthread_exit(&socket);
+				}
+
+
 
 				break;
 
@@ -90,6 +111,8 @@ int commandHandler(int socket){
 				break;
 
 			}
+
+		free(value);
 	}
 
 	return 0;
@@ -112,42 +135,20 @@ int commandParser(char* command){
 
 }
 
-int programHandler(char * path, int socketCliente){
+void programHandler(void* arg){
 
-	t_struct_string* aPath;
-	aPath->string = path;
-	t_tipoEstructura tipoEstructura;
-	void * structRecibido;
+	data_to_send * data = arg;
+	t_struct_string path;
+	path.string=data->path;
 
-	socket_enviar(socketCliente, D_STRUCT_STRING, aPath);
 
-	socket_recibir(socketCliente ,&tipoEstructura,&structRecibido);
+	socket_enviar(data->socket, D_STRUCT_STRING, &path);
+	socket_recibir(data->socket,&tipoEstructura,&structRecibido);
+	printf("El PID del programa es : %d\n", ((t_struct_numero *)structRecibido)->numero);
 
-	printf("El PID del programa es: %d", ((t_struct_numero *)structRecibido)->numero);
+
+
+
 }
-
-
-
-//	char buf[1024];
-//	char test[20];
-//	FILE *file;
-//	size_t nread;
-//
-//	while(1){
-//
-//		scanf("%s", &test);
-//
-//		file = fopen(path, "r");
-//		if (file) {
-//		    while ((nread = fread(buf, 1, sizeof buf, file)) > 0)
-//		        fwrite(buf, 1, nread, stdout);
-//		    if (ferror(file)) {
-//		        printf("ERROR\n");
-//		        return 0;
-//		    }
-//		    fclose(file);
-//		}
-//
-//	}
 
 
