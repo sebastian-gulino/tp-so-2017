@@ -1,9 +1,13 @@
 #include "kernelHelper.h"
 
+int pidk = 0;
+
 t_configuracion cargarConfiguracion() {
 
 	t_config * config;
 	t_configuracion configuracion;
+
+
 
 	config = config_create("./config.txt");
 
@@ -136,11 +140,39 @@ void manejarConsola(int i){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
+
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"La Consola %d cerró la conexión.",i);
 		removerClientePorCierreDeConexion(i,listaConsolas,&master_consola);
 	} else {
-	}
+
+		if(((t_struct_numero *)structRecibido)->numero == 243){
+			t_struct_numero confirmation_send;
+
+			if (programKiller(i) == 0){
+
+				confirmation_send.numero = 0;
+
+				socket_enviar(i, D_STRUCT_NUMERO, &confirmation_send);
+
+			} else {
+
+				confirmation_send.numero = 1;
+				socket_enviar(i, D_STRUCT_NUMERO, &confirmation_send);
+			}
+
+		}
+
+		t_struct_numero pid_send;
+		pid_send.numero = pidk;
+
+		log_info(logger,"La Consola %d envió el path: %s", i, ((t_struct_string *)structRecibido)->string);
+
+		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
+
+		pidk++;
+
+		}
 
 };
 
@@ -213,3 +245,10 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet
 	FD_CLR(cliente,fdSet);
 
 }
+
+int programKiller(int i){
+
+	log_info(logger,"La Consola %d se ha desconectado", i);
+	return 1;
+}
+

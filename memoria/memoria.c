@@ -8,7 +8,7 @@ int main(void) {
 
 	configuracion = cargarConfiguracion();
 
-	crearThreadAtenderConexiones();
+	crearThreadConexiones();
 
 //	setvbuf (stdout, NULL, _IONBF, 0);
 //

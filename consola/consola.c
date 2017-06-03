@@ -12,6 +12,10 @@ int main(int arc, char * argv[]) {
 
 	int socketConsola = conectarAKernel();
 
+	pthread_create(&threadCommandHandler, NULL, commandHandler(socketConsola),NULL);
+	pthread_join(threadCommandHandler, NULL);
+
+
 	return 0;
 
 }

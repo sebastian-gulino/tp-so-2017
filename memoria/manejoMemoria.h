@@ -78,7 +78,7 @@ void crearEstructurasAdministrativas();
 
 void crearMemoriaPrincipal();
 
-void crearThreadAtenderConexiones();
+void crearThreadConexiones();
 
 void finalizarPrograma(int pid);
 
