@@ -72,11 +72,12 @@
 		D_STRUCT_CHAR=2,
 		D_STRUCT_STRING=3,
 
-		//Comunicacion Kernel-CPU
-		ES_CPU=4,
-
-		//Comunicacion Kernel-Consola
-		ES_CONSOLA=119,
+		//Handshake
+		ES_KERNEL=100,
+		ES_CPU=101,
+		ES_MEMORIA=102,
+		ES_FILESYSTEM=103,
+		ES_CONSOLA=104
 
 	} t_operaciones;
 

@@ -50,9 +50,11 @@ int main(int arc, char * argv[]) {
 	//Levanta la configuración del proceso CPU
 	configuracion = cargarConfiguracion();
 
-	//int socketCPU = conectarAKernel();
+	//Conecta la cpu incorporada al Kernel
+	int socketKernel = conectarAKernel();
 
-	pruebaDeEjecucion();
+	//Conecta la cpu incorporada a la Memoria
+	int socketMemoria = conectarAMemoria();
 
 	return 0;
 

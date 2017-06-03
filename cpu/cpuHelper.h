@@ -27,4 +27,6 @@ t_configuracion cargarConfiguracion();
 
 int conectarAKernel ();
 
+int conectarAMemoria ();
+
 #endif /* CPUHELPER_H_ */

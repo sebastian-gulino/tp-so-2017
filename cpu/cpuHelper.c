@@ -43,3 +43,18 @@ int conectarAKernel (){
 
 
 }
+
+int conectarAMemoria (){
+
+	//Genera el socket cliente y lo conecta a la memoria
+	int socketCliente = crearCliente(configuracion.ipMemoria,configuracion.puertoMemoria);
+
+	//Se realiza el handshake con la memoria
+	t_struct_numero* es_cpu = malloc(sizeof(t_struct_numero));
+	es_cpu->numero = ES_CPU;
+	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_cpu);
+	free(es_cpu);
+
+	return socketCliente;
+
+}
