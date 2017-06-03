@@ -46,20 +46,21 @@ pthread_t threadAtenderConexiones;
 fd_set master_consola;
 fd_set master_cpu;
 
-
-t_configuracion cargarConfiguracion();
+void administrarConexiones();
 
 void inicializarListas();
 
-void manejarNuevaConexion(int listener, int *fdmax);
+t_configuracion cargarConfiguracion();
 
 void crearThreadAtenderConexiones();
 
-void administrarConexiones();
+int conectarAMemoria();
 
 void manejarConsola(int i);
 
 void manejarCpu(int i);
+
+void manejarNuevaConexion(int listener, int *fdmax);
 
 void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet);
 

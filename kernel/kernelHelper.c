@@ -227,6 +227,21 @@ void administrarConexiones (){
 
 }
 
+int conectarAMemoria (){
+
+	//Genera el socket cliente y lo conecta a la memoria
+	int socketCliente = crearCliente(configuracion.ipMemoria,configuracion.puertoMemoria);
+
+	//Se realiza el handshake con la memoria
+	t_struct_numero* es_kernel = malloc(sizeof(t_struct_numero));
+	es_kernel->numero = ES_CONSOLA;
+	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_kernel);
+	free(es_kernel);
+
+	return socketCliente;
+
+}
+
 void crearThreadAtenderConexiones(){
 
 	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);

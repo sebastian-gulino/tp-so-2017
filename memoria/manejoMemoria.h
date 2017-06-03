@@ -1,12 +1,7 @@
-/*
- * manejoMemoria.h
- *
- *  Created on: 5/5/2017
- *      Author: utnso
- */
 #ifndef MANEJOMEMORIA_H_
 #define MANEJOMEMORIA_H_
 
+#include <arpa/inet.h>
 #include <commons/collections/list.h>
 #include <commons/config.h>
 #include <estructuras.h>

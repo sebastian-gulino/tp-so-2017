@@ -6,11 +6,14 @@ int main(int arc, char * argv[]) {
 	logger = malloc(sizeof(t_log));
 	crearLog("/KERNEL");
 
-	//Levanta la configuración del proceso filesystem
+	//Levanta la configuración del proceso kernel
 	configuracion = cargarConfiguracion();
 
 	//Crea la lista de clientes conectados para cpu y consola
 	inicializarListas();
+
+	//Conecta el Kernel a la memoria del sistema
+	int socketMemoria = conectarAMemoria();
 
 	crearThreadAtenderConexiones();
 

@@ -47,7 +47,7 @@ void inicializarListas(){
 	listaCpus = list_create();
 }
 
-void crearThreadConexiones(){
+void crearThreadAtenderConexiones(){
 
 	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
 
@@ -57,56 +57,56 @@ void administrarConexiones(){
 
 	//Creo el servidor de memoria que recibirá las nuevas conexiones
 	int socketServidor = crearServidor(configuracion.puerto);
-//
-//	pthread_t nueva_solicitud;
-//
-//	while(1){
-//		//Por defecto acepto el cliente que se está conectando
-//		int socketCliente = aceptarCliente(socketServidor);
-//
-//		void* structRecibido;
-//
-//		t_tipoEstructura tipoStruct;
-//
-//		//Recibo el mensaje para identificar quien es y hacer el handshake
-//		int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
-//
-//		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
-//			log_info(logger,"No se recibio correctamente a quien atendio la memoria");
-//
-//		} else {
-//
-//			switch(((t_struct_numero*) structRecibido)->numero){
-//						case ES_CONSOLA:
-//
-//							log_info(logger,"Se conecto el Kernel");
-//
-//							list_add(listaKernel, (void*) socketCliente);
-//
-//							pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
-//
-//							break;
-//						case ES_CPU:
-//
-//							log_info(logger,"Se conecto una CPU");
-//
-//							list_add(listaCpus, (void*) socketCliente);
-//
-//							pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
-//
-//							break;
-//
-//						default:
-//
-//							log_error(logger,"No se pudo hacer el handshake");
-//
-//							//Ciero el FD del cliente que había aceptado
-//							close(socketCliente);
-//			}
-//		}
-//
-//		free(structRecibido);
-//	}
+
+	pthread_t nueva_solicitud;
+
+	while(1){
+		//Por defecto acepto el cliente que se está conectando
+		int socketCliente = aceptarCliente(socketServidor);
+
+		void* structRecibido;
+
+		t_tipoEstructura tipoStruct;
+
+		//Recibo el mensaje para identificar quien es y hacer el handshake
+		int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
+
+		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
+			log_info(logger,"No se recibio correctamente a quien atendio la memoria");
+
+		} else {
+
+			switch(((t_struct_numero*) structRecibido)->numero){
+						case ES_CONSOLA:
+
+							log_info(logger,"Se conecto el Kernel");
+
+							list_add(listaKernel, (void*) socketCliente);
+
+							pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
+
+							break;
+						case ES_CPU:
+
+							log_info(logger,"Se conecto una CPU");
+
+							list_add(listaCpus, (void*) socketCliente);
+
+							pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
+
+							break;
+
+						default:
+
+							log_error(logger,"No se pudo hacer el handshake");
+
+							//Ciero el FD del cliente que había aceptado
+							close(socketCliente);
+			}
+		}
+
+		free(structRecibido);
+	}
 }
 
 void manejarCpu(int i){
