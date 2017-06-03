@@ -140,13 +140,34 @@ void programHandler(void* arg){
 	data_to_send * data = arg;
 	t_struct_string path;
 	path.string=data->path;
+	int pid;
+	int size;
+
+	FILE * programa = fopen(data->path, "r");
+
+	fseek(programa, 0L, SEEK_END);
+	size = ftell(programa);
+
+	void * program_code = malloc(size);
+
+	fseek(programa, SEEK_SET, 0);
+
+	fread(program_code, 1, size, programa);
 
 
-	socket_enviar(data->socket, D_STRUCT_STRING, &path);
+	socket_enviar(data->socket, D_STRUCT_STRING, &program_code);
 	socket_recibir(data->socket,&tipoEstructura,&structRecibido);
 	printf("El PID del programa es : %d\n", ((t_struct_numero *)structRecibido)->numero);
 
+	pid = ((t_struct_numero *)structRecibido)->numero;
 
+	while(1){
+
+		socket_recibir(data->socket, &tipoEstructura, &structRecibido);
+
+		printf("Programa %d: %s", pid, ((t_struct_string *)structRecibido)->string);
+
+	}
 
 
 }

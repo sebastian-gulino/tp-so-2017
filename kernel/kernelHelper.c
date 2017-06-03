@@ -168,6 +168,10 @@ void manejarConsola(int i){
 
 		log_info(logger,"La Consola %d envió el path: %s", i, ((t_struct_string *)structRecibido)->string);
 
+		t_metadata_program *program_data = metadata_desde_literal(((t_struct_string *)structRecibido)->string);
+
+		puts(program_data->cantidad_de_funciones);
+
 		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
 
 		pidk++;
