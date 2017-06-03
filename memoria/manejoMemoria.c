@@ -47,7 +47,7 @@ void inicializarListas(){
 	listaCpus = list_create();
 }
 
-void crearThreadAtenderConexiones(){
+void crearThreadConexiones(){
 
 	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
 
