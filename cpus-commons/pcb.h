@@ -10,6 +10,6 @@ t_limites_instrucciones limitesInstrucciones;
 t_list * indiceCodigo;
 t_list * indiceStack;
 
-t_pcb crearPCB(char * programa, int PID);
+t_pcb crearPCB(char* programa, int PID, int pageSize);
 
 #endif /* PCB_H_ */

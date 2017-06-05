@@ -6,7 +6,7 @@
  */
 #include "pcb.h"
 
-t_pcb crearPCB(char* programa, int PID) {
+t_pcb crearPCB(char* programa, int PID, int pageSize) {
 
 	t_metadata_program *metadata = metadata_desde_literal(programa);
 
@@ -15,7 +15,7 @@ t_pcb crearPCB(char* programa, int PID) {
 	indiceCodigo = list_create();
 	indiceStack = list_create();
 
-	pcb.cantidadPaginas = 1;
+	pcb.cantidadPaginas = sizeof(programa) % pageSize;
 	pcb.exitcode = 0;
 
 	int programCounter = 0;
