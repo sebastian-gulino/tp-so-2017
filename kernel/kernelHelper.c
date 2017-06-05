@@ -165,12 +165,16 @@ void manejarConsola(int i){
 
 		t_struct_numero pid_send;
 		pid_send.numero = pidk;
+		char * programa = malloc(sizeof(((t_struct_string *)structRecibido)->string));
+		programa = ((t_struct_string *)structRecibido)->string;
 
-		log_info(logger,"La Consola %d envió el path: %s", i, ((t_struct_string *)structRecibido)->string);
+		log_info(logger,"La Consola %d envió el path: %s", i, programa);
 
-		t_metadata_program *program_data = metadata_desde_literal(((t_struct_string *)structRecibido)->string);
+		t_metadata_program *program_data = metadata_desde_literal(programa);
 
-		puts(program_data->cantidad_de_funciones);
+		printf("Cant funciones %d\n", program_data->cantidad_de_funciones);
+		printf("Cant eti %d\n", program_data->cantidad_de_etiquetas);
+
 
 		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
 
