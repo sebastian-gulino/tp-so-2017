@@ -139,6 +139,7 @@ void manejarConsola(int i){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
+	t_pcb pcb;
 
 
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
@@ -170,11 +171,7 @@ void manejarConsola(int i){
 
 		log_info(logger,"La Consola %d envió el path: %s", i, programa);
 
-		t_metadata_program *program_data = metadata_desde_literal(programa);
-
-		printf("Cant funciones %d\n", program_data->cantidad_de_funciones);
-		printf("Cant eti %d\n", program_data->cantidad_de_etiquetas);
-
+		pcb = crearPCB(programa, pidk);
 
 		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
 

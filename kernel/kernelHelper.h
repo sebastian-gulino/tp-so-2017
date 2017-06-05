@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <parser/metadata_program.h>
+#include <pcb.h>
 
 typedef struct config_t {
 
