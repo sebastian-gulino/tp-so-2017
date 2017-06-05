@@ -9,8 +9,52 @@
 	#include <stdint.h>
 	#include <commons/log.h>
 	#include <commons/config.h>
+	#include <commons/collections/list.h>
 
 	typedef uint8_t t_tipoEstructura;
+
+	typedef struct IndiceCodigo {
+		t_list * limitesInstrucciones;
+	} t_indice_codigo;
+
+	typedef struct LimitesInstrucciones {
+		unsigned char inicioInstruccion;
+		unsigned char longitudInstruccion;
+	} t_limites_instrucciones;
+
+	typedef struct PosicionMemoria {
+		unsigned char pagina;
+		unsigned char offsetInstruccion;
+		unsigned char longitudInstruccion;
+	} t_posicion_memoria;
+
+	typedef struct Stack {
+		unsigned char posicion;
+		t_list *argumentos;
+		t_list *variables;
+		unsigned char retPos;
+		t_posicion_memoria posicionVariableRetorno;
+	} t_stack;
+
+	typedef struct Argumento {
+		char identificador[2]; // digito del 0 al 9 anteponiendo el signo $
+		t_posicion_memoria posicionMemoria;
+	} t_argumento;
+
+	typedef struct Variable {
+		char identificador; // nombre de la variable
+		t_posicion_memoria posicionMemoria;
+	} t_variable;
+
+	typedef struct PCB {
+		unsigned char PID;
+		unsigned char PC;
+		unsigned char cantidadPaginas;
+		t_list * indiceCodigo;
+		char * indiceEtiquetas;
+		t_list * indiceStack;
+		int exitcode;
+	} t_pcb;
 
 	typedef struct Stream {
 		int length;
