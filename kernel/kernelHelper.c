@@ -171,7 +171,7 @@ void manejarConsola(int i){
 
 		log_info(logger,"La Consola %d envió el path: %s", i, programa);
 
-		pcb = crearPCB(programa, pidk);
+		pcb = crearPCB(programa, pidk, programa);
 
 		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
 
