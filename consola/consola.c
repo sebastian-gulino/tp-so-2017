@@ -10,11 +10,12 @@ int main(int arc, char * argv[]) {
 	//Levanta la configuración del proceso consola
 	configuracion = cargarConfiguracion();
 
-	int socketConsola = conectarAKernel();
+	socketKernel = conectarAKernel();
 
-	pthread_create(&threadCommandHandler, NULL, commandHandler(socketConsola),NULL);
+	// Crea el hilo que funcionará como interfaz de usuario
+	pthread_create(&threadCommandHandler, NULL, commandHandler,NULL);
+
 	pthread_join(threadCommandHandler, NULL);
-
 
 	return 0;
 

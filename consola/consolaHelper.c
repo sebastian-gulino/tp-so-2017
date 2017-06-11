@@ -38,9 +38,7 @@ int conectarAKernel (){
 
 }
 
-int commandHandler(int socket){
-
-
+int commandHandler(){
 
 	printf("Comandos disponibles:\n");
 	printf("iniciar: Dado un path valido da inicio a un programa \n");
@@ -66,13 +64,10 @@ int commandHandler(int socket){
 
 				puts("Ingrese el path del script ANSiSOP...");
 				scanf("%s", path);
-				data_to_send data;
-				data.socket = socket;
-				data.path  = path;
 
-				pthread_create(&threadProgramHandler, NULL, programHandler, &data);
+				pthread_create(&threadProgramHandler, NULL, iniciarPrograma, path);
+
 				pthread_join(threadProgramHandler, NULL);
-
 
 				break;
 
@@ -85,18 +80,16 @@ int commandHandler(int socket){
 
 				confirmation_send.numero = 243;
 
-				socket_enviar(socket, D_STRUCT_NUMERO, &confirmation_send);
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, &confirmation_send);
 
-				socket_recibir(socket,&tipoEstructura,&structRecibido);
+				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
 
 				if(((t_struct_numero *)structRecibido)->numero == 1){
 
 					printf("Consola desconectada...\n");
-					pthread_join(socket, NULL);
-					pthread_exit(&socket);
+					pthread_join(socketKernel, NULL);
+					pthread_exit(&socketKernel);
 				}
-
-
 
 				break;
 
@@ -135,40 +128,74 @@ int commandParser(char* command){
 
 }
 
-void programHandler(void* arg){
+void iniciarPrograma(char* pathArchivo){
 
-	data_to_send * data = arg;
-	t_struct_string path;
-	path.string=data->path;
-	int pid;
-	int size;
+	// Estructura que voy a utilizar para enviar el programa
+	t_struct_programa* programa = malloc(sizeof(t_struct_programa));
 
-	FILE * programa = fopen(data->path, "r");
+	// Abro el script a ejecutar en la ruta especificada
+	FILE * archivo = fopen(pathArchivo, "r");
 
-	fseek(programa, 0L, SEEK_END);
-	size = ftell(programa);
+	// Calculo el tamaño del archivo
+	fseek(archivo, 0L, SEEK_END);
+	int tamanio_archivo = ftell(archivo);
 
-	void * program_code = malloc(size);
+	// Leo el contenido del archivo
+	void * codigo = malloc(tamanio_archivo);
+	fseek(archivo, SEEK_SET, 0);
+	fread(codigo, 1, tamanio_archivo, archivo);
 
-	fseek(programa, SEEK_SET, 0);
+	// Preparo la estructura programa que voy a enviar
+	programa->tamanio = tamanio_archivo;
+	programa->buffer = malloc(tamanio_archivo);
+	programa->base = 1;
+	programa->PID = 1 ;
+	memcpy(programa->buffer,codigo,tamanio_archivo);
 
-	fread(program_code, 1, size, programa);
+	int resultado = socket_enviar(socketKernel, D_STRUCT_PROG, &programa);
 
+	if(resultado == -1) {
 
-	socket_enviar(data->socket, D_STRUCT_STRING, &program_code);
-	socket_recibir(data->socket,&tipoEstructura,&structRecibido);
-	printf("El PID del programa es : %d\n", ((t_struct_numero *)structRecibido)->numero);
-
-	pid = ((t_struct_numero *)structRecibido)->numero;
-
-	while(1){
-
-		socket_recibir(data->socket, &tipoEstructura, &structRecibido);
-
-		printf("Programa %d: %s", pid, ((t_struct_string *)structRecibido)->string);
+		log_info(logger, "No se pudo enviar el programa al Kernel");
+		//TODO matar el hilo
 
 	}
 
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+	int pid;
+
+	if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) != -1){
+
+		pid = ((t_struct_numero *)structRecibido)->numero;
+		log_info(logger,"El PID asignado es %d",pid);
+	};
+
+	free(structRecibido);
+
+	// Cierro el archivo utilizado
+	fclose(archivo);
+
+	// Libero la memoria solicitada con malloc
+	free(programa->buffer);
+	free(codigo);
+	free(programa);
+
+	recibirMensajesPrograma(pid);
+
+
+
+}
+
+void recibirMensajesPrograma(int pid){
+
+	while(1){
+			//Estandarizar el envío de mensajes de impresión
+			socket_recibir(socketKernel, &tipoEstructura, &structRecibido);
+
+			printf("Programa %d: %s", pid, ((t_struct_string *)structRecibido)->string);
+
+		}
 
 }
 

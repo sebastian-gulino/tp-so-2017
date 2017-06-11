@@ -13,7 +13,7 @@ int main(int arc, char * argv[]) {
 	inicializarListas();
 
 	//Conecta el Kernel a la memoria del sistema
-	int socketMemoria = conectarAMemoria();
+	socketMemoria = conectarAMemoria();
 
 	//Conecta el Kernel al filesystem
 	int socketFS = conectarAFS();

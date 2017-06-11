@@ -21,8 +21,6 @@ int crearServidor(int puertoEscucha){
 	        return EXIT_FAILURE;
 	    }
 
-	    log_info(logger,"El socket fue creado exitosamente");
-
 	    //Se instancia la estructura "sockaddr_in" que contiene las direcciones del servidor.
 	    server.sin_family = AF_INET; //Especifica familia de direcciones.
 	    server.sin_addr.s_addr = INADDR_ANY; //Especifica que no se va a hacer bind a una IP especifica.
@@ -55,7 +53,6 @@ int crearCliente(char* ipServidor,int puertoServidor){
 	    {
 	    	log_error(logger,"Error al crear socket cliente");
 	    }
-	    log_info(logger,"Socket generado exitosamente");
 
 	   //Se instancian las direcciones del servidor a conectarse.
 	   server.sin_addr.s_addr = inet_addr(ipServidor); //"127.0.0.1" es la ip de la maquina (localhost).
