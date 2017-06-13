@@ -79,7 +79,7 @@ int aceptarCliente(int socketEscucha){
 	size_sockAddrIn = sizeof(struct sockaddr_in);
 	socketNuevaConexion = accept(socketEscucha, (struct sockaddr *)&suSocket, &size_sockAddrIn);
 	if(socketNuevaConexion < 0) {
-		log_error(logger,"Error al aceptar conexion entrante");
+//		log_error(logger,"Error al aceptar conexion entrante");
 		return -1;
 	}
 	return socketNuevaConexion;
@@ -128,7 +128,8 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	cantBytesRecibidos = recv(socketEmisor, bufferHeader, sizeof(t_header), MSG_WAITALL);	//ReciBo por partes, primero el header.
 	if(cantBytesRecibidos == -1){
 		free(bufferHeader);
-		log_error(logger,"Error al recibir datos\n");
+		//TODO ver como manejar esto al seguir buscando novedades llena el log
+		//log_error(logger,"Error al recibir datos\n");
 		return 0;
 	}
 
@@ -146,7 +147,7 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 		*tipoEstructura = header.tipoEstructura;
 	}
 
-	if(header.length == 0){	//Si recivo mensaje con length 0 retorno 1 y *estructura NULL.
+	if(header.length == 0){	//Si recibo mensaje con length 0 retorno 1 y *estructura NULL.
 		if (estructura != NULL) {
 			*estructura = NULL;
 		}
@@ -154,10 +155,11 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	}
 
 	buffer = malloc(header.length);
-	cantBytesRecibidos = recv(socketEmisor, buffer, header.length, MSG_WAITALL);	//Recivo el resto del mensaje con el tamaño justo de buffer.
+	cantBytesRecibidos = recv(socketEmisor, buffer, header.length, MSG_WAITALL);	//Recibo el resto del mensaje con el tamaño justo de buffer.
 	if(cantBytesRecibidos == -1){
 		free(buffer);
-		log_error(logger,"Error al recibir datos\n");
+		//TODO ver como manejar esto al seguir buscando novedades llena el log
+		//log_error(logger,"Error al recibir datos");
 		return 0;
 	}
 

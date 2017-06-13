@@ -64,54 +64,57 @@ void administrarConexiones(){
 		//Por defecto acepto el cliente que se está conectando
 		int socketCliente = aceptarCliente(socketServidor);
 
-		void* structRecibido;
+		if(socketCliente!=-1){
 
-		t_tipoEstructura tipoStruct;
+			void* structRecibido;
 
-		//Recibo el mensaje para identificar quien es y hacer el handshake
-		int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
+			t_tipoEstructura tipoStruct;
 
-		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
-			log_info(logger,"No se recibio correctamente a quien atendio la memoria");
+			//Recibo el mensaje para identificar quien es y hacer el handshake
+			int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
 
-		} else {
+			if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
+				continue;
 
-			switch(((t_struct_numero*) structRecibido)->numero){
-						case ES_KERNEL:
+			} else {
 
-							log_info(logger,"Se conecto el Kernel");
+				switch(((t_struct_numero*) structRecibido)->numero){
+							case ES_KERNEL:
 
-							list_add(listaKernel, (void*) socketCliente);
+								log_info(logger,"Se conecto el Kernel");
 
-							t_struct_numero* tamanio_pagina = malloc(sizeof(t_struct_numero));
-							tamanio_pagina->numero = configuracion.marcoSize;
+								list_add(listaKernel, (void*) socketCliente);
 
-							socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
-							free(tamanio_pagina);
+								t_struct_numero* tamanio_pagina = malloc(sizeof(t_struct_numero));
+								tamanio_pagina->numero = configuracion.marcoSize;
 
-							pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
+								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
+								free(tamanio_pagina);
 
-							break;
-						case ES_CPU:
+								pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
 
-							log_info(logger,"Se conecto una CPU");
+								break;
+							case ES_CPU:
 
-							list_add(listaCpus, (void*) socketCliente);
+								log_info(logger,"Se conecto una CPU");
 
-							pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
+								list_add(listaCpus, (void*) socketCliente);
 
-							break;
+								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
 
-						default:
+								break;
 
-							log_error(logger,"No se pudo hacer el handshake");
+							default:
 
-							//Ciero el FD del cliente que había aceptado
-							close(socketCliente);
+								log_error(logger,"No se pudo hacer el handshake");
+
+								//Ciero el FD del cliente que había aceptado
+								close(socketCliente);
+				}
 			}
-		}
 
-		free(structRecibido);
+			free(structRecibido);
+		}
 	}
 }
 
@@ -129,44 +132,47 @@ void manejarCpu(int i){
 
 void manejarKernel(int socketKernel){
 
-	t_tipoEstructura tipoEstructura;
-	void * structRecibido;
+	while(1) {
 
-	if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
 
-		log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
-		removerClientePorCierreDeConexion(socketKernel,listaKernel);
+		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
 
-	} else {
+			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
+			removerClientePorCierreDeConexion(socketKernel,listaKernel);
 
-		switch(tipoEstructura){
-		case D_STRUCT_MALC:
+		} else {
 
-			log_info(logger,"Se solicita crear segmento para el PID %i",
-					((t_struct_malloc* )structRecibido)->PID);
+			switch(tipoEstructura){
+			case D_STRUCT_MALC:
 
-			// TODO ver con edu que pasa con los valores no enteros de paginas
-			int paginasNecesarias =
-					((t_struct_malloc* )structRecibido)->tamano_segmento / configuracion.marcoSize;
+				log_info(logger,"Se solicita crear segmento para el PID %i",
+						((t_struct_malloc* )structRecibido)->PID);
 
-			int resultado = asignarPaginasProceso(((t_struct_malloc* )structRecibido)->PID, paginasNecesarias);
+				// TODO ver con edu que pasa con los valores no enteros de paginas
+				int paginasNecesarias =
+						((t_struct_malloc* )structRecibido)->tamano_segmento / configuracion.marcoSize;
 
-			//Le comunico al kernel si se pudo realizar operacion
-			t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
-			respuestaAsignacion->numero = resultado;
-			socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+				int resultado = asignarPaginasProceso(((t_struct_malloc* )structRecibido)->PID, paginasNecesarias);
 
-			if(resultado == -1){
-			log_error(logger,"No se pudo crear el segmento solicitado");
-			} else {
-			log_info(logger,"Se creo con exito el segmento solicitado");
+				//Le comunico al kernel si se pudo realizar operacion
+				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
+				respuestaAsignacion->numero = resultado;
+					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+
+					if(resultado == -1){
+					log_error(logger,"No se pudo crear el segmento solicitado");
+					} else {
+					log_info(logger,"Se creo con exito el segmento solicitado");
+					}
+
+					free(respuestaAsignacion);
+
+					break;
+
+				}
 			}
-
-			free(respuestaAsignacion);
-
-			break;
-
-		}
 	}
 }
 
@@ -193,7 +199,7 @@ void liberarMemoriaPrincipal(){
 
 void crearEstructurasAdministrativas(){
 	int i;
-	memoriaPrincipal = &memoriaPrincipal;
+
 	tablaInvertida = (t_filaTablaInvertida*)memoriaPrincipal;
 	int limit = atoi(configuracion.marcos);
 	for(i = 0; i < limit; i++){
@@ -201,6 +207,7 @@ void crearEstructurasAdministrativas(){
 		tablaInvertida[i].frame = i;
 	}
 	int tamanioFrame = configuracion.marcoSize;
+
 	int bytesTablaInvertida = sizeof(t_filaTablaInvertida)*500;
 	int framesTablaInvertida = bytesTablaInvertida/tamanioFrame;
 	if(bytesTablaInvertida%tamanioFrame != 0){
@@ -329,7 +336,7 @@ int asignarPaginasProceso(int pid, int numeroFramesPedidos){
 			int indiceFrameLibre = obtenerPrimerFrameLibre();
 			tablaInvertida[indiceFrameLibre].pid = pid;
 		}
-
+		//TODO no tiene que retornar 1 sino la direccion del segmento reservado
 		log_info(logger,"Se reservaron %d frames para el proceso %d",numeroFramesPedidos,pid);
 		return 1;
 
@@ -360,6 +367,6 @@ void imprimirTablaPaginas(){
 	int i;
 	int limite = atoi(configuracion.marcos);
 	for(i = 0; i < limite; i++){
-		printf("Frame: %d  PID: %d  #Pagina: %d",tablaInvertida[i].pagina,tablaInvertida[i].pid,tablaInvertida[i].pagina);
+		printf("Frame: %d  PID: %d  #Pagina: %d \n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
 	}
 }

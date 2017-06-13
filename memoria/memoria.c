@@ -2,7 +2,7 @@
 
 int main(void) {
 
-	//Genera archivo log para poder escribir el trace de toda la ejecución
+	//Genera archivo log pars poder escribir el trace de toda la ejecución
 	logger = malloc(sizeof(t_log));
 	crearLog("/MEMORIA");
 
@@ -11,10 +11,6 @@ int main(void) {
 
 	//Crea la lista de clientes conectados para cpu y kernel
 	inicializarListas();
-
-	crearThreadAtenderConexiones();
-
-	pthread_join(threadAtenderConexiones, NULL);
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
@@ -30,10 +26,13 @@ int main(void) {
 //	char* aver = (char*)pagina;
 //	printf("%s",aver); //Leo lo que escribi en la página 6
 
-	imprimirTablaPaginas();
+//	TODO descomentar imprimirTablaPaginas();
+
 	liberarMemoriaPrincipal();
 
+	crearThreadAtenderConexiones();
 
+	pthread_join(threadAtenderConexiones, NULL);
 
 
 	return 0;

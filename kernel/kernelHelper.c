@@ -158,10 +158,10 @@ void manejarConsola(int socketConsola){
 			t_pcb pcb = crearPCB(programa, obtener_pid(), tamanio_programa);
 
 			//Envio el process id
-			t_struct_numero* pid = malloc(sizeof(t_struct_numero));
-			pid->numero = pcb.PID;
-			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid);
-			free(pid);
+			t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
+			pid_struct->numero = pcb.PID;
+			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
+			free(pid_struct);
 
 			break;
 
@@ -330,6 +330,7 @@ t_pcb crearPCB(char* programa, int PID, int tamanioPrograma) {
 
 	pcb.cantidadPaginas = sizeof(programa) % tamanio_pagina;
 	pcb.exitcode = 0;
+	pcb.PID=PID;
 
 	int programCounter = 0;
 
@@ -396,9 +397,11 @@ int solicitarSegmentoCodigo(int pid, int tam_programa){
 	socket_recibir(socketMemoria, &tipoStruct, &structRecibido);
 
 	if(tipoStruct == D_STRUCT_NUMERO ){
+
 		respuesta = ((t_struct_numero *) structRecibido)->numero;
 		if (respuesta != -1){
 			dir_codigo = ((t_struct_numero *) structRecibido)->numero;
+			log_info(logger,"La direccion del segmento de codigo es %d",dir_codigo);
 		}else{
 			// TODO Imprimir en la consola que no hay espacio para el codigo
 			free(structRecibido);
@@ -406,7 +409,7 @@ int solicitarSegmentoCodigo(int pid, int tam_programa){
 		}
 	} else {
 		printf("No se recibio la direccion del segmento de codigo del proceso\n");
-		free(structRecibido);
+//		free(structRecibido);
 		return 0;
 	}
 	free(structRecibido);
@@ -442,6 +445,7 @@ int solicitarSegmentoStack(int pid){
 		respuesta = ((t_struct_numero *) structRecibido)->numero;
 		if (respuesta != -1){
 			dir_stack = ((t_struct_numero *) structRecibido)->numero;
+			log_info(logger,"La direccion del segmento de stack es %d",dir_stack);
 		}else{
 			// TODO Imprimir en la consola que no hay espacio para el stack
 			// TODO Eliminar el segmento de codigo solicitado
