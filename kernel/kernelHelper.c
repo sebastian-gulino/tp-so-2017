@@ -1,13 +1,9 @@
 #include "kernelHelper.h"
 
-int pidk = 0;
-
 t_configuracion cargarConfiguracion() {
 
 	t_config * config;
 	t_configuracion configuracion;
-
-
 
 	config = config_create("./config.txt");
 
@@ -56,8 +52,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.sharedVars = strdup(config_get_string_value(config, "SHARED_VARS"));
 	log_info(logger,"SHARED_VARS = %s",configuracion.sharedVars);
 
-	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
-	log_info(logger,"STACK_SIZE = %s",configuracion.stackSize);
+	configuracion.stackSize = config_get_int_value(config, "STACK_SIZE");
+	log_info(logger,"STACK_SIZE = %d",configuracion.stackSize);
 
 	configuracion.puertoEscucha = config_get_int_value(config,"PUERTO_ESCUCHA");
 	log_info(logger,"PUERTO_ESCUCHA = %d \n",configuracion.puertoEscucha);
@@ -68,6 +64,7 @@ t_configuracion cargarConfiguracion() {
 void inicializarListas(){
 	listaConsolas = list_create();
 	listaCpus = list_create();
+	cantidad_pid = 1;
 }
 
 void manejarNuevaConexion(int listener, int *fdmax){
@@ -135,47 +132,59 @@ void manejarCpu(int i){
 	}
 };
 
-void manejarConsola(int i){
+void manejarConsola(int socketConsola){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
-	t_pcb pcb;
 
+	if (socket_recibir(socketConsola,&tipoEstructura,&structRecibido) == -1) {
 
-	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"La Consola %d cerró la conexión.",i);
-		removerClientePorCierreDeConexion(i,listaConsolas,&master_consola);
+		log_info(logger,"La Consola %d cerró la conexión.",socketConsola);
+		removerClientePorCierreDeConexion(socketConsola,listaConsolas,&master_consola);
+		//TODO esta consola podría tener algun proceso en ejecucion hay que cancelarlo de la cpu
+
 	} else {
 
-		if(((t_struct_numero *)structRecibido)->numero == 243){
-			t_struct_numero confirmation_send;
+		switch(tipoEstructura){
+		case D_STRUCT_PROG: ;
+			// La consola envia un programa para ejecutar
 
-			if (programKiller(i) == 0){
+			int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
 
-				confirmation_send.numero = 0;
+			char * programa = malloc(tamanio_programa);
 
-				socket_enviar(i, D_STRUCT_NUMERO, &confirmation_send);
+			memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
 
-			} else {
+			t_pcb pcb = crearPCB(programa, obtener_pid(), tamanio_programa);
 
-				confirmation_send.numero = 1;
-				socket_enviar(i, D_STRUCT_NUMERO, &confirmation_send);
-			}
+			//Envio el process id
+			t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
+			pid_struct->numero = pcb.PID;
+			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
+			free(pid_struct);
+
+			break;
 
 		}
 
-		t_struct_numero pid_send;
-		pid_send.numero = pidk;
-		char * programa = malloc(sizeof(((t_struct_string *)structRecibido)->string));
-		programa = ((t_struct_string *)structRecibido)->string;
-
-		log_info(logger,"La Consola %d envió el path: %s", i, programa);
-
-		pcb = crearPCB(programa, pidk);
-
-		socket_enviar(i, D_STRUCT_NUMERO, &pid_send);
-
-		pidk++;
+//		TODO para desconectar la consola hay que verificar si el programa esta en CPU,
+//		cancelarlo eliminarlo de las colas, etc.
+//		if(((t_struct_numero *)structRecibido)->numero == 243){
+//			t_struct_numero confirmation_send;
+//
+//			if (programKiller(socketConsola) == 0){
+//
+//				confirmation_send.numero = 0;
+//
+//				socket_enviar(socketConsola, D_STRUCT_NUMERO, &confirmation_send);
+//
+//			} else {
+//
+//				confirmation_send.numero = 1;
+//				socket_enviar(socketConsola, D_STRUCT_NUMERO, &confirmation_send);
+//			}
+//
+//		}
 
 		}
 
@@ -236,12 +245,27 @@ int conectarAMemoria (){
 
 	//Genera el socket cliente y lo conecta a la memoria
 	int socketCliente = crearCliente(configuracion.ipMemoria,configuracion.puertoMemoria);
+	log_info(logger,"Kernel conectado con la memoria");
 
 	//Se realiza el handshake con la memoria
 	t_struct_numero* es_kernel = malloc(sizeof(t_struct_numero));
-	es_kernel->numero = ES_CONSOLA;
+	es_kernel->numero = ES_KERNEL;
 	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_kernel);
 	free(es_kernel);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	// Se recibe el tamaño de pagina de la memoria
+	int resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
+
+	if(resultado == -1){
+		log_info(logger,"No se recibió el tamaño de pagina");
+	} else{
+		tamanio_pagina = ((t_struct_numero*) structRecibido)->numero;
+		free(structRecibido);
+		log_info(logger,"El tamaño de pagina es %d",tamanio_pagina);
+	}
 
 	return socketCliente;
 
@@ -287,3 +311,152 @@ int programKiller(int i){
 	return 1;
 }
 
+
+int obtener_pid(){
+
+	int pid = cantidad_pid++;
+
+	return pid;
+}
+
+t_pcb crearPCB(char* programa, int PID, int tamanioPrograma) {
+
+	t_metadata_program *metadata = metadata_desde_literal(programa);
+
+	malloc(sizeof(t_pcb));
+
+	indiceCodigo = list_create();
+	indiceStack = list_create();
+
+	pcb.cantidadPaginas = sizeof(programa) % tamanio_pagina;
+	pcb.exitcode = 0;
+	pcb.PID=PID;
+
+	int programCounter = 0;
+
+	while (programCounter!= metadata->instrucciones_size) {
+
+		malloc(sizeof(limitesInstrucciones));
+		limitesInstrucciones.inicioInstruccion = metadata->instrucciones_serializado[programCounter].start;
+		limitesInstrucciones.longitudInstruccion = metadata->instrucciones_serializado[programCounter].offset;
+
+		list_add(indiceCodigo, (void*) &limitesInstrucciones);
+
+		programCounter++;
+	}
+
+	pcb.indiceCodigo = indiceCodigo;
+	pcb.indiceEtiquetas = metadata->etiquetas;
+	pcb.indiceStack = indiceStack;
+
+	metadata_destruir(metadata);
+
+	int segmentoCodigo = solicitarSegmentoCodigo(pcb.PID, tamanioPrograma);
+
+	int segmentoStack = solicitarSegmentoStack(pcb.PID);
+
+	return pcb;
+}
+
+t_stack crearStack(unsigned char pos, t_list * argumentos, t_list * variables, unsigned char retPos, t_posicion_memoria retVar) {
+	t_stack stack;
+	malloc(sizeof(t_stack));
+	stack.posicion = pos;
+	stack.argumentos = argumentos;
+	stack.variables = variables;
+	stack.retPos = retPos;
+	stack.posicionVariableRetorno = retVar;
+
+	return stack;
+
+}
+
+int solicitarSegmentoCodigo(int pid, int tam_programa){
+
+	// Pido a la memoria un segmento para el código
+	t_struct_malloc* seg_codigo = malloc(sizeof(t_struct_malloc));
+	seg_codigo->PID = pid;
+	seg_codigo->tamano_segmento = tam_programa;
+
+	// Envío la solicitud de memoria con el tamaño del programa que quiero ejecutar
+	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_codigo);
+
+	if(resultado != 1){
+		printf("No se pudo crear segmento de codigo\n");
+		return 0;
+	}
+	free(seg_codigo);
+
+	void * structRecibido;
+	t_tipoEstructura tipoStruct;
+
+	uint32_t dir_codigo;
+	int respuesta;
+
+	// Recibo la direccion del nuevo segmento de código
+	socket_recibir(socketMemoria, &tipoStruct, &structRecibido);
+
+	if(tipoStruct == D_STRUCT_NUMERO ){
+
+		respuesta = ((t_struct_numero *) structRecibido)->numero;
+		if (respuesta != -1){
+			dir_codigo = ((t_struct_numero *) structRecibido)->numero;
+			log_info(logger,"La direccion del segmento de codigo es %d",dir_codigo);
+		}else{
+			// TODO Imprimir en la consola que no hay espacio para el codigo
+			free(structRecibido);
+			return 0;
+		}
+	} else {
+		printf("No se recibio la direccion del segmento de codigo del proceso\n");
+//		free(structRecibido);
+		return 0;
+	}
+	free(structRecibido);
+	return dir_codigo;
+}
+
+int solicitarSegmentoStack(int pid){
+	// Pido a la memoria un segmento para el stack
+	t_struct_malloc* seg_stack = malloc(sizeof(t_struct_malloc));
+	seg_stack->PID = pid;
+	seg_stack->tamano_segmento = configuracion.stackSize;
+
+	// Envío la solicitud de memoria con el tamaño de stack definido por conf
+	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_stack);
+
+	if(resultado != 1){
+		log_info(logger,"No se pudo crear el segmento de stack");
+		//TODO eliminar el segmento de codigo solicitado
+		return 0;
+	}
+	free(seg_stack);
+
+	void * structRecibido;
+	t_tipoEstructura tipoStruct;
+
+	uint32_t dir_stack;
+	int respuesta;
+
+	// Recibo la direccion del nuevo segmento de código
+	socket_recibir(socketMemoria, &tipoStruct, &structRecibido);
+
+	if(tipoStruct == D_STRUCT_NUMERO ){
+		respuesta = ((t_struct_numero *) structRecibido)->numero;
+		if (respuesta != -1){
+			dir_stack = ((t_struct_numero *) structRecibido)->numero;
+			log_info(logger,"La direccion del segmento de stack es %d",dir_stack);
+		}else{
+			// TODO Imprimir en la consola que no hay espacio para el stack
+			// TODO Eliminar el segmento de codigo solicitado
+			free(structRecibido);
+			return 0;
+		}
+	} else {
+		printf("No se recibio la direccion del segmento de codigo del proceso\n");
+		free(structRecibido);
+		return 0;
+	}
+	free(structRecibido);
+	return dir_stack;
+}

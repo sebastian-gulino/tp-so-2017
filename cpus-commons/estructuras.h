@@ -47,7 +47,7 @@
 	} t_variable;
 
 	typedef struct PCB {
-		unsigned char PID;
+		int PID;
 		unsigned char PC;
 		unsigned char cantidadPaginas;
 		t_list * indiceCodigo;
@@ -71,6 +71,12 @@
 		D_STRUCT_NUMERO=1,
 		D_STRUCT_CHAR=2,
 		D_STRUCT_STRING=3,
+
+		//Comunicacion Kernel - Memoria
+		D_STRUCT_MALC=4,
+
+		//Comunicacion Consola - Kernel
+		D_STRUCT_PROG=5,
 
 		//Handshake
 		ES_KERNEL=100,
@@ -102,8 +108,19 @@
 		char * string;
 	} __attribute__ ((__packed__)) t_struct_string;
 
-	//MEMORIA
+	typedef struct struct_malloc{
+		uint32_t PID;
+		uint32_t tamano_segmento;
+	}__attribute__((__packed__)) t_struct_malloc;
 
+	typedef struct struct_env_bytes{
+			uint32_t base;
+			uint32_t PID;
+			uint32_t tamanio;
+			void* buffer;
+	}__attribute__ ((__packed__)) t_struct_programa;
+
+	//MEMORIA
 	typedef struct FilaTablaInvertida {
 		int frame;
 		int pid;

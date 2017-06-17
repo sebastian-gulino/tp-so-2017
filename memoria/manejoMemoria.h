@@ -18,12 +18,12 @@ typedef struct config_t {
 
 	int puerto;
 	char * marcos;
-	char * marcoSize;
+	int32_t marcoSize;
 	char * entradasCache;
 	char * cacheXProc;
 	char * reemplazoCache;
 	char * retardoMemoria;
-	char * stackSize;
+	int32_t stackSize;
 
 } t_configuracion;
 
@@ -63,7 +63,7 @@ void administrarConexiones();
 
 void aplicarRetardo(int retardo);
 
-void asignarPaginasProceso(int pid, int numeroFramesPedidos);
+int asignarPaginasProceso(int pid, int numeroFramesPedidos);
 
 void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames);
 
