@@ -56,58 +56,56 @@ int commandHandler(){
 
 		scanf("%s", value);
 
-		char * path = malloc(200);
-
 		switch(commandParser(value)){
 
-			case 1:
+			case 1:;
 
 				puts("Ingrese el path del script ANSiSOP...");
+
+				char * path = malloc(200);
 				scanf("%s", path);
 
-				pthread_create(&threadProgramHandler, NULL, iniciarPrograma, path);
+				pthread_t hiloPrograma;
 
-				pthread_join(threadProgramHandler, NULL);
+				pthread_create(&hiloPrograma, NULL, iniciarPrograma, path);
+
+				pthread_join(hiloPrograma, NULL);
+
+				free(path);
 
 				break;
 
 			case 2:
-				printf("Finaliza programa\n");
+
+				puts("Ingrese el Process ID que desea finalizar");
+
+				int pidFinalizar;
+
+				scanf("%i",&pidFinalizar);
+
+				finalizarPrograma(pidFinalizar);
 
 				break;
 
 			case 3:
 
-				confirmation_send.numero = 243;
-
-				socket_enviar(socketKernel, D_STRUCT_NUMERO, &confirmation_send);
-
-				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
-
-				if(((t_struct_numero *)structRecibido)->numero == 1){
-
-					printf("Consola desconectada...\n");
-					pthread_join(socketKernel, NULL);
-					pthread_exit(&socketKernel);
-				}
+				//TODO implementar desconectar consola
 
 				break;
 
 			case 4:
-				printf("Limpia consola\n");
+
+				system("clear");
+				log_info(logger,"Se envió la instrucción para limpiar los mensajes");
 
 				break;
 
 			default:
 				printf("Comando invalido...\n");
-
 				break;
-
 			}
-
 		free(value);
 	}
-
 	return 0;
 }
 
@@ -129,6 +127,10 @@ int commandParser(char* command){
 }
 
 void iniciarPrograma(char* pathArchivo){
+
+	printf("hilo programa id: %d \n",pthread_self());
+
+	int socketKernel = conectarAKernel();
 
 	// Estructura que voy a utilizar para enviar el programa
 	t_struct_programa* programa = malloc(sizeof(t_struct_programa));
@@ -156,20 +158,34 @@ void iniciarPrograma(char* pathArchivo){
 
 	if(resultado == -1) {
 
-		log_info(logger, "No se pudo enviar el programa al Kernel");
-		//TODO matar el hilo
+		log_info(logger, "No se pudo enviar el programa al Kernel... Cierro el hilo");
+		close(socketKernel);
+		pthread_cancel(pthread_self());
 
 	}
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
-	int pid;
 
-	if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) != -1){
+	if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1){
 
-		pid = ((t_struct_numero *)structRecibido)->numero;
-		log_info(logger,"El PID asignado es %d",pid);
+		log_info(logger, "No se pudo recibir el PID... Cierro el hilo");
+		close(socketKernel);
+		pthread_cancel(pthread_self());
+
+	} else if (((t_struct_numero *)structRecibido)->numero == -1) {
+		log_info(logger, "El kernel no pudo crear el proceso... Cierro el hilo");
+		close(socketKernel);
+		pthread_cancel(pthread_self());
 	};
+
+	t_proceso* proceso;
+
+	proceso->pid = ((t_struct_numero *)structRecibido)->numero;
+	proceso->inicioEjec = time(&rawtime);
+	proceso->cantImpresiones = 0;
+	proceso->socketKernel = socketKernel;
+	proceso->hilo = pthread_self();
 
 	free(structRecibido);
 
@@ -181,22 +197,121 @@ void iniciarPrograma(char* pathArchivo){
 	free(codigo);
 	free(programa);
 
-	recibirMensajesPrograma(pid);
+	list_add(listaProcesos, proceso);
 
-
+	recibirMensajes(proceso);
 
 }
 
-void recibirMensajesPrograma(int pid){
+void recibirMensajes(t_proceso* proceso){
 
-	while(1){
-			//Estandarizar el envío de mensajes de impresión
-			socket_recibir(socketKernel, &tipoEstructura, &structRecibido);
+	int programaEjecutando = 1;
 
-			printf("Programa %d: %s", pid, ((t_struct_string *)structRecibido)->string);
+	while(programaEjecutando){
 
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+
+		if (socket_recibir(proceso->socketKernel, &tipoEstructura, &structRecibido) != -1) {
+
+			switch(tipoEstructura){
+			case D_STRUCT_IMPR:
+				;
+				//Recibi un mensaje que debo imprimir por pantalla
+				t_tipoEstructura tipoEstructura2;
+				void * structRecibido2;
+
+				socket_recibir(proceso->socketKernel, &tipoEstructura2, &structRecibido2);
+
+				int length = ((t_struct_numero*) structRecibido2)->numero;
+				char* texto = ((t_struct_string*)structRecibido)->string;
+
+				texto[length] = '\0';
+
+				//Aumento el contador de impresiones
+				proceso->cantImpresiones++;
+
+				printf("El proceso con PID:%d informa %s\n",proceso->pid, texto);
+				log_info(logger,"El proceso con PID: %d ejecutando en el hilo: %d informa %s\n",
+						proceso->pid, proceso->hilo, texto);
+
+				free(structRecibido2);
+				free(structRecibido);
+
+				break;
+			case D_STRUCT_FIN_PROG:
+				//El programa finalizo correctamente
+				printf("El proceso con PID:%d finalizó correctamente \n",proceso->pid);
+				free(structRecibido);
+
+				proceso->finEjec =time(&rawtime);
+				double tiempoEjecucion = difftime(proceso->finEjec, proceso->inicioEjec);
+
+				terminarProceso(proceso);
+
+				programaEjecutando = 0;
+			}
+		}
+	}
+}
+
+void inicializarListas(){
+	listaProcesos = list_create();
+	cantidadThreads = 0;
+}
+
+void finalizarPrograma(int pid){
+
+	bool es_el_pid_consola(t_proceso* proceso){
+		return (proceso->pid == pid);
+	}
+
+	t_proceso* procesoFinalizar = list_find(listaProcesos, (void *)es_el_pid_consola);
+
+	//Envio el PID del programa que deseo eliminar
+	t_struct_numero* pidFinalizar = malloc(sizeof(t_struct_numero));
+	pidFinalizar->numero = procesoFinalizar->pid;
+	socket_enviar(procesoFinalizar->socketKernel, D_STRUCT_FIN_PROG, pidFinalizar);
+	free(pidFinalizar);
+
+	int programaFinalizo = 0;
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	while (programaFinalizo==0){
+
+		if (socket_recibir(procesoFinalizar->socketKernel,&tipoEstructura,&structRecibido) == -1){
+
+			log_info(logger, "No se pudo finalizar el programa");
+
+		} else {
+			programaFinalizo = 1;
+			terminarProceso(procesoFinalizar);
 		}
 
+	}
+
 }
 
+void terminarProceso(t_proceso* proceso){
 
+	bool es_el_pid_consola(t_proceso* proc){
+		return (proc->pid == proceso->pid);
+	}
+	// Elimino el proceso de la lista de procesos en ejecución
+	list_remove_by_condition(listaProcesos,(void*)es_el_pid_consola);
+
+	proceso->finEjec =time(&rawtime);
+
+	double tiempoEjecucion = difftime(proceso->finEjec, proceso->inicioEjec);
+
+	printf("Inicio de ejecución: %s", asctime(localtime(&proceso->inicioEjec)));
+	printf("Fin de ejecución: %s", asctime(localtime(&proceso->finEjec)));
+	printf("Cantidad de impresiones: %d",proceso->cantImpresiones);
+	printf("Tiempo total de ejecución: %d segundos",tiempoEjecucion);
+
+	// Cierro el socket correspondiente al hilo programa y mato el thread
+	close(proceso->socketKernel);
+	pthread_cancel(proceso->hilo);
+}

@@ -1,15 +1,16 @@
 #ifndef ESTRUCTURAS_H_
 #define ESTRUCTURAS_H_
 
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-	#include <sys/socket.h>
-	#include <errno.h>
-	#include <stdint.h>
-	#include <commons/log.h>
-	#include <commons/config.h>
-	#include <commons/collections/list.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <stdint.h>
+#include <commons/log.h>
+#include <commons/config.h>
+#include <commons/collections/list.h>
+#include <commons/collections/queue.h>
 
 	typedef uint8_t t_tipoEstructura;
 
@@ -77,6 +78,8 @@
 
 		//Comunicacion Consola - Kernel
 		D_STRUCT_PROG=5,
+		D_STRUCT_IMPR=6,
+		D_STRUCT_FIN_PROG=7,
 
 		//Handshake
 		ES_KERNEL=100,

@@ -52,6 +52,15 @@ int socketMemoria;
 
 t_list *listaCpus;
 t_list *listaConsolas;
+t_list *listaProcesos;
+
+//Declaro las listas para manejar la planificación
+t_queue* cola_new;
+t_queue* cola_exit;
+t_list* cola_ready;
+t_list* cola_block;
+t_list* cola_exec;
+
 
 pthread_t threadAtenderConexiones;
 
