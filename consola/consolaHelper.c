@@ -20,6 +20,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
 	log_info(logger,"PUERTO_KERNEL = %d \n",configuracion.puertoKernel);
 
+	config_destroy(config);
+
 	return configuracion;
 }
 
@@ -38,7 +40,7 @@ int conectarAKernel (){
 
 }
 
-int commandHandler(){
+void commandHandler(){
 
 	printf("Comandos disponibles:\n");
 	printf("iniciar: Dado un path valido da inicio a un programa \n");
@@ -47,70 +49,62 @@ int commandHandler(){
 	printf("limpiar: Limpia los mensajes en la consola\n");
 	printf("\n");
 
+	while(consolaConectada){
 
-	while(1){
-
+		puts("Ingrese algún comando no mayor a 50 caracteres");
 		char * value = malloc(50);
-
-		printf("Ingrese algún comando...\n");
-
 		scanf("%s", value);
 
 		switch(commandParser(value)){
-
 			case 1:;
-
 				puts("Ingrese el path del script ANSiSOP...");
-
 				char * path = malloc(200);
 				scanf("%s", path);
 
 				pthread_t hiloPrograma;
 
-				pthread_create(&hiloPrograma, NULL, iniciarPrograma, path);
-
+				pthread_create(&hiloPrograma, NULL, (void*)&iniciarPrograma, path);
 				pthread_join(hiloPrograma, NULL);
 
 				free(path);
 
 				break;
-
 			case 2:
-
 				puts("Ingrese el Process ID que desea finalizar");
-
 				int pidFinalizar;
-
 				scanf("%i",&pidFinalizar);
 
 				finalizarPrograma(pidFinalizar);
 
 				break;
-
 			case 3:
+				pthread_mutex_lock(&mutex_log);
+				log_info(logger,"Se envió la instrucción para desconectar la consola");
+				pthread_mutex_unlock(&mutex_log);
 
-				//TODO implementar desconectar consola
+				manejarDesconexion();
 
+				consolaConectada=0;
 				break;
-
 			case 4:
 
 				system("clear");
+				pthread_mutex_lock(&mutex_log);
 				log_info(logger,"Se envió la instrucción para limpiar los mensajes");
+				pthread_mutex_unlock(&mutex_log);
 
 				break;
-
 			default:
 				printf("Comando invalido...\n");
 				break;
 			}
 		free(value);
 	}
-	return 0;
 }
 
 int commandParser(char* command){
 
+	string_to_upper(command);
 
 	if(strcmp(command, "INICIAR") == 0){
 		return 1;
@@ -126,9 +120,18 @@ int commandParser(char* command){
 
 }
 
-void iniciarPrograma(char* pathArchivo){
+void manejarSignal(int sign){
+	switch(sign){
+	case SIGUSR1:
+		pthread_exit(0);
+		break;
+	case SIGINT:
+		manejarDesconexion();
+		break;
+	}
+}
 
-	printf("hilo programa id: %d \n",pthread_self());
+void iniciarPrograma(char* pathArchivo){
 
 	int socketKernel = conectarAKernel();
 
@@ -158,7 +161,10 @@ void iniciarPrograma(char* pathArchivo){
 
 	if(resultado == -1) {
 
+		pthread_mutex_lock(&mutex_log);
 		log_info(logger, "No se pudo enviar el programa al Kernel... Cierro el hilo");
+		pthread_mutex_unlock(&mutex_log);
+
 		close(socketKernel);
 		pthread_cancel(pthread_self());
 
@@ -169,12 +175,19 @@ void iniciarPrograma(char* pathArchivo){
 
 	if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1){
 
+		pthread_mutex_lock(&mutex_log);
 		log_info(logger, "No se pudo recibir el PID... Cierro el hilo");
+		pthread_mutex_unlock(&mutex_log);
+
 		close(socketKernel);
 		pthread_cancel(pthread_self());
 
 	} else if (((t_struct_numero *)structRecibido)->numero == -1) {
+
+		pthread_mutex_lock(&mutex_log);
 		log_info(logger, "El kernel no pudo crear el proceso... Cierro el hilo");
+		pthread_mutex_unlock(&mutex_log);
+
 		close(socketKernel);
 		pthread_cancel(pthread_self());
 	};
@@ -186,6 +199,10 @@ void iniciarPrograma(char* pathArchivo){
 	proceso->cantImpresiones = 0;
 	proceso->socketKernel = socketKernel;
 	proceso->hilo = pthread_self();
+
+	pthread_mutex_lock(&mutex_log);
+	log_info(logger, "Inicia el proceso PID %d",proceso->pid);
+	pthread_mutex_unlock(&mutex_log);
 
 	free(structRecibido);
 
@@ -212,6 +229,8 @@ void recibirMensajes(t_proceso* proceso){
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
 
+		signal(SIGUSR1, manejarSignal);
+
 		if (socket_recibir(proceso->socketKernel, &tipoEstructura, &structRecibido) != -1) {
 
 			switch(tipoEstructura){
@@ -232,8 +251,11 @@ void recibirMensajes(t_proceso* proceso){
 				proceso->cantImpresiones++;
 
 				printf("El proceso con PID:%d informa %s\n",proceso->pid, texto);
+
+				pthread_mutex_lock(&mutex_log);
 				log_info(logger,"El proceso con PID: %d ejecutando en el hilo: %d informa %s\n",
 						proceso->pid, proceso->hilo, texto);
+				pthread_mutex_unlock(&mutex_log);
 
 				free(structRecibido2);
 				free(structRecibido);
@@ -244,9 +266,6 @@ void recibirMensajes(t_proceso* proceso){
 				printf("El proceso con PID:%d finalizó correctamente \n",proceso->pid);
 				free(structRecibido);
 
-				proceso->finEjec =time(&rawtime);
-				double tiempoEjecucion = difftime(proceso->finEjec, proceso->inicioEjec);
-
 				terminarProceso(proceso);
 
 				programaEjecutando = 0;
@@ -255,9 +274,11 @@ void recibirMensajes(t_proceso* proceso){
 	}
 }
 
-void inicializarListas(){
+void inicializarEstructuras(){
 	listaProcesos = list_create();
 	cantidadThreads = 0;
+	consolaConectada = 1;
+	pthread_mutex_init(&mutex_log, NULL);
 }
 
 void finalizarPrograma(int pid){
@@ -283,7 +304,9 @@ void finalizarPrograma(int pid){
 
 		if (socket_recibir(procesoFinalizar->socketKernel,&tipoEstructura,&structRecibido) == -1){
 
+			pthread_mutex_lock(&mutex_log);
 			log_info(logger, "No se pudo finalizar el programa");
+			pthread_mutex_unlock(&mutex_log);
 
 		} else {
 			programaFinalizo = 1;
@@ -309,9 +332,22 @@ void terminarProceso(t_proceso* proceso){
 	printf("Inicio de ejecución: %s", asctime(localtime(&proceso->inicioEjec)));
 	printf("Fin de ejecución: %s", asctime(localtime(&proceso->finEjec)));
 	printf("Cantidad de impresiones: %d",proceso->cantImpresiones);
-	printf("Tiempo total de ejecución: %d segundos",tiempoEjecucion);
+	printf("Tiempo total de ejecución: %f segundos",tiempoEjecucion);
 
 	// Cierro el socket correspondiente al hilo programa y mato el thread
 	close(proceso->socketKernel);
 	pthread_cancel(proceso->hilo);
+}
+
+void manejarDesconexion(){
+	log_destroy(logger);
+
+	void matarHiloSocket (t_proceso * proceso){
+		pthread_kill(proceso->hilo,SIGUSR1);
+		close(proceso->socketKernel);
+	}
+
+	list_iterate(listaProcesos, (void*) matarHiloSocket);
+
+	exit(EXIT_SUCCESS);
 }

@@ -42,6 +42,11 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_PROG:
 				paquete = serializeStruct_prog((t_struct_programa *) estructuraOrigen);
 				break;
+			case D_STRUCT_IMPR:
+				paquete = serializeStruct_impr((t_struct_string *) estructuraOrigen);
+				break;
+			case D_STRUCT_FIN_PROG:
+				paquete = serializeStruct_finProg((t_struct_numero *) estructuraOrigen);
 		}
 
 	return paquete;
@@ -139,6 +144,38 @@ t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen){
 
 }
 
+t_stream * serializeStruct_impr(t_struct_string * estructuraOrigen){
+
+	t_stream * paquete = malloc(sizeof(t_stream));		//creo el paquete
+
+	paquete->length = sizeof(t_header) + strlen(estructuraOrigen->string) + 1;
+
+	char * data = crearDataConHeader(D_STRUCT_IMPR, paquete->length); //creo el data
+
+	int tamanoTotal = sizeof(t_header);
+
+	memcpy(data + tamanoTotal, estructuraOrigen->string, strlen(estructuraOrigen->string)+1);		//copio a data el string.
+
+	paquete->data = data;
+
+	return paquete;
+}
+
+t_stream * serializeStruct_finProg(t_struct_numero * estructuraOrigen){
+
+	t_stream * paquete = malloc(sizeof(t_stream));		//creo el paquete
+
+	paquete->length = sizeof(t_header) + sizeof(int32_t);
+
+	char * data = crearDataConHeader(D_STRUCT_FIN_PROG, paquete->length); //creo el data
+
+	memcpy(data + sizeof(t_header), estructuraOrigen, sizeof(t_struct_numero));		//copio a data el numero.
+
+	paquete->data = data;
+
+	return paquete;
+}
+
 t_header desempaquetarHeader(char * header){
 	t_header estructuraHeader;
 
@@ -159,16 +196,22 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_CHAR:
-				estructuraDestino = deserializeStruct_char(dataPaquete,length);
+				estructuraDestino = deserializeStruct_char(dataPaquete, length);
 				break;
 			case D_STRUCT_STRING:
-				estructuraDestino = deserializeStruct_string(dataPaquete,length);
+				estructuraDestino = deserializeStruct_string(dataPaquete, length);
 				break;
 			case D_STRUCT_MALC:
 				estructuraDestino = deserializeStruct_malc(dataPaquete, length);
 				break;
 			case D_STRUCT_PROG:
-				estructuraDestino = deserializeStruct_prog(dataPaquete,length);
+				estructuraDestino = deserializeStruct_prog(dataPaquete, length);
+				break;
+			case D_STRUCT_IMPR:
+				estructuraDestino = deserializeStruct_impr(dataPaquete, length);
+				break;
+			case D_STRUCT_FIN_PROG:
+				estructuraDestino = deserializeStruct_finProg(dataPaquete, length);
 				break;
 	}
 
@@ -235,6 +278,29 @@ t_struct_programa * deserializeStruct_prog(char* dataPaquete, uint16_t length){
 
 	estructuraDestino->buffer= malloc(estructuraDestino->tamanio);
 	memcpy(estructuraDestino->buffer, dataPaquete + tamanoTotal, tamanoDato);
+
+	return estructuraDestino;
+}
+
+t_struct_string * deserializeStruct_impr(char * dataPaquete, uint16_t length){
+	t_struct_string * estructuraDestino = malloc(sizeof(t_struct_string));
+
+	int tamanoTotal = 0, tamanoDato = 0;
+
+	tamanoTotal = tamanoDato;
+
+	for(tamanoDato = 1; (dataPaquete + tamanoTotal)[tamanoDato -1] != '\0';tamanoDato++); 	//incremento tamanoDato, hasta el tamaño del nombre.
+
+	estructuraDestino->string = malloc(tamanoDato);
+	memcpy(estructuraDestino->string, dataPaquete + tamanoTotal, tamanoDato); //copio el string a la estructura
+
+	return estructuraDestino;
+}
+
+t_struct_numero * deserializeStruct_finProg(char * dataPaquete, uint16_t length){
+	t_struct_numero * estructuraDestino = malloc(sizeof(t_struct_numero));
+
+	memcpy(estructuraDestino, dataPaquete, sizeof(int32_t)); //copio el data del paquete a la estructura.
 
 	return estructuraDestino;
 }

@@ -11,6 +11,7 @@
 #include <commons/config.h>
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
+#include <commons/string.h>
 
 	typedef uint8_t t_tipoEstructura;
 
