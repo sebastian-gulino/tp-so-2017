@@ -15,8 +15,10 @@ int main(int arc, char * argv[]){
 
 		//Levanta la configuración del proceso filesystem
 		configuracion = cargarConfiguracion();
+		crearBitmap();
 
 		crearServidorMonocliente();
+
 
 		pthread_join(threadAtenderKernel, NULL);
 

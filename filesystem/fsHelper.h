@@ -14,6 +14,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <commons/bitarray.h>
+#include <sys/mman.h>
 
 typedef struct config_t {
 
@@ -30,5 +32,9 @@ t_configuracion cargarConfiguracion();
 void crearServidorMonocliente();
 
 void manejarKernel(int i);
+
+void crearBitmap();
+
+int validarArchivo();
 
 #endif /* FSHELPER_H_ */

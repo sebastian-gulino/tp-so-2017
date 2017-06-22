@@ -33,7 +33,7 @@ void crearServidorMonocliente(){
 
 			void* structRecibido;
 
-			t_tipoEstructura tipoStruct;
+		 	t_tipoEstructura tipoStruct;
 
 			//Recibo el mensaje para identificar quien es y hacer el handshake
 			int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
@@ -60,6 +60,42 @@ void crearServidorMonocliente(){
 
 }
 
+void crearBitmap(){
+
+
+
+	FILE * bitmap = fopen("/home/utnso/Escritorio/mount/Metadata/Bitmap.bin", "rb");
+
+	void * bmap = mmap(NULL, sizeof(bitmap), MAP_SHARED, MAP_FIXED, bitmap, sysconf(_SC_PAGE_SIZE));
+
+	t_bitarray * bitarray = bitarray_create_with_mode(bmap, 5200/8, MSB_FIRST);
+
+
+
+}
+
+int validarArchivo(char * path){
+
+	FILE * file = fopen(path, "r");
+
+	if (file == NULL){
+
+		return 0; //El archivo no existe
+	}
+
+	return 1; //El archivo existe
+
+}
+
+void crearArchivo(char * path){
+
+
+}
+
+void asignarBloque(){
+
+
+}
 void manejarKernel(int i){
 
 	t_tipoEstructura tipoEstructura;
