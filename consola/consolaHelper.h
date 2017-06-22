@@ -11,6 +11,8 @@
 #include <sockets.h>
 #include <estructuras.h>
 #include <pthread.h>
+#include <signal.h>
+#include <time.h>
 
 typedef struct config_t {
 
@@ -19,11 +21,30 @@ typedef struct config_t {
 
 } t_configuracion;
 
+typedef struct t_program {
+	int pid;
+	int socketKernel;
+	pthread_t hilo;
+	time_t inicioEjec;
+	time_t finEjec;
+	int cantImpresiones;
+} t_proceso;
+
+time_t rawtime;
+struct tm * timeinfo;
+
+t_list* listaProcesos;
+
 t_tipoEstructura tipoEstructura;
 
 void * structRecibido;
 
-int socketKernel;
+pthread_mutex_t mutex_log;
+
+int cantidadThreads;
+int consolaConectada;
+
+pthread_t threadCommandHandler;
 
 t_struct_numero confirmation_send;
 
@@ -31,16 +52,26 @@ t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
 
-pthread_t threadProgramHandler, threadCommandHandler;
-
 int conectarAKernel();
 
-int commandHandler();
+void commandHandler();
 
 int commandParser();
 
+void finalizarPrograma(int pid);
+
+void inicializarEstructuras();
+
 void iniciarPrograma(char* pathArchivo);
 
-void recibirMensajesPrograma(int pid);
+void manejarSignal(int sign);
+
+void recibirMensajes(t_proceso* proceso);
+
+void terminarProceso(t_proceso* proceso);
+
+void manejarDesconexion();
+
+
 
 #endif /* CONSOLAHELPER_H_ */

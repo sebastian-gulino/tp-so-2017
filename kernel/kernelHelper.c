@@ -64,7 +64,15 @@ t_configuracion cargarConfiguracion() {
 void inicializarListas(){
 	listaConsolas = list_create();
 	listaCpus = list_create();
+	listaProcesos = list_create();
 	cantidad_pid = 1;
+
+	// Listas planificacion
+	cola_new = queue_create();
+	cola_exit = queue_create();
+	cola_ready = list_create();
+	cola_block = list_create();
+	cola_exec = list_create();
 }
 
 void manejarNuevaConexion(int listener, int *fdmax){
@@ -154,6 +162,7 @@ void manejarConsola(int socketConsola){
 			char * programa = malloc(tamanio_programa);
 
 			memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
+
 
 			t_pcb pcb = crearPCB(programa, obtener_pid(), tamanio_programa);
 
@@ -355,6 +364,11 @@ t_pcb crearPCB(char* programa, int PID, int tamanioPrograma) {
 
 	int segmentoStack = solicitarSegmentoStack(pcb.PID);
 
+	if(segmentoStack == -1 || segmentoCodigo == -1){
+		//Si no pude asignarle memoria dejo el PID en -1 para informar a la consola
+		pcb.PID = -1;
+	}
+
 	return pcb;
 }
 
@@ -383,7 +397,7 @@ int solicitarSegmentoCodigo(int pid, int tam_programa){
 
 	if(resultado != 1){
 		printf("No se pudo crear segmento de codigo\n");
-		return 0;
+		return -1;
 	}
 	free(seg_codigo);
 
@@ -405,12 +419,12 @@ int solicitarSegmentoCodigo(int pid, int tam_programa){
 		}else{
 			// TODO Imprimir en la consola que no hay espacio para el codigo
 			free(structRecibido);
-			return 0;
+			return -1;
 		}
 	} else {
 		printf("No se recibio la direccion del segmento de codigo del proceso\n");
 //		free(structRecibido);
-		return 0;
+		return -1;
 	}
 	free(structRecibido);
 	return dir_codigo;
@@ -428,7 +442,7 @@ int solicitarSegmentoStack(int pid){
 	if(resultado != 1){
 		log_info(logger,"No se pudo crear el segmento de stack");
 		//TODO eliminar el segmento de codigo solicitado
-		return 0;
+		return -1;
 	}
 	free(seg_stack);
 
@@ -450,12 +464,12 @@ int solicitarSegmentoStack(int pid){
 			// TODO Imprimir en la consola que no hay espacio para el stack
 			// TODO Eliminar el segmento de codigo solicitado
 			free(structRecibido);
-			return 0;
+			return -1;
 		}
 	} else {
 		printf("No se recibio la direccion del segmento de codigo del proceso\n");
 		free(structRecibido);
-		return 0;
+		return -1;
 	}
 	free(structRecibido);
 	return dir_stack;
