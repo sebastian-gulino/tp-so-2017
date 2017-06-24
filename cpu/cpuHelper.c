@@ -33,15 +33,29 @@ int conectarAKernel (){
 	//Genera el socket cliente y lo conecta al kernel
 	int socketCliente = crearCliente(configuracion.ipKernel,configuracion.puertoKernel);
 
+	log_info(logger,"Socket cliente con kernel %d",socketCliente);
+
 	//Se realiza el handshake con el kernel
 	t_struct_numero* es_cpu = malloc(sizeof(t_struct_numero));
 	es_cpu->numero = ES_CPU;
 	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_cpu);
 	free(es_cpu);
 
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	// Se recibe el tamaño de stack
+	int resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
+
+	if(resultado == -1){
+		log_info(logger,"No se recibió el tamaño de stack");
+	} else{
+		tamanio_stack = ((t_struct_numero*) structRecibido)->numero;
+
+		log_info(logger,"El tamaño de stack es %d",tamanio_stack);
+	}
+
 	return socketCliente;
-
-
 }
 
 int conectarAMemoria (){
@@ -54,6 +68,21 @@ int conectarAMemoria (){
 	es_cpu->numero = ES_CPU;
 	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_cpu);
 	free(es_cpu);
+
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	// Se recibe el tamaño de pagina de la memoria
+	int resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
+
+	if(resultado == -1){
+		log_info(logger,"No se recibió el tamaño de pagina");
+	} else{
+		tamanio_pagina = ((t_struct_numero*) structRecibido)->numero;
+
+		log_info(logger,"El tamaño de pagina es %d",tamanio_pagina);
+	}
 
 	return socketCliente;
 

@@ -51,6 +51,8 @@ typedef struct resultado_busqueda_cache_t {
 
 t_cache* cache;
 
+t_struct_numero* tamanio_pagina;
+
 t_filaTablaInvertida* tablaInvertida;
 
 t_configuracion cargarConfiguracion();

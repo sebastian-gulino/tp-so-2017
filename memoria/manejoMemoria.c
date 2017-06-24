@@ -60,6 +60,9 @@ void administrarConexiones(){
 
 	pthread_t nueva_solicitud;
 
+	tamanio_pagina = malloc(sizeof(t_struct_numero));
+	tamanio_pagina->numero = configuracion.marcoSize;
+
 	while(1){
 		//Por defecto acepto el cliente que se está conectando
 		int socketCliente = aceptarCliente(socketServidor);
@@ -67,7 +70,6 @@ void administrarConexiones(){
 		if(socketCliente!=-1){
 
 			void* structRecibido;
-
 			t_tipoEstructura tipoStruct;
 
 			//Recibo el mensaje para identificar quien es y hacer el handshake
@@ -85,9 +87,8 @@ void administrarConexiones(){
 
 								list_add(listaKernel, (void*) socketCliente);
 
-								t_struct_numero* tamanio_pagina = malloc(sizeof(t_struct_numero));
+								tamanio_pagina = malloc(sizeof(t_struct_numero));
 								tamanio_pagina->numero = configuracion.marcoSize;
-
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
@@ -99,6 +100,11 @@ void administrarConexiones(){
 								log_info(logger,"Se conecto una CPU");
 
 								list_add(listaCpus, (void*) socketCliente);
+
+								tamanio_pagina = malloc(sizeof(t_struct_numero));
+								tamanio_pagina->numero = configuracion.marcoSize;
+								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
+								free(tamanio_pagina);
 
 								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
 

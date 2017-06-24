@@ -12,6 +12,7 @@
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
 #include <commons/string.h>
+#include <parser/metadata_program.h>
 
 	typedef uint8_t t_tipoEstructura;
 
@@ -25,9 +26,9 @@
 	} t_limites_instrucciones;
 
 	typedef struct PosicionMemoria {
-		unsigned char pagina;
-		unsigned char offsetInstruccion;
-		unsigned char longitudInstruccion;
+		int pagina;
+		int offsetInstruccion;
+		int longitudInstruccion;
 	} t_posicion_memoria;
 
 	typedef struct Stack {
@@ -48,15 +49,14 @@
 		t_posicion_memoria posicionMemoria;
 	} t_variable;
 
-	typedef struct PCB {
-		int PID;
-		unsigned char PC;
-		unsigned char cantidadPaginas;
-		t_list * indiceCodigo;
-		char * indiceEtiquetas;
-		t_list * indiceStack;
-		int exitcode;
-	} t_pcb;
+	typedef struct {
+		int cantidad_args;
+		t_list* args;
+		int cantidad_vars;
+		t_list* vars;
+		int retPos;
+		t_posicion_memoria retVar;
+	}  __attribute__((packed)) registroStack;
 
 	typedef struct Stream {
 		int length;
@@ -81,6 +81,9 @@
 		D_STRUCT_PROG=5,
 		D_STRUCT_IMPR=6,
 		D_STRUCT_FIN_PROG=7,
+
+		//Comunicacion Kernel - CPU
+		D_STRUCT_PCB=8,
 
 		//Handshake
 		ES_KERNEL=100,
@@ -123,6 +126,24 @@
 			uint32_t tamanio;
 			void* buffer;
 	}__attribute__ ((__packed__)) t_struct_programa;
+
+	typedef struct struct_pcb {
+			int PID;
+			int programCounter;
+			int paginasCodigo;
+			int cpuID;
+			t_intructions * indiceCodigo;
+			int cantidadInstrucciones;
+			int paginasStack;
+			int cantRegistrosStack;
+			int stackPointer;
+			int paginaActualStack;
+			int primerPaginaStack;
+			t_list * indiceStack;
+			int tamanioIndiceEtiquetas;
+			char * indiceEtiquetas;
+			int exitcode;
+		} __attribute__ ((__packed__)) t_struct_pcb;
 
 	//MEMORIA
 	typedef struct FilaTablaInvertida {

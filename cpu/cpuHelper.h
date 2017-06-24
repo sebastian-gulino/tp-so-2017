@@ -25,6 +25,15 @@ t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
 
+// FD para mantener las conexiones con Kernel y Memorias
+int socketKernel, socketMemoria;
+
+// Variable que almacenará el tamaño de cada pagina de memoria
+int32_t tamanio_pagina;
+
+// Variable que almacenará el tamaño de stack
+int32_t tamanio_stack;
+
 int conectarAKernel ();
 
 int conectarAMemoria ();

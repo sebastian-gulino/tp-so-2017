@@ -51,12 +51,37 @@ int main(int arc, char * argv[]) {
 	configuracion = cargarConfiguracion();
 
 	//Conecta la cpu incorporada al Kernel
-	int socketKernel = conectarAKernel();
+	socketKernel = conectarAKernel();
 
 	//Conecta la cpu incorporada a la Memoria
-	int socketMemoria = conectarAMemoria();
+	socketMemoria = conectarAMemoria();
+
+	//Comienza a iterar para escuchar los pedidos de ejecución del kernel
+	recibirProcesoKernel();
+
 
 	return 0;
+
+}
+
+void recibirProcesoKernel(){
+
+	//TODO ver de pasar a una variable para el while
+	while(1) {
+
+		void* structRecibido;
+		t_tipoEstructura tipoStruct;
+
+		//Recibo el mensaje para identificar quien es y hacer el handshake
+		int resultado = socket_recibir(socketKernel, &tipoStruct, &structRecibido);
+
+		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
+			continue;
+
+		} else {
+
+			switch(((t_struct_numero*) structRecibido)->numero){
+	}
 
 }
 
