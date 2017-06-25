@@ -17,6 +17,8 @@ int main(int arc, char * argv[]){
 		configuracion = cargarConfiguracion();
 		crearBitmap();
 
+		crearArchivo();
+
 		crearServidorMonocliente();
 
 

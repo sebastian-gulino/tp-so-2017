@@ -16,6 +16,10 @@
 #include <unistd.h>
 #include <commons/bitarray.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <libgen.h>
+#include <dirent.h>
 
 typedef struct config_t {
 
@@ -23,9 +27,22 @@ typedef struct config_t {
 	char * puntoMontaje;
 } t_configuracion;
 
+typedef struct mtdt_t{
+
+	int bloque_size;
+	int bloque_cant;
+
+} t_metadata;
+
+t_bitarray * bitarray;
+void * bmap;
+
 t_configuracion configuracion;
+t_metadata metadata;
 
 pthread_t threadAtenderKernel;
+
+struct stat mystat;
 
 t_configuracion cargarConfiguracion();
 
@@ -36,5 +53,9 @@ void manejarKernel(int i);
 void crearBitmap();
 
 int validarArchivo();
+
+void crearArchivo();
+
+void asignarBloque();
 
 #endif /* FSHELPER_H_ */

@@ -4,6 +4,8 @@ t_configuracion cargarConfiguracion() {
 
 	t_config * config;
 	t_configuracion configuracion;
+	t_config * mtdt;
+	t_metadata metadataFS;
 
 	config = config_create("./config.txt");
 
@@ -19,6 +21,13 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
 	log_info(logger,"PUNTO_MONTAJE = %s",configuracion.puntoMontaje);
 
+	char pathMetadata[260];
+	sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
+
+	mtdt = config_create(pathMetadata);
+
+	metadataFS.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+	metadataFS.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 	return configuracion;
 
 }
@@ -62,15 +71,25 @@ void crearServidorMonocliente(){
 
 void crearBitmap(){
 
+		char pathBitmap[260];
+		sprintf(pathBitmap, "%s/Metadata/Bitmap.bin", configuracion.puntoMontaje );
+
+	int bitmap = open(pathBitmap, O_RDWR);
 
 
-	FILE * bitmap = fopen("/home/utnso/Escritorio/mount/Metadata/Bitmap.bin", "rb");
+	if (fstat(bitmap, &mystat) < 0) {
+	    printf("Error al establecer fstat\n");
+	    close(bitmap);
+	}
 
-	void * bmap = mmap(NULL, sizeof(bitmap), MAP_SHARED, MAP_FIXED, bitmap, sysconf(_SC_PAGE_SIZE));
+	bmap = mmap(NULL, mystat.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, bitmap, 0);
 
-	t_bitarray * bitarray = bitarray_create_with_mode(bmap, 5200/8, MSB_FIRST);
+	if (bmap == MAP_FAILED) {
+			printf("Error al mapear a memoria: %s\n", strerror(errno));
 
+	}
 
+	bitarray = bitarray_create_with_mode(bmap, metadata.bloque_cant/8, MSB_FIRST);
 
 }
 
@@ -87,15 +106,55 @@ int validarArchivo(char * path){
 
 }
 
-void crearArchivo(char * path){
+void crearArchivo(){
 
+	char * testPath;
+	char * inexPaths[20];
+	int i = 0, j;
+
+	testPath = "/home/utnso/Escritorio/mount/Archivos/passwords/alumnos/Alumnos.bin";
+
+	char * path = strdup(testPath);
+
+	char *buffer = dirname(path);
+
+	while(opendir(buffer)==NULL){
+
+		strcpy(inexPaths[i], buffer);
+
+		i++;
+
+		buffer = dirname(buffer);
+	}
+
+	for (j = i; j > -1; --j) {
+
+		mkdir(inexPaths[j], S_IRWXU | S_IRWXG | S_IRWXO);
+
+	}
+
+	fopen(testPath, "ab+");
+
+	asignarBloque();
 
 }
 
 void asignarBloque(){
 
+	off_t test = 1;
+
+	bitarray_set_bit(bitarray,test);
+
+	if(bitarray_test_bit(bitarray, test)){
+		puts("ok");
+	}
+
+	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
+		printf("Error es: %s\n", strerror(errno));
+	}
 
 }
+
 void manejarKernel(int i){
 
 	t_tipoEstructura tipoEstructura;
