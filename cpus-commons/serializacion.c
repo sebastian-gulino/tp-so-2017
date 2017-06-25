@@ -62,6 +62,9 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_PCB:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen);
 				break;
+			case D_STRUCT_PID:
+				paquete = serializeStruct_pid((t_struct_numero *) estructuraOrigen);
+				break;
 		}
 
 	return paquete;
@@ -301,6 +304,22 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen){
 	return paquete;
 }
 
+t_stream * serializeStruct_pid(t_struct_numero * estructuraOrigen){
+
+	t_stream * paquete = malloc(sizeof(t_stream));		//creo el paquete
+
+	paquete->length = sizeof(t_header) + sizeof(int32_t);
+
+	char * data = crearDataConHeader(D_STRUCT_PID, paquete->length); //creo el data
+
+	memcpy(data + sizeof(t_header), estructuraOrigen, sizeof(t_struct_numero));		//copio a data el numero.
+
+	paquete->data = data;
+
+	return paquete;
+}
+
+
 t_header desempaquetarHeader(char * header){
 	t_header estructuraHeader;
 
@@ -340,6 +359,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				break;
 			case D_STRUCT_PCB:
 				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
+				break;
+			case D_STRUCT_PID:
+				estructuraDestino = deserializeStruct_pid(dataPaquete, length);
 				break;
 	}
 
@@ -582,6 +604,14 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 
 	memcpy(&estructuraDestino->stackPointer,dataPaquete+tamanoTotal,tamanoDato=sizeof(int));
 	tamanoTotal+= tamanoDato;
+
+	return estructuraDestino;
+}
+
+t_struct_numero * deserializeStruct_pid(char * dataPaquete, uint16_t length){
+	t_struct_numero * estructuraDestino = malloc(sizeof(t_struct_numero));
+
+	memcpy(estructuraDestino, dataPaquete, sizeof(int32_t)); //copio el data del paquete a la estructura.
 
 	return estructuraDestino;
 }

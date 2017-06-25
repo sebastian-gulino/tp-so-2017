@@ -64,26 +64,7 @@ int main(int arc, char * argv[]) {
 
 }
 
-void recibirProcesoKernel(){
 
-	//TODO ver de pasar a una variable para el while
-	while(1) {
-
-		void* structRecibido;
-		t_tipoEstructura tipoStruct;
-
-		//Recibo el mensaje para identificar quien es y hacer el handshake
-		int resultado = socket_recibir(socketKernel, &tipoStruct, &structRecibido);
-
-		if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
-			continue;
-
-		} else {
-
-			switch(((t_struct_numero*) structRecibido)->numero){
-	}
-
-}
 
 int pruebaDeEjecucion() {
 

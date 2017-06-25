@@ -85,6 +85,9 @@
 		//Comunicacion Kernel - CPU
 		D_STRUCT_PCB=8,
 
+		//Comunicacion CPU - Memoria
+		D_STRUCT_PID=9,
+
 		//Handshake
 		ES_KERNEL=100,
 		ES_CPU=101,

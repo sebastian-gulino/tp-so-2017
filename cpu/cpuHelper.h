@@ -25,6 +25,9 @@ t_configuracion configuracion;
 
 t_configuracion cargarConfiguracion();
 
+t_struct_pcb* pcbEjecutando;
+bool cpuLibre, signalFinalizarCPU;
+
 // FD para mantener las conexiones con Kernel y Memorias
 int socketKernel, socketMemoria;
 
