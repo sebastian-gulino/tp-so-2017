@@ -122,6 +122,7 @@ void recibirProcesoKernel(){
 }
 
 void ejecutarProceso(){
+
 	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
 
 	// TODO el kernel debe enviarme el quantum cuando conecto
@@ -133,7 +134,7 @@ void ejecutarProceso(){
 
 		if (instruccion != NULL){
 
-			//TODO limpiar instruccion
+			prepararInstruccion(instruccion);
 
 			if (pcbEjecutando->programCounter >= pcbEjecutando->cantidadInstrucciones-1
 					&& string_starts_with(instruccion,"end")){
@@ -144,13 +145,83 @@ void ejecutarProceso(){
 				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
 
 				free(instruccion);
+				instruccion=NULL;
 
-
+				salirProceso();
+				return;
 			}
 
+			analizadorLinea(instruccion,&funcionesAnsisop,&funciones_kernel);
+
+			if (stackOverflow){
+
+				log_error(logger, "Hubo stackoverflow, aborto el proceso");
+
+				// TODO cambiar operacion por otra para indicar que fallo el proceso
+				socket_enviar(socketKernel, D_STRUCT_PCB, pcbEjecutando);
+
+				free(instruccion);
+				instruccion = NULL;
+				salirProceso();
+				return;
+			}
+			if(finPrograma){
+
+				log_info(logger, "El proceso finalizo exitosamente");
+
+				// TODO cambiar operacion por otra para indicar que finalizo ok el proceso
+				socket_enviar(socketKernel, D_STRUCT_PCB, pcbEjecutando);
+
+				free(instruccion);
+				instruccion = NULL;
+				salirProceso();
+				return;
+			}
+
+			quantumDisponible --;
+			pcbEjecutando->programCounter++;
+
+			switch (devolvioPcb){
+			case IO:{
+
+				log_info(logger, "Corto la ejecución actual por una peticion de entrada salida");
+
+				//TODO crear una nueva operacion para mandar PCB_IO
+				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+
+				free(instruccion);
+				instruccion = NULL;
+				salirProceso();
+				return;
+			}
+			case WAIT:{
+				log_info(logger, "Corto la ejecución actual por operación WAIT bloqueante");
+
+				//TODO crear una nueva operacion para mandar PCB_WAIT
+				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+
+				free(instruccion);
+				instruccion = NULL;
+				salirProceso();
+				return;
+			}
+			}
+
+			//TODO pedir al kernel el quantum sleep y usar aca
+			usleep(configuracion.puertoKernel * 1000);
+
+			free(instruccion);
+			instruccion = NULL;
+
+		} else {
+			//TODO manejar error cuando no vino instruccion cargada
+			return;
 		}
 
 	}
+	//TODO crear una nueva operacion para informar que se termino el quantum
+	socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+	salirProceso();
 
 }
 
@@ -169,11 +240,14 @@ void liberarPCB(){
 
 	if(pcbEjecutando->indiceStack != NULL){
 		int tamanioStack = list_size(pcbEjecutando->indiceStack);
+		int indice;
 		if(tamanioStack > 0){
-			for (int indice=0; indice<tamanioStack; indice++){
-				registroStack* registroStack = registroStack* list_remove(pcbEjecutando->indiceStack, indice);
-				if(registroStack != NULL){
-					liberarRegistroStack(registroStack);
+			for (indice=0; indice<tamanioStack; indice++){
+
+				registroStack* registro = (registroStack*) list_remove(pcbEjecutando->indiceStack, indice);
+
+				if(registro != NULL){
+					liberarRegistroStack(registro);
 				}
 			}
 		}
@@ -188,7 +262,6 @@ void liberarPCB(){
 	}
 
 }
-
 
 void liberarRegistroStack(registroStack* registroStack){
 
@@ -223,7 +296,6 @@ void liberarRegistroStack(registroStack* registroStack){
 	}
 }
 
-
 void salirProceso(){
 	//Marco la cpu como disponible para un nuevo proceso
 	cpuLibre=true;
@@ -246,5 +318,133 @@ void liberarRecursosCPU(){
 	log_destroy(logger);
 	if(pcbEjecutando!=NULL){
 		liberarPCB();
+	}
+}
+
+void prepararInstruccion(char * instruccion){
+
+	char * auxiliar = instruccion;
+	int indice = 0;
+	while (*instruccion != '\0') {
+		if (!iscntrl(*instruccion)) {
+			if (indice == 0 && isdigit((int )*instruccion)) {
+				++instruccion;
+			} else {
+				*auxiliar++ = *instruccion++;
+				indice++;
+			}
+		} else {
+			++instruccion;
+		}
+	}
+	*auxiliar = '\0';
+}
+
+void inicializarEstructuras(){
+
+	cpuLibre = true;
+	stackOverflow = false;
+	signalFinalizarCPU = false;
+	finPrograma = false;
+	//TODO refactorizar
+	devolvioPcb = 0;
+
+
+}
+
+void manejarSignal(){
+	log_info(logger, "Se recibió señal SIGUSR1 para desconectar la CPU");
+
+	// Envio al kernel una notificacion de que me solicitaron finalizar la cpu
+	t_struct_numero* signal = malloc(sizeof(t_struct_numero));
+	signal->numero = SIGUSR1;
+	//TODO agregar un nuevo tipo de operacion para distinguir este mensaje
+	socket_enviar(socketMemoria, D_STRUCT_NUMERO, signal);
+	free(signal);
+
+	if (cpuLibre){
+		desconectarCPU();
+		exit(EXIT_FAILURE);
+	}
+	else{
+		signalFinalizarCPU = true;
+		log_info(logger, "El CPU se cerrará cuando finalice la rafaga en curso");
+	}
+}
+
+void desconectarCPU(){
+	log_info(logger, "Se desconecta la CPU");
+	liberarRecursosCPU(); // Libero memoria utilizada
+	close(socketMemoria);
+	close(socketKernel);
+}
+
+char * pedirSiguienteInstruccion(){
+
+	t_intructions * indice = pcbEjecutando->indiceCodigo;
+	indice = indice + pcbEjecutando->programCounter;
+
+	t_intructions * instruccion = indice;
+
+	int start = instruccion->start;
+	int offset = instruccion->offset;
+
+	// Envio al kernel una notificacion de que me solicitaron finalizar la cpu
+	t_posicion_memoria* direccion = malloc(sizeof(t_posicion_memoria));
+	direccion->pagina = start / tamanio_pagina;
+	direccion->offsetInstruccion = start % tamanio_pagina;
+	direccion->longitudInstruccion = offset;
+
+	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
+	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
+	free(direccion);
+
+	if(validarPedidoMemoria()){
+
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+
+		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
+
+			log_error(logger, "La memoria se desconecto del sistema");
+			exitFailureCPU();
+			return NULL;
+
+		} else {
+
+			char* instruccion = ((t_struct_string*) structRecibido)->string;
+			return instruccion;
+		}
+
+	}
+
+	return NULL;
+
+}
+
+bool validarPedidoMemoria(){
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	// Se recibe el tamaño de stack
+	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "La memoria se desconecto del sistema");
+		exitFailureCPU();
+		return false;
+
+	} else {
+
+		//TODO hay que manejar desde la memoria esta solicitud
+		int estadoPedido = ((t_struct_numero*) structRecibido)->numero;
+
+		free(structRecibido);
+
+		if(estadoPedido == 0){
+			return false;
+		}
+		return true;
+
 	}
 }

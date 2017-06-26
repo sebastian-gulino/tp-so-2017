@@ -87,6 +87,7 @@
 
 		//Comunicacion CPU - Memoria
 		D_STRUCT_PID=9,
+		D_STRUCT_LECT=10,
 
 		//Handshake
 		ES_KERNEL=100,

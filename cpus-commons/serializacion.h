@@ -21,6 +21,7 @@
 	t_stream * serializeStruct_finProg(t_struct_numero * estructuraOrigen);
 	t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen);
 	t_stream * serializeStruct_pid(t_struct_numero * estructuraOrigen);
+	t_stream* serializeStruct_lect(t_posicion_memoria * estructuraOrigen);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -34,6 +35,7 @@
 	t_struct_numero * deserializeStruct_finProg(char * dataPaquete, uint16_t length);
 	t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length);
 	t_struct_numero * deserializeStruct_pid(char * dataPaquete, uint16_t length);
+	t_posicion_memoria * deserializeStruct_lect(char* dataPaquete, uint16_t length);
 
 
 #endif /* SERIALIZACION_H_ */
