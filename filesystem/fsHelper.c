@@ -27,6 +27,11 @@ t_configuracion cargarConfiguracion() {
 
 	metadata.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
 	metadata.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+
+	fileDictionary = dictionary_create();
+	dictionary_put(fileDictionary, "SIZE", 0);
+	dictionary_put(fileDictionary, "BLOCKS", 0);
+
 	return configuracion;
 
 }
@@ -126,8 +131,6 @@ void crearArchivo(){
 		buffer = dirname(buffer);
 	}
 
-
-
 	for (j = i; j > -1; --j) {
 
 		mkdir(inexPaths[j], S_IRWXU | S_IRWXG | S_IRWXO);
@@ -136,19 +139,32 @@ void crearArchivo(){
 
 	fopen(testPath, "ab+");
 
+	fileData.properties = fileDictionary;
+
+	config_save_in_file(&fileData, testPath);
+
 	asignarBloque();
 
 }
 
 void asignarBloque(){
 
-	off_t test = 1;
+	off_t posicion = 0;
 
-	bitarray_set_bit(bitarray,test);
+	char pathBloque[260];
 
-	if(bitarray_test_bit(bitarray, test)){
-		puts("ok");
+	while(bitarray_test_bit(bitarray, posicion)){
+
+		posicion++;
+
 	}
+
+	int offset = posicion;
+	bitarray_set_bit(bitarray,posicion);
+
+	sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, offset);
+
+	fopen(pathBloque, "a+");
 
 	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
 		printf("Error es: %s\n", strerror(errno));

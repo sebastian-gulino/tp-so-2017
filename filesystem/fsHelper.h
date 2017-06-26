@@ -44,6 +44,10 @@ pthread_t threadAtenderKernel;
 
 struct stat mystat;
 
+t_config fileData;
+t_dictionary * fileDictionary;
+
+
 t_configuracion cargarConfiguracion();
 
 void crearServidorMonocliente();
