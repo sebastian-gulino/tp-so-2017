@@ -147,8 +147,9 @@ void crearArchivo(){
 
 }
 
-void asignarBloque(){
+int asignarBloque(){
 
+	if(bloquesLibres>0){
 	off_t posicion = 0;
 
 	char pathBloque[260];
@@ -169,6 +170,36 @@ void asignarBloque(){
 	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
 		printf("Error es: %s\n", strerror(errno));
 	}
+	return 1;
+}
+	else return 0;
+
+}
+
+int bloquesLibres(){
+
+ int contador, var, posicion=0;
+ size_t max = bitarray_get_max_bit(bitarray);
+
+	for (var = 0; var < max; ++var) {
+
+		if(bitarray_test_bit(bitarray, posicion)){
+			contador++;
+		}
+		posicion++;
+
+	}
+
+	if(contador==max){
+		return 0;
+	}
+	return max-contador;
+}
+
+void borrarArchivo(char * path){
+
+
+
 
 }
 

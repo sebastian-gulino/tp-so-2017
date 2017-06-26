@@ -60,6 +60,7 @@ int validarArchivo();
 
 void crearArchivo();
 
-void asignarBloque();
+int asignarBloque();
 
+int bloquesLibres();
 #endif /* FSHELPER_H_ */
