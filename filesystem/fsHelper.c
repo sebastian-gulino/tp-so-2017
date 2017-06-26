@@ -5,7 +5,6 @@ t_configuracion cargarConfiguracion() {
 	t_config * config;
 	t_configuracion configuracion;
 	t_config * mtdt;
-	t_metadata metadataFS;
 
 	config = config_create("./config.txt");
 
@@ -26,8 +25,8 @@ t_configuracion cargarConfiguracion() {
 
 	mtdt = config_create(pathMetadata);
 
-	metadataFS.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
-	metadataFS.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+	metadata.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+	metadata.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 	return configuracion;
 
 }
@@ -109,7 +108,7 @@ int validarArchivo(char * path){
 void crearArchivo(){
 
 	char * testPath;
-	char * inexPaths[20];
+	char inexPaths[20][260];
 	int i = 0, j;
 
 	testPath = "/home/utnso/Escritorio/mount/Archivos/passwords/alumnos/Alumnos.bin";
@@ -126,6 +125,8 @@ void crearArchivo(){
 
 		buffer = dirname(buffer);
 	}
+
+
 
 	for (j = i; j > -1; --j) {
 
