@@ -4,7 +4,7 @@ t_configuracion cargarConfiguracion() {
 
 	t_config * config;
 	t_configuracion configuracion;
-	t_config * mtdt;
+
 
 	config = config_create("./config.txt");
 
@@ -20,22 +20,22 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
 	log_info(logger,"PUNTO_MONTAJE = %s",configuracion.puntoMontaje);
 
-	char pathMetadata[260];
-	sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
-
-	mtdt = config_create(pathMetadata);
-
-	metadata.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
-	metadata.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
-
-	fileDictionary = dictionary_create();
-	dictionary_put(fileDictionary, "SIZE", 0);
-	dictionary_put(fileDictionary, "BLOCKS", 0);
-
 	return configuracion;
 
 }
 
+void cargarMetadata(){
+
+	t_config * mtdt;
+	char pathMetadata[260];
+		sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
+
+		mtdt = config_create(pathMetadata);
+
+		metadata.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+		metadata.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+
+}
 void crearServidorMonocliente(){
 
 	int socketServidor = crearServidor(configuracion.puertoFS);
@@ -99,7 +99,10 @@ void crearBitmap(){
 
 int validarArchivo(char * path){
 
-	FILE * file = fopen(path, "r");
+	char pathFile[260];
+	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
+
+	FILE * file = fopen(pathFile, "r");
 
 	if (file == NULL){
 
@@ -110,17 +113,17 @@ int validarArchivo(char * path){
 
 }
 
-void crearArchivo(){
+void crearArchivo(char * path){
 
-	char * testPath;
+	char pathFile[260];
+		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
+
 	char inexPaths[20][260];
 	int i = 0, j;
 
-	testPath = "/home/utnso/Escritorio/mount/Archivos/passwords/alumnos/Alumnos.bin";
+	char * create_path = strdup(pathFile);
 
-	char * path = strdup(testPath);
-
-	char *buffer = dirname(path);
+	char *buffer = dirname(create_path);
 
 	while(opendir(buffer)==NULL){
 
@@ -137,19 +140,24 @@ void crearArchivo(){
 
 	}
 
-	fopen(testPath, "ab+");
+	fopen(pathFile, "ab+");
 
-	fileData.properties = fileDictionary;
 
-	config_save_in_file(&fileData, testPath);
+	t_config * data = config_create(pathFile);
 
-	asignarBloque();
+	config_set_value(data, "SIZE", "0");
+
+	config_save(data);
+
+	asignarBloque(data);
 
 }
 
-int asignarBloque(){
+int asignarBloque(t_config * data){
+
 
 	if(bloquesLibres>0){
+
 	off_t posicion = 0;
 
 	char pathBloque[260];
@@ -170,7 +178,15 @@ int asignarBloque(){
 	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
 		printf("Error es: %s\n", strerror(errno));
 	}
+	char bloque[500];
+
+	sprintf(bloque, "%zu", posicion);
+
+	config_set_value(data, "BLOCKS", bloque);
+	config_save(data);
+
 	return 1;
+
 }
 	else return 0;
 
@@ -196,12 +212,51 @@ int bloquesLibres(){
 	return max-contador;
 }
 
-void borrarArchivo(char * path){
+int borrarArchivo(char * path){
 
+	char pathFile[260];
+	char blockPath[260];
+	t_config * fileData;
 
+	if(validarArchivo(path)==1){
 
+		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
+
+		fileData = config_create(pathFile);
+
+		char** bloques= config_get_array_value(fileData, "BLOCKS");
+
+		int var = 0;
+
+		while(bloques[var] != NULL) {
+
+			char * charBloque = bloques[var];
+
+			int bloque = atoi(charBloque);
+
+			sprintf(blockPath, "%s/Bloques/%zu.bin", configuracion.puntoMontaje, bloque);
+
+			remove(blockPath);
+
+			bitarray_clean_bit(bitarray, bloque);
+
+			if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
+					printf("Error es: %s\n", strerror(errno));
+				}
+
+			var++;
+		}
+
+			remove(pathFile);
+
+			return 1;
+	}
+
+	return 0;
 
 }
+
+
 
 void manejarKernel(int i){
 

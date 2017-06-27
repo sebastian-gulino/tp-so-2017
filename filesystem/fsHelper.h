@@ -44,10 +44,6 @@ pthread_t threadAtenderKernel;
 
 struct stat mystat;
 
-t_config fileData;
-t_dictionary * fileDictionary;
-
-
 t_configuracion cargarConfiguracion();
 
 void crearServidorMonocliente();
@@ -58,9 +54,13 @@ void crearBitmap();
 
 int validarArchivo();
 
-void crearArchivo();
+void crearArchivo(char * path);
 
-int asignarBloque();
+int asignarBloque(t_config * data);
 
 int bloquesLibres();
+
+int borrarArchivo();
+
+void cargarMetadata();
 #endif /* FSHELPER_H_ */
