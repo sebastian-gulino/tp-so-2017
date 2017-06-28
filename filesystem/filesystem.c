@@ -6,6 +6,7 @@
 #include <sockets.h>
 #include <estructuras.h>
 #include "fsHelper.h"
+#include "fsProcesos.h"
 
 int main(int arc, char * argv[]){
 
@@ -18,7 +19,30 @@ int main(int arc, char * argv[]){
 		cargarMetadata();
 		crearBitmap();
 
+		t_obtener test;
+
+		test.modo_lectura = 1;
+		test.offset=15;
+		test.path="passwords/alumnos/Test1.bin";
+		test.size=55;
+
+		t_obtener test1;
+
+			test1.modo_lectura = 0;
+			test1.offset=15;
+			test1.path="passwords/alumnos/Test1.bin";
+			test1.size=55;
+
+		if(obtenerDatos(test1)==0){
+			puts("OK!");
+		}
+
+		if(obtenerDatos(test) == 1){
+			puts("NICE!");
+		}
+
 		crearServidorMonocliente();
+
 
 
 		pthread_join(threadAtenderKernel, NULL);

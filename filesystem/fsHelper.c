@@ -32,8 +32,8 @@ void cargarMetadata(){
 
 		mtdt = config_create(pathMetadata);
 
-		metadata.bloque_cant = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
-		metadata.bloque_size = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 
 }
 void crearServidorMonocliente(){
@@ -97,61 +97,7 @@ void crearBitmap(){
 
 }
 
-int validarArchivo(char * path){
 
-	char pathFile[260];
-	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
-
-	FILE * file = fopen(pathFile, "r");
-
-	if (file == NULL){
-
-		return 0; //El archivo no existe
-	}
-
-	return 1; //El archivo existe
-
-}
-
-void crearArchivo(char * path){
-
-	char pathFile[260];
-		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
-
-	char inexPaths[20][260];
-	int i = 0, j;
-
-	char * create_path = strdup(pathFile);
-
-	char *buffer = dirname(create_path);
-
-	while(opendir(buffer)==NULL){
-
-		strcpy(inexPaths[i], buffer);
-
-		i++;
-
-		buffer = dirname(buffer);
-	}
-
-	for (j = i; j > -1; --j) {
-
-		mkdir(inexPaths[j], S_IRWXU | S_IRWXG | S_IRWXO);
-
-	}
-
-	fopen(pathFile, "ab+");
-
-
-	t_config * data = config_create(pathFile);
-
-	config_set_value(data, "SIZE", "0");
-
-	config_save(data);
-
-	asignarBloque(data);
-
-}
 
 int asignarBloque(t_config * data){
 
@@ -178,9 +124,9 @@ int asignarBloque(t_config * data){
 	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
 		printf("Error es: %s\n", strerror(errno));
 	}
-	char bloque[500];
+	char bloque[100];
 
-	sprintf(bloque, "%zu", posicion);
+	sprintf(bloque, "[%d]", offset);
 
 	config_set_value(data, "BLOCKS", bloque);
 	config_save(data);
@@ -212,49 +158,6 @@ int bloquesLibres(){
 	return max-contador;
 }
 
-int borrarArchivo(char * path){
-
-	char pathFile[260];
-	char blockPath[260];
-	t_config * fileData;
-
-	if(validarArchivo(path)==1){
-
-		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
-
-		fileData = config_create(pathFile);
-
-		char** bloques= config_get_array_value(fileData, "BLOCKS");
-
-		int var = 0;
-
-		while(bloques[var] != NULL) {
-
-			char * charBloque = bloques[var];
-
-			int bloque = atoi(charBloque);
-
-			sprintf(blockPath, "%s/Bloques/%zu.bin", configuracion.puntoMontaje, bloque);
-
-			remove(blockPath);
-
-			bitarray_clean_bit(bitarray, bloque);
-
-			if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
-					printf("Error es: %s\n", strerror(errno));
-				}
-
-			var++;
-		}
-
-			remove(pathFile);
-
-			return 1;
-	}
-
-	return 0;
-
-}
 
 
 
@@ -267,4 +170,31 @@ void manejarKernel(int i){
 		log_info(logger,"El Kernel %d cerró la conexión.",i);
 	}
 
-};
+	while(socket_recibir(i,&tipoEstructura,&structRecibido) > 0){
+
+			if(((t_borrar *)structRecibido)){
+
+				borrarArchivo(((t_borrar *)structRecibido)->path);
+
+			}
+
+			else if (((t_abrir *)structRecibido)){
+
+				validarArchivo(((t_abrir *)structRecibido));
+
+			}
+
+			else if(((t_obtener *)structRecibido)){
+
+
+
+			}
+
+			else if(((t_guardar *)structRecibido)){
+
+
+			}
+
+
+	}
+}

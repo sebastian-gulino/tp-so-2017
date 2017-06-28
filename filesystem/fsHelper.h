@@ -20,6 +20,8 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <dirent.h>
+#include <math.h>
+
 
 typedef struct config_t {
 
@@ -52,15 +54,10 @@ void manejarKernel(int i);
 
 void crearBitmap();
 
-int validarArchivo();
-
-void crearArchivo(char * path);
-
 int asignarBloque(t_config * data);
 
 int bloquesLibres();
 
-int borrarArchivo();
-
 void cargarMetadata();
+
 #endif /* FSHELPER_H_ */

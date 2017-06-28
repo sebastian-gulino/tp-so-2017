@@ -131,6 +131,33 @@
 		int pagina;
 	} t_filaTablaInvertida;
 
+	//FILESYSTEM
+	typedef struct Borrar{
+		char * path;
+	}t_borrar;
+
+	typedef struct Abrir{
+		int modo_creacion;
+		char * path;
+	}t_abrir;
+
+	typedef struct Obtener{
+		int modo_lectura;
+		char * path;
+		int offset;
+		int size;
+	}t_obtener;
+
+	typedef struct Guardar{
+		int modo_escritura;
+		char * path;
+		int offset;
+		int size;
+		void * buffer;
+	}t_guardar;
+
+
+
 
 
 #endif /* ESTRUCTURAS_H_ */
