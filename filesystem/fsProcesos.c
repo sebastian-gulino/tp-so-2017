@@ -4,6 +4,7 @@
 int validarArchivo(t_abrir archivo){
 
 	char pathFile[260];
+	int fd = 3;
 
 	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo.path);
 
@@ -15,7 +16,9 @@ int validarArchivo(t_abrir archivo){
 
 			if(crearArchivo(archivo.path) == 1){
 
-				return 1;
+				fd++;
+
+				return fd;
 
 			} else return 0;
 
@@ -23,7 +26,9 @@ int validarArchivo(t_abrir archivo){
 		return 0; //El archivo no existe
 	}
 
-	return 1; //El archivo existe
+	fd++;
+
+	return fd; //El archivo existe
 
 }
 
@@ -118,11 +123,12 @@ int obtenerDatos(t_obtener archivo){
 	char pathFile[260];
 	t_config * fileData;
 	int var = 0;
-	void * buffer = malloc(metadata.bloque_size);
-	char * dataObtenida  = malloc(archivo.size);
+	int end_flag = 0;
+	char *dataObtenida = string_new();
+
 	char blockPath[260];
 	int readSize;
-	int fd;
+	FILE * file;
 
 	if(archivo.modo_lectura==0){
 		return 0;
@@ -146,7 +152,10 @@ int obtenerDatos(t_obtener archivo){
 
 		}
 
-		while(bloques[var] != NULL){
+		while(bloques[var] != NULL && end_flag == 0){
+
+
+			void * buffer = malloc(metadata.bloque_size);
 
 			char * charBloque = bloques[var];
 
@@ -154,7 +163,7 @@ int obtenerDatos(t_obtener archivo){
 
 			sprintf(blockPath, "%s/Bloques/%d.bin", configuracion.puntoMontaje, bloque);
 
-			fd = fopen(blockPath, "r");
+			 file = fopen(blockPath, "r");
 
 			if(archivo.size <= ( metadata.bloque_size - archivo.offset)){
 				readSize = archivo.size;
@@ -162,17 +171,24 @@ int obtenerDatos(t_obtener archivo){
 				readSize = metadata.bloque_size - archivo.offset;
 			}
 
+
+			int fd = fileno(file);
+
 			pread(fd, buffer, readSize, archivo.offset);
 
 			string_append(&dataObtenida, buffer);
 
 			archivo.offset = 0;
 
+
+
 			archivo.size = archivo.size - readSize;
 
+			if(archivo.size == 0){
+				end_flag = 1;
+			}
+
 			var++;
-
-
 
 		}
 
@@ -181,3 +197,4 @@ int obtenerDatos(t_obtener archivo){
 
 	return 1;
 }
+
