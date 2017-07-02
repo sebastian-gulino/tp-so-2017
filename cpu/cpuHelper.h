@@ -8,13 +8,13 @@
 #include <logger.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sockets.h>
 #include <estructuras.h>
 #include <signal.h>
-#include "primitivas.h"
 
 typedef struct config_t {
 
@@ -24,33 +24,6 @@ typedef struct config_t {
 	int puertoMemoria;
 
 } t_configuracion;
-
-AnSISOP_funciones funcionesAnsisop = {
-	.AnSISOP_definirVariable 			= definirVariable,
-	.AnSISOP_obtenerPosicionVariable 	= obtenerPosicionVariable,
-	.AnSISOP_dereferenciar				= dereferenciar,
-	.AnSISOP_asignar					= asignar,
-	.AnSISOP_obtenerValorCompartida		= obtenerValorCompartida,
-	.AnSISOP_asignarValorCompartida		= asignarValorCompartida,
-	.AnSISOP_irAlLabel					= irAlLabel,
-	.AnSISOP_llamarSinRetorno			= llamarSinRetorno,
-	.AnSISOP_llamarConRetorno			= llamarConRetorno,
-	.AnSISOP_finalizar					= finalizar,
-	.AnSISOP_retornar					= retornar,
-};
-
-AnSISOP_kernel funciones_kernel = {
-		.AnSISOP_wait					= s_wait,
-		.AnSISOP_signal					= s_signal,
-		.AnSISOP_reservar				= reservar,
-		.AnSISOP_liberar				= liberar,
-		.AnSISOP_abrir					= abrir,
-		.AnSISOP_cerrar					= cerrar,
-		.AnSISOP_borrar					= borrar,
-		.AnSISOP_leer					= leer,
-		.AnSISOP_escribir				= escribir,
-		.AnSISOP_moverCursor			= moverCursor,
-};
 
 t_configuracion configuracion;
 
@@ -101,6 +74,8 @@ void ejecutarProceso();
 
 void recibirProcesoKernel();
 
-char * pedirSiguienteInstruccion()
+char * pedirSiguienteInstruccion();
+
+bool validarPedidoMemoria();
 
 #endif /* CPUHELPER_H_ */

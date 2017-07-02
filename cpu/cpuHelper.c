@@ -88,7 +88,7 @@ int conectarAMemoria (){
 
 }
 
-void recibirProcesoKernel(){
+void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones_kernel){
 
 	//TODO ver de pasar a una variable para el while
 	while(1) {
@@ -112,7 +112,7 @@ void recibirProcesoKernel(){
 				socket_enviar(socketMemoria, D_STRUCT_PID, pid);
 				free(pid);
 
-				ejecutarProceso();
+				ejecutarProceso(funcionesAnsisop,funciones_kernel);
 
 			}
 			//TODO ver si hay que recibir algun otro tipo de mensaje del kernel
@@ -121,7 +121,7 @@ void recibirProcesoKernel(){
 	}
 }
 
-void ejecutarProceso(){
+void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones_kernel){
 
 	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
 
@@ -389,7 +389,7 @@ char * pedirSiguienteInstruccion(){
 	int start = instruccion->start;
 	int offset = instruccion->offset;
 
-	// Envio al kernel una notificacion de que me solicitaron finalizar la cpu
+	// Armo la direccion lógica con la instruccion
 	t_posicion_memoria* direccion = malloc(sizeof(t_posicion_memoria));
 	direccion->pagina = start / tamanio_pagina;
 	direccion->offsetInstruccion = start % tamanio_pagina;
@@ -427,7 +427,6 @@ bool validarPedidoMemoria(){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	// Se recibe el tamaño de stack
 	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "La memoria se desconecto del sistema");
@@ -441,6 +440,7 @@ bool validarPedidoMemoria(){
 
 		free(structRecibido);
 
+		//Pedido rechazado por la memoria
 		if(estadoPedido == 0){
 			return false;
 		}

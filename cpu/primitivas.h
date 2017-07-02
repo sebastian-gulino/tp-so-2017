@@ -1,9 +1,7 @@
 #ifndef PRIMITIVAS_H_
 #define PRIMITIVAS_H_
 
-#include <parser/parser.h>
-#include <stdio.h>
-#include <stdbool.h>
+#include "cpuHelper.h"
 
 //FUNCIONES
 t_puntero definirVariable(t_nombre_variable variable);
