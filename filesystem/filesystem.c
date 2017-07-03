@@ -16,33 +16,40 @@ int main(int arc, char * argv[]){
 
 		//Levanta la configuración del proceso filesystem
 		configuracion = cargarConfiguracion();
-		cargarMetadata();
+
+		setPuntoDeMontaje();
+
+		setMetadata();
+
 		crearBitmap();
+//
+//		t_abrir test1;
+//
+//		test1.modo_creacion = 1;
+//		test1.path = "/cacho/test/Test1.bin";
+//
+//		validarArchivo(test1);
+//
+//		t_guardar test;
+//
+//		test.buffer = "aaaaaaaaaaaafffffffffffffffffddddddddddddddddddddeeeeeeeeeeeeegggggggggg";
+//		test.modo_escritura = 1;
+//		test.offset = 10;
+//		test.path = "/cacho/test/Test1.bin";
+//		test.size= 72;
+//
+//		guardarDatos(test);
 
-		t_obtener test;
+		t_obtener test2;
 
-		test.modo_lectura = 1;
-		test.offset=15;
-		test.path="passwords/alumnos/Test1.bin";
-		test.size=55;
+		test2.modo_lectura = 1;
+		test2.offset = 20;
+		test2.path = "/cacho/test/Test1.bin";
+		test2.size = 45;
 
-		t_obtener test1;
-
-			test1.modo_lectura = 0;
-			test1.offset=15;
-			test1.path="passwords/alumnos/Test1.bin";
-			test1.size=55;
-
-		if(obtenerDatos(test1)==0){
-			puts("OK!");
-		}
-
-		if(obtenerDatos(test) == 1){
-			puts("NICE!");
-		}
+		obtenerDatos(test2);
 
 		crearServidorMonocliente();
-
 
 
 		pthread_join(threadAtenderKernel, NULL);

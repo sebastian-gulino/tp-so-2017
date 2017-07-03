@@ -8,6 +8,6 @@ int borrarArchivo(char * path);
 int validarArchivo(t_abrir archivo);
 int crearArchivo(char * path);
 int obtenerDatos(t_obtener archivo);
-
+int guardarDatos(t_guardar archivo);
 
 #endif /* FSPROCESOS_H_ */

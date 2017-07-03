@@ -58,6 +58,8 @@ int asignarBloque(t_config * data);
 
 int bloquesLibres();
 
-void cargarMetadata();
+void setMetadata();
+
+void setPuntoDeMontaje();
 
 #endif /* FSHELPER_H_ */

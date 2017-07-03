@@ -148,7 +148,7 @@ int obtenerDatos(t_obtener archivo){
 
 		var = var+offblocks;
 
-		archivo.offset=archivo.offset - metadata.bloque_size;
+		archivo.offset=archivo.offset - metadata.bloque_size*offblocks;
 
 		}
 
@@ -198,3 +198,132 @@ int obtenerDatos(t_obtener archivo){
 	return 1;
 }
 
+int guardarDatos(t_guardar archivo){
+
+	t_config * fileData;
+
+	off_t posicion = 0;
+
+
+	void * block_buffer;
+
+	int var = 0;
+	int writeSize = 0;
+	char pathFile[260];
+	char *bloques_array = string_new();
+	char pathBloque[260];
+	char * block;
+	char * char_size;
+
+	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo.path);
+
+
+
+	if(fopen(pathFile, "r")==NULL){
+		return -1;
+	}	if(archivo.modo_escritura == 0){
+		return -2;
+	}
+
+	fileData = config_create(pathFile);
+
+	char** bloques= config_get_array_value(fileData, "BLOCKS");
+	int size = config_get_int_value(fileData, "SIZE");
+
+	size+=archivo.size;
+
+	char_size = string_itoa(size);
+
+	config_set_value(fileData, "SIZE", char_size);
+	config_save(fileData);
+
+	string_append(&bloques_array,"[");
+
+	while(bloques[var]!= NULL){
+
+		block = string_itoa(bloques[var]);
+
+		string_append_with_format(&bloques_array, "%s,", block);
+
+		var++;
+	}
+
+	while(bitarray_test_bit(bitarray, posicion)){
+
+		posicion++;
+
+	}
+
+	float ratio = archivo.offset / metadata.bloque_size;
+
+			if(ratio>0){
+				int counter;
+				int offblocks = floor(ratio);
+
+				for (counter = 0; counter < offblocks; ++counter) {
+
+					while(bitarray_test_bit(bitarray, posicion)){
+
+							posicion++;
+					}
+				}
+
+				archivo.offset=archivo.offset - metadata.bloque_size*offblocks;
+
+			}
+
+
+		while(archivo.size>0){
+
+			block_buffer = malloc(metadata.bloque_size);
+
+			int bloque = posicion;
+
+			sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, bloque);
+
+			FILE * file = fopen(pathBloque, "a+");
+
+
+
+			if(archivo.size <= ( metadata.bloque_size - archivo.offset)){
+					writeSize = archivo.size;
+
+
+				} else if(archivo.size > metadata.bloque_size){
+					writeSize = metadata.bloque_size - archivo.offset;
+
+				}
+
+			memcpy(block_buffer, archivo.buffer, writeSize);
+
+			archivo.buffer += writeSize;
+
+			int fd = fileno(file);
+
+			pwrite(fd, block_buffer, writeSize, archivo.offset);
+
+			bitarray_set_bit(bitarray, posicion);
+
+			archivo.offset = 0;
+
+			archivo.size = archivo.size - writeSize;
+
+			block = string_itoa(bloque);
+
+			string_append_with_format(&bloques_array, "%s,", block);
+
+			while(bitarray_test_bit(bitarray, posicion)){
+
+								posicion++;
+							}
+		}
+
+			string_append_with_format(&bloques_array, "%s]", block);
+
+			config_set_value(fileData, "BLOCKS", bloques_array);
+
+
+
+	return 1;
+
+}

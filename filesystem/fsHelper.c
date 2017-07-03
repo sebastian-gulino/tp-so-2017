@@ -24,16 +24,57 @@ t_configuracion cargarConfiguracion() {
 
 }
 
-void cargarMetadata(){
+void setPuntoDeMontaje(){
+	char pm_command[260];
+	char mtdt_command[260];
+	char arch_command[260];
+	char bloque_command[260];
+
+	sprintf(pm_command, "mkdir %s", configuracion.puntoMontaje);
+	sprintf(mtdt_command, "mkdir %s/Metadata", configuracion.puntoMontaje);
+	sprintf(arch_command, "mkdir %s/Archivos", configuracion.puntoMontaje);
+	sprintf(bloque_command, "mkdir %s/Bloques", configuracion.puntoMontaje);
+
+	system(pm_command);
+	system(mtdt_command);
+	system(arch_command);
+	system(bloque_command);
+
+}
+
+void setMetadata(){
 
 	t_config * mtdt;
 	char pathMetadata[260];
+	char bloqueSize[300];
+	int size = 20;
+	char bloqueCant[300];
+	int cant = 800;
+
 		sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
+
+		if (fopen(pathMetadata, "r") == NULL){
+
+		fopen(pathMetadata, "w+");
 
 		mtdt = config_create(pathMetadata);
 
-		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+		sprintf(bloqueSize, "%d", size);
+		sprintf(bloqueCant, "%d", cant);
+		config_set_value(mtdt, "TAMANIO_BLOQUES", bloqueSize);
+		config_set_value(mtdt, "CANTIDAD_BLOQUES", bloqueCant);
+
+		config_save(mtdt);
+
 		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+
+
+	}
+		mtdt = config_create(pathMetadata);
+		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
+		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+
 
 }
 void crearServidorMonocliente(){
@@ -76,10 +117,18 @@ void crearServidorMonocliente(){
 void crearBitmap(){
 
 		char pathBitmap[260];
+		char bitmap_command[260];
 		sprintf(pathBitmap, "%s/Metadata/Bitmap.bin", configuracion.puntoMontaje );
 
-	int bitmap = open(pathBitmap, O_RDWR);
 
+
+	if (fopen(pathBitmap, "r") == NULL){
+
+		sprintf(bitmap_command, "dd bs=%d seek=1 of=%s count=0", metadata.bloque_cant/8, pathBitmap);
+		system(bitmap_command);
+	}
+
+	int bitmap = open(pathBitmap, O_RDWR);
 
 	if (fstat(bitmap, &mystat) < 0) {
 	    printf("Error al establecer fstat\n");
@@ -186,6 +235,7 @@ void manejarKernel(int i){
 
 			else if(((t_obtener *)structRecibido)){
 
+				obtenerDatos(((t_obtener *)structRecibido));
 
 
 			}
