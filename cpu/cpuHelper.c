@@ -407,7 +407,7 @@ char * pedirSiguienteInstruccion(){
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			exitFailureCPU();
+			//TODO implementar un metodo para desconectar CPU con error
 			return NULL;
 
 		} else {
@@ -430,7 +430,7 @@ bool validarPedidoMemoria(){
 	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "La memoria se desconecto del sistema");
-		exitFailureCPU();
+		//TODO implementar un metodo para desconectar CPU con error
 		return false;
 
 	} else {

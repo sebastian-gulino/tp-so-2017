@@ -28,6 +28,8 @@ void moverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posic
 void escribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio);
 void leer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio);
 
-bool terminoElPrograma(void);
+bool esArgumento(t_nombre_variable identificador_variable);
+registroStack* reg_stack_create();
+
 #endif
 
