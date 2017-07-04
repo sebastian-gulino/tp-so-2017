@@ -40,6 +40,7 @@ void setPuntoDeMontaje(){
 	system(arch_command);
 	system(bloque_command);
 
+	log_info(logger, "Las carpetas: Metadata, Archivos y Bloques creadas satisfactoriamente en el punto de montaje: %s", configuracion.puntoMontaje);
 }
 
 void setMetadata(){
@@ -49,7 +50,7 @@ void setMetadata(){
 	char bloqueSize[300];
 	int size = 20;
 	char bloqueCant[300];
-	int cant = 800;
+	int cant = 8;
 
 		sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
 
@@ -63,11 +64,16 @@ void setMetadata(){
 		sprintf(bloqueCant, "%d", cant);
 		config_set_value(mtdt, "TAMANIO_BLOQUES", bloqueSize);
 		config_set_value(mtdt, "CANTIDAD_BLOQUES", bloqueCant);
+		config_set_value(mtdt, "MAGIC_NUMBER", "SADICA");
 
 		config_save(mtdt);
+		log_info(logger, "El metadata se creo satisfactoriamente");
 
 		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
+
+		log_info(logger, "El metadata se cargo satisfactoriamente");
+
 
 
 	}
@@ -116,7 +122,7 @@ void crearServidorMonocliente(){
 
 void crearBitmap(){
 
-		char pathBitmap[260];
+	    char pathBitmap[260];
 		char bitmap_command[260];
 		sprintf(pathBitmap, "%s/Metadata/Bitmap.bin", configuracion.puntoMontaje );
 
@@ -144,6 +150,7 @@ void crearBitmap(){
 
 	bitarray = bitarray_create_with_mode(bmap, metadata.bloque_cant/8, MSB_FIRST);
 
+
 }
 
 
@@ -151,7 +158,7 @@ void crearBitmap(){
 int asignarBloque(t_config * data){
 
 
-	if(bloquesLibres>0){
+	if(bloquesLibres()>0){
 
 	off_t posicion = 0;
 
@@ -189,7 +196,7 @@ int asignarBloque(t_config * data){
 
 int bloquesLibres(){
 
- int contador, var, posicion=0;
+ int contador=0, var, posicion=0;
  size_t max = bitarray_get_max_bit(bitarray);
 
 	for (var = 0; var < max; ++var) {

@@ -23,6 +23,9 @@
 #include <math.h>
 
 
+enum {
+    SADICA = 1024
+};
 typedef struct config_t {
 
 	int puertoFS;
@@ -45,7 +48,7 @@ t_metadata metadata;
 pthread_t threadAtenderKernel;
 
 struct stat mystat;
-
+int block_counter;
 t_configuracion cargarConfiguracion();
 
 void crearServidorMonocliente();

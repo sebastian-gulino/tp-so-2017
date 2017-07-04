@@ -16,15 +16,14 @@ int validarArchivo(t_abrir archivo){
 
 			if(crearArchivo(archivo.path) == 1){
 
-				fd++;
-
-				return fd;
+				return 1;
 
 			} else return 0;
 
 		}
 		return 0; //El archivo no existe
 	}
+
 
 	fd++;
 
@@ -65,6 +64,7 @@ int crearArchivo(char * path){
 	t_config * data = config_create(pathFile);
 
 	config_set_value(data, "SIZE", "0");
+	config_set_value(data, "MAGIC_NUMBER", "SADICA");
 
 	config_save(data);
 
@@ -86,7 +86,9 @@ int borrarArchivo(char * path){
 	t_config * fileData;
 
 		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);
-
+		if(fopen(pathFile, "r")==NULL){
+			return -1;
+		}
 		fileData = config_create(pathFile);
 
 		char** bloques= config_get_array_value(fileData, "BLOCKS");
@@ -200,10 +202,12 @@ int obtenerDatos(t_obtener archivo){
 
 int guardarDatos(t_guardar archivo){
 
+
 	t_config * fileData;
 
 	off_t posicion = 0;
 
+	FILE * file;
 
 	void * block_buffer;
 
@@ -214,6 +218,7 @@ int guardarDatos(t_guardar archivo){
 	char pathBloque[260];
 	char * block;
 	char * char_size;
+	int a = 0;
 
 	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo.path);
 
@@ -241,37 +246,55 @@ int guardarDatos(t_guardar archivo){
 
 	while(bloques[var]!= NULL){
 
-		block = string_itoa(bloques[var]);
+		block = bloques[var];
 
 		string_append_with_format(&bloques_array, "%s,", block);
 
 		var++;
 	}
 
-	while(bitarray_test_bit(bitarray, posicion)){
-
-		posicion++;
-
-	}
-
 	float ratio = archivo.offset / metadata.bloque_size;
 
-			if(ratio>0){
+	var = 0;
+	int new_blocks;
+
+	if(ratio>0){
 				int counter;
 				int offblocks = floor(ratio);
-
+				new_blocks = offblocks;
 				for (counter = 0; counter < offblocks; ++counter) {
 
-					while(bitarray_test_bit(bitarray, posicion)){
-
-							posicion++;
+					if(bloques[var]!=NULL){
+						posicion = atoi(bloques[var]);
 					}
+					var++;
+					new_blocks--;
+
 				}
+
+					if(bloques[var]==NULL){
+
+						if(bloquesLibres()==0){
+							return -3;
+						}
+
+						posicion = 0;
+
+					for (counter = 0; counter < new_blocks; ++counter) {
+
+						while(bitarray_test_bit(bitarray, posicion)){
+
+									posicion++;
+							}
+						}
+				}
+
 
 				archivo.offset=archivo.offset - metadata.bloque_size*offblocks;
 
 			}
 
+	posicion = atoi(bloques[var]);
 
 		while(archivo.size>0){
 
@@ -281,9 +304,11 @@ int guardarDatos(t_guardar archivo){
 
 			sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, bloque);
 
-			FILE * file = fopen(pathBloque, "a+");
+			file = fopen(pathBloque, "r+");
 
-
+			if(file == NULL){
+				file = fopen(pathBloque, "w+");
+			}
 
 			if(archivo.size <= ( metadata.bloque_size - archivo.offset)){
 					writeSize = archivo.size;
@@ -310,18 +335,41 @@ int guardarDatos(t_guardar archivo){
 
 			block = string_itoa(bloque);
 
+			if(!(string_contains(bloques_array, block))){
+
 			string_append_with_format(&bloques_array, "%s,", block);
 
-			while(bitarray_test_bit(bitarray, posicion)){
+			}
 
-								posicion++;
+			var++;
+
+			if(bloques[var]==NULL){
+
+				var--;
+				if(bloquesLibres()==0){
+					break;
+				}
+
+			while(bitarray_test_bit(bitarray, a)){
+
+								a++;
 							}
+			posicion = a;
+
+			} else
+				posicion = atoi(bloques[var]);
 		}
 
-			string_append_with_format(&bloques_array, "%s]", block);
+
+			string_append(&bloques_array, "]");
 
 			config_set_value(fileData, "BLOCKS", bloques_array);
 
+			config_save(fileData);
+
+			if(archivo.size>0){
+				return -1;
+			}
 
 
 	return 1;
