@@ -55,6 +55,18 @@ int conectarAKernel (){
 		log_info(logger,"El tamaño de stack es %d",tamanio_stack);
 	}
 
+	resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
+
+	if(resultado == -1){
+		log_info(logger,"No se recibió el tamaño de stack");
+	} else{
+		quantum = ((t_struct_numero*) structRecibido)->numero;
+
+		log_info(logger,"El quantum para la planificacion es %d",quantum);
+	}
+
+	free(structRecibido);
+
 	return socketCliente;
 }
 
@@ -125,8 +137,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
 
-	// TODO el kernel debe enviarme el quantum cuando conecto
-	int quantumDisponible = configuracion.puertoKernel;
+	int quantumDisponible = quantum;
 
 	while(quantumDisponible > 0){
 
@@ -157,8 +168,12 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_error(logger, "Hubo stackoverflow, aborto el proceso");
 
-				// TODO cambiar operacion por otra para indicar que fallo el proceso
-				socket_enviar(socketKernel, D_STRUCT_PCB, pcbEjecutando);
+				t_struct_numero * procesoAbortado = malloc(sizeof(t_struct_numero));
+				procesoAbortado->numero = pcbEjecutando->PID;
+				//TODO manejar desde el kernel el D_STRUCT_ABORT
+				socket_enviar(socketKernel, D_STRUCT_ABORT, procesoAbortado);
+
+				free(procesoAbortado);
 
 				free(instruccion);
 				instruccion = NULL;
@@ -169,8 +184,8 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_info(logger, "El proceso finalizo exitosamente");
 
-				// TODO cambiar operacion por otra para indicar que finalizo ok el proceso
-				socket_enviar(socketKernel, D_STRUCT_PCB, pcbEjecutando);
+				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
+				socket_enviar(socketKernel, D_STRUCT_PCB_FINOK, pcbEjecutando);
 
 				free(instruccion);
 				instruccion = NULL;
@@ -358,8 +373,9 @@ void manejarSignal(){
 	// Envio al kernel una notificacion de que me solicitaron finalizar la cpu
 	t_struct_numero* signal = malloc(sizeof(t_struct_numero));
 	signal->numero = SIGUSR1;
-	//TODO agregar un nuevo tipo de operacion para distinguir este mensaje
-	socket_enviar(socketMemoria, D_STRUCT_NUMERO, signal);
+
+	//TODO Manejar desde el kernel la operacion SIGUSR1
+	socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, signal);
 	free(signal);
 
 	if (cpuLibre){
@@ -407,7 +423,7 @@ char * pedirSiguienteInstruccion(){
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			//TODO implementar un metodo para desconectar CPU con error
+			salirErrorMemoria();
 			return NULL;
 
 		} else {
@@ -430,7 +446,7 @@ bool validarPedidoMemoria(){
 	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "La memoria se desconecto del sistema");
-		//TODO implementar un metodo para desconectar CPU con error
+		salirErrorMemoria();
 		return false;
 
 	} else {
@@ -447,4 +463,27 @@ bool validarPedidoMemoria(){
 		return true;
 
 	}
+}
+
+void salirErrorMemoria(){
+	log_info(logger,"Se finaliza abortivamente la ejecucion del proceso %d por error en la memoria",pcbEjecutando->PID);
+
+	t_struct_numero * procesoAbortado = malloc(sizeof(t_struct_numero));
+	procesoAbortado->numero = pcbEjecutando->PID;
+
+	// TODO Manejar desde el kernel la recepcion de un proceso abortado
+	socket_enviar(socketKernel,D_STRUCT_ABORT,procesoAbortado);
+
+	free(procesoAbortado);
+
+	salirProceso();
+}
+
+void salirErrorCpu(){
+	close(socketKernel);
+	close(socketMemoria);
+
+	log_info(logger,"Se desconecta la CPU por un error");
+
+	liberarRecursosCPU();
 }

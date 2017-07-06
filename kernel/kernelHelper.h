@@ -93,6 +93,8 @@ int obtener_pid();
 
 void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet);
 
+void enviarConfiguracion(int socketCliente, int valor)
+
 t_pcb crearPCB(char* programa, int PID, int tamanioPrograma);
 
 int solicitarSegmentoCodigo(int pid, int tam_programa);

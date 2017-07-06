@@ -78,4 +78,8 @@ char * pedirSiguienteInstruccion();
 
 bool validarPedidoMemoria();
 
+void salirErrorMemoria();
+
+void salirErrorCpu();
+
 #endif /* CPUHELPER_H_ */

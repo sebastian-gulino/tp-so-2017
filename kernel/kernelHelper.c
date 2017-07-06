@@ -110,12 +110,9 @@ void manejarNuevaConexion(int listener, int *fdmax){
 
 			list_add(listaCpus, (void*)socketCliente);
 
-			// TODO pasar a un metodo
-			t_struct_numero* tamanio_stack;
-			tamanio_stack = malloc(sizeof(t_struct_numero));
-			tamanio_stack->numero = configuracion.stackSize;
-			socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_stack);
-			free(tamanio_stack);
+			enviarConfiguracion(socketCliente,configuracion.stackSize);
+
+			enviarConfiguracion(socketCliente,configuracion.quantum);
 
 			log_info(logger,"El CPU %d se conectó.",socketCliente);
 
@@ -132,6 +129,18 @@ void manejarNuevaConexion(int listener, int *fdmax){
 	}
 
 	free(structRecibido);
+
+}
+
+void enviarConfiguracion(int socketCliente, int valor){
+
+	t_struct_numero* parametro;
+
+	parametro = malloc(sizeof(t_struct_numero));
+	parametro->numero = valor;
+
+	socket_enviar(socketCliente, D_STRUCT_NUMERO, parametro);
+	free(parametro);
 
 }
 

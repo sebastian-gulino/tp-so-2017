@@ -84,10 +84,19 @@ enum{
 
 	//Comunicacion Kernel - CPU
 	D_STRUCT_PCB=8,
+	D_STRUCT_ABORT=12,
+	D_STRUCT_SIGUSR1=13,
+	D_STRUCT_PCB_FINOK=15,
+	D_STRUCT_WAIT=16,
+	D_STRUCT_SIGNAL=17,
+	D_STRUCT_OBTENER_COMPARTIDA=18,
+	D_STRUCT_GRABAR_COMPARTIDA=19,
 
 	//Comunicacion CPU - Memoria
 	D_STRUCT_PID=9,
 	D_STRUCT_LECT=10,
+	D_STRUCT_LECT_VAR=11,
+	D_STRUCT_SOL_ESCR=14,
 
 	//Handshake
 	ES_KERNEL=100,
@@ -131,6 +140,7 @@ typedef struct struct_env_bytes{
 		void* buffer;
 }__attribute__ ((__packed__)) t_struct_programa;
 
+// TODO incorporar quantum_sleep en pcb
 typedef struct struct_pcb {
 		int PID;
 		int programCounter;
@@ -150,8 +160,7 @@ typedef struct struct_pcb {
 } __attribute__ ((__packed__)) t_struct_pcb;
 
 typedef struct {
-	int pagina, offset;
-	char* contenido;
+	int pagina, offset, contenido;
 } __attribute__((packed)) t_struct_sol_escritura;
 
 typedef struct {

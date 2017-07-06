@@ -16,12 +16,19 @@
 	t_stream * serializeStruct_char(t_struct_char * estructuraOrigen);
 	t_stream * serializeStruct_string(t_struct_string * estructuraOrigen);
 	t_stream * serializeStruct_malc(t_struct_malloc * estructuraOrigen);
-	t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen);
+	t_stream * serializeStruct_prog(t_struct_programa * estructuraOrigen);
 	t_stream * serializeStruct_impr(t_struct_string * estructuraOrigen);
 	t_stream * serializeStruct_finProg(t_struct_numero * estructuraOrigen);
 	t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen);
 	t_stream * serializeStruct_pid(t_struct_numero * estructuraOrigen);
-	t_stream* serializeStruct_lect(t_posicion_memoria * estructuraOrigen);
+	t_stream * serializeStruct_lect(t_posicion_memoria * estructuraOrigen);
+	t_stream * serializeStruct_lectvar(t_posicion_memoria * estructuraOrigen);
+	t_stream * serializeStruct_abort(t_struct_numero * estructuraOrigen);
+	t_stream * serializeStruct_sigusr1(t_struct_numero * estructuraOrigen);
+	t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen);
+	t_stream * serializeStruct_pcb_finOk(t_struct_pcb * estructuraOrigen);
+	t_stream * serializeStruct_wait(t_struct_string * estructuraOrigen);
+	t_stream * serializeStruct_obtComp(t_struct_string * estructuraOrigen);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -36,6 +43,12 @@
 	t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length);
 	t_struct_numero * deserializeStruct_pid(char * dataPaquete, uint16_t length);
 	t_posicion_memoria * deserializeStruct_lect(char* dataPaquete, uint16_t length);
-
+	t_posicion_memoria * deserializeStruct_lectvar(char* dataPaquete, uint16_t length);
+	t_struct_numero * deserializeStruct_abort(char * dataPaquete, uint16_t length);
+	t_struct_numero * deserializeStruct_sigusr1(char * dataPaquete, uint16_t length);
+	t_struct_sol_escritura * deserializeStruct_solEscr(char* dataPaquete, uint16_t length);
+	t_struct_pcb * deserializeStruct_pcb_finOk(char* dataPaquete, uint16_t length);
+	t_struct_string * deserializeStruct_wait(char * dataPaquete, uint16_t length);
+	t_struct_string * deserializeStruct_obtComp(char * dataPaquete, uint16_t length);
 
 #endif /* SERIALIZACION_H_ */

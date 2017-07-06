@@ -115,8 +115,8 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 	log_trace(logger, "Solicitud Lectura -> Página: %i, Offset: %i, Size: %i.",
 			var_direccion->pagina, var_direccion->offsetInstruccion, sizeof(int));
 
-	// TODO handler en memoria y tipo de operacion para lectura variable PEDIDO_LECTURA_VARIABLE
-	socket_enviar(socketKernel,D_STRUCT_LECT,var_direccion);
+	// TODO manejar esta peticion en memoria en memoria
+	socket_enviar(socketMemoria,D_STRUCT_LECT_VAR,var_direccion);
 
 	free(var_direccion);
 	var_direccion = NULL;
@@ -124,8 +124,7 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 	// Valido el pedido de lectura a UMC:
 	if(!validarPedidoMemoria()){ // hubo error de lectura
 		log_error(logger, "La variable no pudo dereferenciarse.");
-		//TODO implementar un metodo para desconectar CPU por error en el memoria
-
+		salirErrorMemoria();
 		return -1;
 	}
 	else{ // no hubo error de lectura
@@ -135,7 +134,7 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			//TODO implementar un metodo para desconectar CPU con error
+			salirErrorMemoria();
 			return NULL;
 
 		} else {
@@ -159,20 +158,20 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 
 	var_escritura->pagina = total_heap_offset / tamanio_pagina;
 	var_escritura->offset = total_heap_offset % tamanio_pagina;
-	var_escritura->contenido = (char*) &valor;
+	var_escritura->contenido = valor;
 
 	log_trace(logger, "Solicitud Escritura -> Página: %i, Offset: %i, Contenido: %d.",
 			var_escritura->pagina, var_escritura->offset, valor);
 
-	//TODO armar un nuevo tipo de operacion para enviar t_struct_sol_escritura PEDIDO_ESCRITURA
-	socket_enviar(socketMemoria, D_STRUCT_LECT, var_escritura);
+	//TODO manejar este tipo de operacion en la memoria para escritura
+	socket_enviar(socketMemoria, D_STRUCT_SOL_ESCR, var_escritura);
 
 	free(var_escritura);
 	var_escritura = NULL;
 
 	if(!validarPedidoMemoria()){
 		log_error(logger, "La variable no pudo asignarse en memoria.");
-		//TODO implementar un metodo para desconectar CPU por error en el memoria
+		salirErrorMemoria();
 	}
 }
 
@@ -180,8 +179,10 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 
 	log_trace(logger, "Obteniendo valor de Variable Compartida: '%s'.", variableCompartida);
 
-	//TODO implementar un nuevo tipo de operacion para OBTENER_VAR_COMPARTIDA
-	socket_enviar(socketKernel, D_STRUCT_LECT, variableCompartida);
+	t_struct_string* obtenerVarCompartida = malloc(sizeof(t_struct_string));
+	obtenerVarCompartida->string = variableCompartida;
+	// TODO manejar en el kernel la solicitud de variables compartidas.
+	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -189,12 +190,12 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		//TODO implementar un metodo para desconectar CPU con error
+		salirErrorCpu();
 		return NULL;
 
 	} else {
 
-		// TODO cambiar por estructura para devolver variable compartida
+		// El kernel ante una solicitud de variable compartida debe retornarme el valor entero correspondiente.
 		t_valor_variable valor = ((t_struct_numero*) structRecibido)->numero;
 
 		log_trace(logger, "Variable Compartida: '%s' -> Valor: '%d'.", variableCompartida, valor);
@@ -287,8 +288,12 @@ void retornar(t_valor_variable retorno) {
 //FUNCIONES KERNEL
 void s_wait(t_nombre_semaforo semaforo) {
 
-	//TODO implementar una operacion para solicitud de WAIT de un semaforo WAIT_REQUEST
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,semaforo);
+	//TODO manejar solicitud de wait en el kernel
+	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
+	waitSemaforo->string=semaforo;
+
+	socket_enviar(socketKernel,D_STRUCT_WAIT,semaforo);
+	free(waitSemaforo);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -296,14 +301,14 @@ void s_wait(t_nombre_semaforo semaforo) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		//TODO implementar un metodo para desconectar CPU con error
+		salirErrorCpu();
 
 	} else {
 
-		// TODO cambiar por estructura para devolver un boolean de si se bloque el semaforo o no
-		bool bloqueado = ((t_struct_numero*) structRecibido)->numero;
+		// Debe retornar un 1 si se bloqueo el semaforo o 0 en caso contrario
+		int bloqueado = ((t_struct_numero*) structRecibido)->numero;
 
-		if(bloqueado){
+		if(bloqueado==1){
 			devolvioPcb = WAIT;
 			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforo);
 		}else {
@@ -344,12 +349,12 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		//TODO implementar un metodo para desconectar CPU con error
+		salirErrorCpu();
 		return -1;
 
 	} else {
 
-		// TODO cambiar por estructura para el filedescriptor (es un int)
+		// El kernel debera retornar el file descriptor en un D_STRUCT_NUMERO.
 		int fdArchivo = ((t_struct_numero*) structRecibido)->numero;
 
 		free(structRecibido);
@@ -423,7 +428,7 @@ void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variabl
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		//TODO implementar un metodo para desconectar CPU con error
+		salirErrorCpu();
 
 	} else {
 
