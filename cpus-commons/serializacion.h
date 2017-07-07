@@ -29,6 +29,8 @@
 	t_stream * serializeStruct_pcb_finOk(t_struct_pcb * estructuraOrigen);
 	t_stream * serializeStruct_wait(t_struct_string * estructuraOrigen);
 	t_stream * serializeStruct_obtComp(t_struct_string * estructuraOrigen);
+	t_stream * serializeStruct_graComp(t_struct_var_compartida * estructuraOrigen);
+	t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -50,5 +52,7 @@
 	t_struct_pcb * deserializeStruct_pcb_finOk(char* dataPaquete, uint16_t length);
 	t_struct_string * deserializeStruct_wait(char * dataPaquete, uint16_t length);
 	t_struct_string * deserializeStruct_obtComp(char * dataPaquete, uint16_t length);
+	t_struct_var_compartida * deserializeStruct_graComp(char * dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_esc(char* dataPaquete, uint16_t length);
 
 #endif /* SERIALIZACION_H_ */

@@ -68,6 +68,12 @@ typedef struct Cabecera {
 		uint32_t longitud; /* Longitud del mensaje, en bytes */
 	} cabecera_t;
 
+typedef struct{
+		bool lectura;
+		bool escritura;
+		bool creacion;
+} t_flags;
+
 enum{
 	//Generales
 	D_STRUCT_NUMERO=1,
@@ -91,6 +97,7 @@ enum{
 	D_STRUCT_SIGNAL=17,
 	D_STRUCT_OBTENER_COMPARTIDA=18,
 	D_STRUCT_GRABAR_COMPARTIDA=19,
+	D_STRUCT_ARCHIVO_ESC=20,
 
 	//Comunicacion CPU - Memoria
 	D_STRUCT_PID=9,
@@ -157,16 +164,31 @@ typedef struct struct_pcb {
 		int tamanioIndiceEtiquetas;
 		char * indiceEtiquetas;
 		int exitcode;
+		uint32_t estado;
+		uint32_t quantum; //sera la referencia para que el CPU ejecute
+		uint32_t quantum_sleep;
+		uint32_t rafagas; //lo actualiza cpu
+		bool abortarEjecucion;
+		uint32_t indiceContextoEjecucionActualStack;
+		t_queue* punteroColaPlanif;
 } __attribute__ ((__packed__)) t_struct_pcb;
 
 typedef struct {
-	int pagina, offset, contenido;
+	int pagina, offset, contenido, PID;
 } __attribute__((packed)) t_struct_sol_escritura;
 
 typedef struct {
 	char *nombre;
 	int valor;
 } __attribute__((packed)) t_struct_var_compartida;
+
+typedef struct {
+	uint32_t fileDescriptor;
+	char* informacion;
+	uint32_t tamanio;
+	uint32_t pid;
+	t_flags flags;
+}__attribute__((__packed__)) t_struct_archivo;
 
 //MEMORIA
 typedef struct FilaTablaInvertida {

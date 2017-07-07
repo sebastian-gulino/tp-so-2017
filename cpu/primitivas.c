@@ -55,16 +55,16 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		pcbEjecutando->paginaActualStack = (total_heap_offset + sizeof(int)) / tamanio_pagina;
 
 		return total_heap_offset;
-	} // fin else ERROR
+	}
 }
 
-t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
+t_puntero obtenerPosicionVariable(t_nombre_variable idVariable) {
 
 	/// Obtengo el registro del stack correspondiente al contexto de ejecución actual:
 	registroStack* regStack = list_get(pcbEjecutando->indiceStack, pcbEjecutando->indiceStack->elements_count -1);
 
 	// Busco en este registro la variable que coincida con el nombre solicitado:
-	if(!esArgumento(variable)){
+	if(!esArgumento(idVariable)){
 		if(regStack->vars->elements_count > 0){ // si hay variables en la lista:
 
 			// Obtengo la variable buscada:
@@ -72,7 +72,7 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
 			for(i = 0; i<regStack->vars->elements_count; i++){
 
 				t_variable* variable = list_get(regStack->vars, i);
-				if(variable->identificador == variable){
+				if(variable->identificador == idVariable){
 
 					int var_offset_absoluto = (variable->posicionMemoria.pagina * tamanio_pagina) + variable->posicionMemoria.offsetInstruccion;
 
@@ -91,7 +91,7 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
 			for(j = 0; j<regStack->args->elements_count; j++){
 
 				t_variable* argumento = list_get(regStack->args, j);
-				if(argumento->identificador == variable){
+				if(argumento->identificador == idVariable){
 
 					int arg_offset_absoluto = (argumento->posicionMemoria.pagina * tamanio_pagina) + argumento->posicionMemoria.offsetInstruccion;
 
@@ -121,8 +121,8 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 	free(var_direccion);
 	var_direccion = NULL;
 
-	// Valido el pedido de lectura a UMC:
-	if(!validarPedidoMemoria()){ // hubo error de lectura
+
+	if(!validarPedidoMemoria()){
 		log_error(logger, "La variable no pudo dereferenciarse.");
 		salirErrorMemoria();
 		return -1;
@@ -139,8 +139,7 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 
 		} else {
 
-			// TODO cambiar por estructura partipara devolver variable
-			int valor = ((t_struct_numero*) structRecibido)->numero;
+			t_valor_variable valor = ((t_struct_numero*) structRecibido)->numero;
 
 			log_trace(logger, "Variable dereferenciada -> Valor: %d.", valor);
 			free(structRecibido);
@@ -180,7 +179,10 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 	log_trace(logger, "Obteniendo valor de Variable Compartida: '%s'.", variableCompartida);
 
 	t_struct_string* obtenerVarCompartida = malloc(sizeof(t_struct_string));
-	obtenerVarCompartida->string = variableCompartida;
+
+	strcpy(obtenerVarCompartida->string,"!\0");
+	strcat(obtenerVarCompartida->string,variableCompartida);
+
 	// TODO manejar en el kernel la solicitud de variables compartidas.
 	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
@@ -214,10 +216,12 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 	t_struct_var_compartida * varCompartida = malloc(strlen(variableCompartida)+ 5);
 
 	varCompartida->valor = valor;
-	varCompartida->nombre = variableCompartida;
 
-	//TODO crear un tipo de operacion para manejar grabar las variables compartidas GRABAR_VAR_COMPARTIDA
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,varCompartida);
+	strcpy(varCompartida->nombre,"!\0");
+	strcat(varCompartida->nombre,variableCompartida);
+
+	//TODO manejar en el kernel
+	socket_enviar(socketKernel,D_STRUCT_GRABAR_COMPARTIDA,varCompartida);
 
 	return valor;
 }
@@ -402,15 +406,33 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 
 void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variable tamanio) {
 
-	t_struct_numero * fileDescriptor = malloc(sizeof(t_struct_numero));
-	fileDescriptor->numero=fdArchivo;
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	// TODO implementar operacion para WRITE_FILE enviar y serializar como una nueva estructura con los 3 datos (parecido a programa)
-	// Esta primitiva es la que se llama con prints para imprimir en pantalla debe venir el fd de la consola
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,fileDescriptor);
+	archivo->fileDescriptor=fdArchivo;
+	archivo->informacion=malloc(tamanio);
+	archivo->informacion=informacion;
+	archivo->tamanio=tamanio;
+	archivo->pid=pcbEjecutando->PID;
 
-	log_trace(logger, "Proceso #%d solicito escribir en el file descriptor '%d'.",
-	pcbEjecutando->PID, fdArchivo);
+	//TODO Manejar en el kernel
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ESC,archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		log_trace(logger, "Escritura de archivo exitosa por el PID %d",pcbEjecutando->PID);
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+	}
 }
 
 void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variable tamanio) {
@@ -425,7 +447,7 @@ void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variabl
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+	if (socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		salirErrorCpu();
