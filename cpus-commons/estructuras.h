@@ -87,7 +87,14 @@
 		ES_CPU=101,
 		ES_MEMORIA=102,
 		ES_FILESYSTEM=103,
-		ES_CONSOLA=104
+		ES_CONSOLA=104,
+
+		//Estructuras FS
+		D_STRUCT_BORRAR = 8,
+		D_STRUCT_ABRIR = 9,
+		D_STRUCT_OBTENER = 10,
+		D_STRUCT_GUARDAR = 11
+
 
 	} t_operaciones;
 
@@ -132,29 +139,34 @@
 	} t_filaTablaInvertida;
 
 	//FILESYSTEM
-	typedef struct Borrar{
+	typedef struct struct_borrar{
 		char * path;
-	}t_borrar;
+		int confirmacion;
+	}__attribute__((__packed__)) t_struct_borrar;
 
-	typedef struct Abrir{
+	typedef struct struct_abrir{
 		int modo_creacion;
 		char * path;
-	}t_abrir;
+		int confirmacion;
+	}__attribute__((__packed__)) t_struct_abrir;
 
-	typedef struct Obtener{
+	typedef struct struct_obtener{
 		int modo_lectura;
 		char * path;
 		int offset;
 		int size;
-	}t_obtener;
+		int confirmacion;
+		void * obtenido;
+	}__attribute__((__packed__)) t_struct_obtener;
 
-	typedef struct Guardar{
+	typedef struct struct_guardar{
 		int modo_escritura;
 		char * path;
 		int offset;
 		int size;
 		void * buffer;
-	}t_guardar;
+		int confirmacion;
+	}__attribute__((__packed__)) t_struct_guardar;
 
 
 

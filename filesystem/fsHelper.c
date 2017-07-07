@@ -89,7 +89,7 @@ void crearServidorMonocliente(){
 
 	while(1){
 			//Por defecto acepto el cliente que se está conectando
-			int socketCliente = aceptarCliente(socketServidor);
+			socketCliente = aceptarCliente(socketServidor);
 
 			void* structRecibido;
 
@@ -175,7 +175,7 @@ int asignarBloque(t_config * data){
 
 	sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, offset);
 
-	fopen(pathBloque, "a+");
+	FILE * file = fopen(pathBloque, "w+");
 
 	if(msync(bmap, mystat.st_size, MS_SYNC) < 0){
 		printf("Error es: %s\n", strerror(errno));
@@ -186,6 +186,8 @@ int asignarBloque(t_config * data){
 
 	config_set_value(data, "BLOCKS", bloque);
 	config_save(data);
+
+	fclose(file);
 
 	return 1;
 
@@ -222,36 +224,41 @@ void manejarKernel(int i){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Kernel %d cerró la conexión.",i);
-	}
 
 	while(socket_recibir(i,&tipoEstructura,&structRecibido) > 0){
 
-			if(((t_borrar *)structRecibido)){
+			switch(tipoEstructura){
 
-				borrarArchivo(((t_borrar *)structRecibido)->path);
+			case D_STRUCT_ABRIR:
 
+				validarArchivo(((t_struct_abrir *) structRecibido));
+
+			break;
+
+			case D_STRUCT_BORRAR:
+
+				borrarArchivo(((t_struct_borrar *) structRecibido));
+
+			break;
+
+			case D_STRUCT_GUARDAR:
+
+				guardarDatos(((t_struct_guardar *) structRecibido));
+
+			break;
+
+			case D_STRUCT_OBTENER:
+
+				obtenerDatos(((t_struct_obtener *) structRecibido));
+
+			break;
 			}
 
-			else if (((t_abrir *)structRecibido)){
 
-				validarArchivo(((t_abrir *)structRecibido));
-
-			}
-
-			else if(((t_obtener *)structRecibido)){
-
-				obtenerDatos(((t_obtener *)structRecibido));
+	}
 
 
-			}
-
-			else if(((t_guardar *)structRecibido)){
-
-
-			}
-
-
+	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Kernel %d cerró la conexión.",i);
 	}
 }

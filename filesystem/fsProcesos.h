@@ -4,10 +4,10 @@
 #include "fsHelper.h"
 
 
-int borrarArchivo(char * path);
-int validarArchivo(t_abrir archivo);
+void borrarArchivo(t_struct_borrar * archivo);
+void validarArchivo(t_struct_abrir * archivo);
 int crearArchivo(char * path);
-int obtenerDatos(t_obtener archivo);
-int guardarDatos(t_guardar archivo);
+void obtenerDatos(t_struct_obtener * archivo);
+void guardarDatos(t_struct_guardar * archivo);
 
 #endif /* FSPROCESOS_H_ */

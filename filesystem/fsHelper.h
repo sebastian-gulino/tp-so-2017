@@ -41,7 +41,7 @@ typedef struct mtdt_t{
 
 t_bitarray * bitarray;
 void * bmap;
-
+int socketCliente;
 t_configuracion configuracion;
 t_metadata metadata;
 
