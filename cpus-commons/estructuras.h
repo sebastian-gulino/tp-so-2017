@@ -155,7 +155,7 @@ typedef struct struct_env_bytes{
 		void* buffer;
 }__attribute__ ((__packed__)) t_struct_programa;
 
-// TODO incorporar quantum_sleep en pcb
+// TODO serializar los nuevos campos!!
 typedef struct struct_pcb {
 		int PID;
 		int programCounter;
@@ -172,6 +172,10 @@ typedef struct struct_pcb {
 		int tamanioIndiceEtiquetas;
 		char * indiceEtiquetas;
 		int exitcode;
+		uint32_t quantum;
+		uint32_t quantum_sleep;
+		uint32_t rafagas;
+
 } __attribute__ ((__packed__)) t_struct_pcb;
 
 typedef struct {

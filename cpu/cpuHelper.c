@@ -110,7 +110,7 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 		if (socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1) {
 
-			//TODO manejar desconexion del kernel
+			salirErrorCpu();
 
 		} else {
 
@@ -137,9 +137,9 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
 
-	int quantumDisponible = quantum;
+	int quantumDisponible = pcbEjecutando->quantum;
 
-	while(quantumDisponible > 0){
+	while(quantumDisponible > 0 || quantum == 0){
 
 		char * instruccion = pedirSiguienteInstruccion();
 
@@ -193,8 +193,9 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 				return;
 			}
 
-			quantumDisponible --;
+			quantumDisponible--;
 			pcbEjecutando->programCounter++;
+			pcbEjecutando->rafagas++;
 
 			switch (devolvioPcb){
 			case IO:{
