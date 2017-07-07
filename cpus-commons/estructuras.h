@@ -98,6 +98,14 @@ enum{
 	D_STRUCT_OBTENER_COMPARTIDA=18,
 	D_STRUCT_GRABAR_COMPARTIDA=19,
 	D_STRUCT_ARCHIVO_ESC=20,
+	D_STRUCT_ARCHIVO_LEC=21,
+	D_STRUCT_SOL_HEAP=22,
+	D_STRUCT_RTA_HEAP=23,
+	D_STRUCT_LIB_HEAP=24,
+	D_STRUCT_ARCHIVO_ABR=25,
+	D_STRUCT_ARCHIVO_CER=26,
+	D_STRUCT_ARCHIVO_BOR=27,
+	D_STRUCT_ARCHIVO_MOV=28,
 
 	//Comunicacion CPU - Memoria
 	D_STRUCT_PID=9,
@@ -164,13 +172,6 @@ typedef struct struct_pcb {
 		int tamanioIndiceEtiquetas;
 		char * indiceEtiquetas;
 		int exitcode;
-		uint32_t estado;
-		uint32_t quantum; //sera la referencia para que el CPU ejecute
-		uint32_t quantum_sleep;
-		uint32_t rafagas; //lo actualiza cpu
-		bool abortarEjecucion;
-		uint32_t indiceContextoEjecucionActualStack;
-		t_queue* punteroColaPlanif;
 } __attribute__ ((__packed__)) t_struct_pcb;
 
 typedef struct {
@@ -189,6 +190,11 @@ typedef struct {
 	uint32_t pid;
 	t_flags flags;
 }__attribute__((__packed__)) t_struct_archivo;
+
+typedef struct {
+	uint32_t pointer;
+	uint32_t pid;
+}__attribute__((__packed__)) t_struct_sol_heap;
 
 //MEMORIA
 typedef struct FilaTablaInvertida {

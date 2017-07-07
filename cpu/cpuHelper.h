@@ -6,6 +6,7 @@
 #include <parser/metadata_program.h>
 #include <parser/parser.h>
 #include <logger.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>

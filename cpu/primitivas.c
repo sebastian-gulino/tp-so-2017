@@ -326,26 +326,39 @@ void s_wait(t_nombre_semaforo semaforo) {
 
 void s_signal(t_nombre_semaforo semaforo) {
 
-	//TODO implementar una operacion para solicitud de SIGNAL de un semaforo SIGNAL_REQUEST
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,semaforo);
+	//TODO manejar solicitud de signal en el kernel
+	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
+	signalSemaforo->string=semaforo;
 
-	log_trace(logger, "Proceso #%d envia SIGNAL del semáforo: '%s'.", pcbEjecutando->PID, semaforo);
+	socket_enviar(socketKernel,D_STRUCT_SIGNAL,semaforo);
+	free(signalSemaforo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		log_trace(logger, "SIGNAL del semáforo: '%s' realizado exitosamente", semaforo);
+
+		free(structRecibido);
+		structRecibido = NULL;
+	}
 
 }
 
 t_puntero reservar(t_valor_variable espacio) {
-	//TODO implementar
-	return NULL;
-}
 
-void liberar(t_puntero puntero) {
-	//TODO implementar
-}
+	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
 
-t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
-
-	//TODO implementar una estructura que contenga direccion, y 3 banderas, serializar, operacion para OPEN_FILE
-	socket_enviar(socketKernel,D_STRUCT_CHAR,direccion);
+	heap->pointer=espacio;
+	heap->pid=pcbEjecutando->PID;
+	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP si esta todo bien, o un D_STRUCT_NUMERO en caso contrario
+	socket_enviar(socketKernel,D_STRUCT_SOL_HEAP,heap);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -358,50 +371,187 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 	} else {
 
-		// El kernel debera retornar el file descriptor en un D_STRUCT_NUMERO.
-		int fdArchivo = ((t_struct_numero*) structRecibido)->numero;
+		switch(tipoEstructura){
+		case D_STRUCT_RTA_HEAP: ;
+
+			int pointer = ((t_struct_numero*) structRecibido)->numero ;
+			log_trace(logger, "Memoria dinamica reservada exitosamente, puntero %d", pointer);
+			free(structRecibido);
+			structRecibido = NULL;
+
+			return pointer;
+
+			break;
+
+		default:
+			log_trace(logger,"No se pudo reservar la memoria dinamica");
+			free(structRecibido);
+			structRecibido = NULL;
+			return NULL;
+			break;
+		}
+	}
+}
+
+void liberar(t_puntero puntero) {
+
+	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
+
+	heap->pointer=puntero;
+	heap->pid=pcbEjecutando->PID;
+
+	// TODO MANEJAR En el kernel
+	socket_enviar(socketKernel,D_STRUCT_LIB_HEAP,heap);
+
+	free(heap);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		log_trace(logger, "Se libero correctamente el puntero #%d en la memoria dinamica",puntero);
+
+	}
+}
+
+t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
+
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+
+	archivo->fileDescriptor=0;
+	archivo->tamanio=strlen(direccion)+1;
+	archivo->informacion=malloc(strlen(direccion)+1);
+	archivo->informacion=direccion;
+	archivo->pid=pcbEjecutando->PID;
+	archivo->flags.creacion=flags.creacion;
+	archivo->flags.escritura=flags.escritura;
+	archivo->flags.lectura=flags.lectura;
+
+	//TODO manejar desde el kernel, debe devolver un numero con el puntero.
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ABR,archivo);
+
+	free(archivo->informacion);
+	free(archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+		return -1;
+
+	} else {
+
+		int puntero = ((t_struct_numero*) structRecibido)->numero;
 
 		free(structRecibido);
 		structRecibido = NULL;
 
-		log_trace(logger, "Proceso #%d solicito abrir el archivo '%d'.", pcbEjecutando->PID, fdArchivo);
+		log_trace(logger, "Proceso #%d pudo abrir el archivo");
 
-		return fdArchivo;
+		return puntero;
 	}
 }
 
 void borrar(t_descriptor_archivo fdArchivo) {
 
-	//TODO implementar operacion para DELETE_FILE enviar
-	t_struct_numero * fileDescriptor = malloc(sizeof(t_struct_numero));
-	fileDescriptor->numero=fdArchivo;
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,fileDescriptor);
+	archivo->fileDescriptor=fdArchivo;
+	archivo->pid=pcbEjecutando->PID;
+	archivo->tamanio=0;
 
-	log_trace(logger, "Proceso #%d solicito borrar el archivo '%d'.", pcbEjecutando->PID, fdArchivo);
+	// TODO manejar desde el kernel
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_BOR,archivo);
+
+	free(archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+		log_trace(logger, "Proceso #%d pudo borrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+
+	}
 }
 
 void cerrar(t_descriptor_archivo fdArchivo) {
 
-	t_struct_numero * fileDescriptor = malloc(sizeof(t_struct_numero));
-	fileDescriptor->numero=fdArchivo;
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	//TODO implementar operacion para CLOSE_FILE enviar y serializar como t_struct_numero
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,fileDescriptor);
+	archivo->fileDescriptor=fdArchivo;
+	archivo->pid=pcbEjecutando->PID;
+	archivo->tamanio=0;
 
-	log_trace(logger, "Proceso #%d solicito cerrar el archivo '%d'.", pcbEjecutando->PID, fdArchivo);
+	// TODO manejar desde el kernel
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_CER,archivo);
+
+	free(archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+		log_trace(logger, "Proceso #%d pudo cerrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+
+	}
 }
 
 void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 
-	t_struct_numero * fileDescriptor = malloc(sizeof(t_struct_numero));
-	fileDescriptor->numero=fdArchivo;
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	//TODO implementar operacion para SEEK_FILE enviar y serializar como una nueva estructura
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,fileDescriptor);
+	archivo->fileDescriptor=fdArchivo;
+	archivo->pid=pcbEjecutando->PID;
+	archivo->tamanio=posicion;
 
-	log_trace(logger, "Proceso #%d solicito mover el cursor del archivo '%d' a la posicion '%d'.",
-			pcbEjecutando->PID, fdArchivo, posicion);
+	// TODO manejar desde el kernel
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_MOV,archivo);
+
+	free(archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		salirErrorCpu();
+
+	} else {
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+		log_trace(logger, "Proceso #%d pudo mover el cursor dentro del archivo %d",pcbEjecutando->PID,fdArchivo);
+
+	}
 }
 
 void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variable tamanio) {
@@ -437,12 +587,18 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 
 void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variable tamanio) {
 
-	t_struct_numero * fileDescriptor = malloc(sizeof(t_struct_numero));
-	fileDescriptor->numero=fdArchivo;
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	// TODO implementar operacion para READ_FILE enviar y serializar como una nueva estructura con los 3 datos (parecido a programa)
-	// Esta primitiva si bien no tiene retorno debería al menos trazar en el log lo que esta en el archivo a
-	socket_enviar(socketKernel,D_STRUCT_NUMERO,fileDescriptor);
+	archivo->fileDescriptor=fdArchivo;
+	archivo->tamanio=tamanio;
+	archivo->informacion=malloc(sizeof(t_puntero));
+	sprintf(archivo->informacion,"%d",informacion);
+	archivo->pid=pcbEjecutando->PID;
+
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_LEC,archivo);
+
+	free(archivo->informacion);
+	free(archivo);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -454,10 +610,7 @@ void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variabl
 
 	} else {
 
-		// TODO cambiar por estructura para devolver bytes generica con lo que vino del archivo del kernel
-		char * contenido = ((t_struct_numero*) structRecibido)->numero;
-
-		log_trace(logger, "Proceso #%d leyo del archivo '%d' el contenido '%s'.", pcbEjecutando->PID, fdArchivo,contenido);
+		log_trace(logger, "Proceso #%d leyo del archivo '%d'.", pcbEjecutando->PID, fdArchivo);
 
 		free(structRecibido);
 		structRecibido = NULL;

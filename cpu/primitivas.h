@@ -30,6 +30,7 @@ void leer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valo
 
 bool esArgumento(t_nombre_variable identificador_variable);
 registroStack* reg_stack_create();
+void restaurarContextoDeEjecucion();
 
 #endif
 

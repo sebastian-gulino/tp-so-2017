@@ -31,6 +31,15 @@
 	t_stream * serializeStruct_obtComp(t_struct_string * estructuraOrigen);
 	t_stream * serializeStruct_graComp(t_struct_var_compartida * estructuraOrigen);
 	t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen);
+	t_stream* serializeStruct_archivo_lec(t_struct_archivo * estructuraOrigen);
+	t_stream * serializeStruct_signal(t_struct_string * estructuraOrigen);
+	t_stream * serializeStruct_solHeap(t_struct_sol_heap * estructuraOrigen);
+	t_stream * serializeStruct_rtaHeap(t_struct_numero * estructuraOrigen);
+	t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen);
+	t_stream* serializeStruct_archivo_abr(t_struct_archivo * estructuraOrigen);
+	t_stream* serializeStruct_archivo_cer(t_struct_archivo * estructuraOrigen);
+	t_stream* serializeStruct_archivo_bor(t_struct_archivo * estructuraOrigen);
+	t_stream* serializeStruct_archivo_mov(t_struct_archivo * estructuraOrigen);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -54,5 +63,14 @@
 	t_struct_string * deserializeStruct_obtComp(char * dataPaquete, uint16_t length);
 	t_struct_var_compartida * deserializeStruct_graComp(char * dataPaquete, uint16_t length);
 	t_struct_archivo * deserializeStruct_archivo_esc(char* dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_lec(char* dataPaquete, uint16_t length);
+	t_struct_string * deserializeStruct_signal(char * dataPaquete, uint16_t length);
+	t_struct_sol_heap * deserializeStruct_solHeap(char* dataPaquete, uint16_t length);
+	t_struct_numero * deserializeStruct_rtaHeap(char * dataPaquete, uint16_t length);
+	t_struct_sol_heap * deserializeStruct_libHeap(char* dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_abr(char* dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_cer(char* dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_bor(char* dataPaquete, uint16_t length);
+	t_struct_archivo * deserializeStruct_archivo_mov(char* dataPaquete, uint16_t length);
 
 #endif /* SERIALIZACION_H_ */
