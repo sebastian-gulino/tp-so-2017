@@ -214,7 +214,9 @@ void iniciarPrograma(char* pathArchivo){
 	free(codigo);
 	free(programa);
 
+	pthread_mutex_lock(&mutex_lista_procesos);
 	list_add(listaProcesos, proceso);
+	pthread_mutex_unlock(&mutex_lista_procesos);
 
 	recibirMensajes(proceso);
 

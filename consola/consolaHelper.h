@@ -40,6 +40,7 @@ t_tipoEstructura tipoEstructura;
 void * structRecibido;
 
 pthread_mutex_t mutex_log;
+pthread_mutex_t mutex_lista_procesos;
 
 int cantidadThreads;
 int consolaConectada;
