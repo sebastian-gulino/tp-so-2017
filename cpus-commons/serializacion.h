@@ -40,6 +40,10 @@
 	t_stream* serializeStruct_archivo_cer(t_struct_archivo * estructuraOrigen);
 	t_stream* serializeStruct_archivo_bor(t_struct_archivo * estructuraOrigen);
 	t_stream* serializeStruct_archivo_mov(t_struct_archivo * estructuraOrigen);
+	t_stream * serializeStruct_borrar(t_struct_borrar * estructuraOrigen);
+	t_stream * serializeStruct_abrir(t_struct_abrir * estructuraOrigen);
+	t_stream * serializeStruct_obtener(t_struct_obtener * estructuraOrigen);
+	t_stream * serializeStruct_guardar(t_struct_guardar * estructuraOrigen);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -72,5 +76,9 @@
 	t_struct_archivo * deserializeStruct_archivo_cer(char* dataPaquete, uint16_t length);
 	t_struct_archivo * deserializeStruct_archivo_bor(char* dataPaquete, uint16_t length);
 	t_struct_archivo * deserializeStruct_archivo_mov(char* dataPaquete, uint16_t length);
+	t_struct_borrar * deserializeStruct_borrar(char * dataPaquete, uint16_t length);
+	t_struct_abrir * deserializeStruct_abrir(char * dataPaquete, uint16_t length);
+	t_struct_obtener * deserializeStruct_obtener(char * dataPaquete, uint16_t length);
+	t_struct_guardar * deserializeStruct_guardar(char * dataPaquete, uint16_t length);
 
 #endif /* SERIALIZACION_H_ */

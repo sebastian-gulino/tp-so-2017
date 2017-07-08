@@ -113,6 +113,12 @@ enum{
 	D_STRUCT_LECT_VAR=11,
 	D_STRUCT_SOL_ESCR=14,
 
+	//Comunicacion Kernel - Filesystem
+	D_STRUCT_BORRAR = 29,
+	D_STRUCT_ABRIR = 30,
+	D_STRUCT_OBTENER = 31,
+	D_STRUCT_GUARDAR = 32,
+
 	//Handshake
 	ES_KERNEL=100,
 	ES_CPU=101,
@@ -207,6 +213,33 @@ typedef struct FilaTablaInvertida {
 	int pagina;
 } t_filaTablaInvertida;
 
+typedef struct struct_borrar{
+	char * path;
+	int confirmacion;
+}__attribute__((__packed__)) t_struct_borrar;
 
+typedef struct struct_abrir{
+	int modo_creacion;
+	char * path;
+	int confirmacion;
+}__attribute__((__packed__)) t_struct_abrir;
+
+typedef struct struct_obtener{
+	int modo_lectura;
+	char * path;
+	int offset;
+	int size;
+	int confirmacion;
+	void * obtenido;
+}__attribute__((__packed__)) t_struct_obtener;
+
+typedef struct struct_guardar{
+	int modo_escritura;
+	char * path;
+	int offset;
+	int size;
+	void * buffer;
+	int confirmacion;
+}__attribute__((__packed__)) t_struct_guardar;
 
 #endif /* ESTRUCTURAS_H_ */

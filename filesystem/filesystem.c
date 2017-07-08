@@ -6,6 +6,7 @@
 #include <sockets.h>
 #include <estructuras.h>
 #include "fsHelper.h"
+#include "fsProcesos.h"
 
 int main(int arc, char * argv[]){
 
@@ -16,7 +17,14 @@ int main(int arc, char * argv[]){
 		//Levanta la configuración del proceso filesystem
 		configuracion = cargarConfiguracion();
 
+		setPuntoDeMontaje();
+
+		setMetadata();
+
+		crearBitmap();
+
 		crearServidorMonocliente();
+
 
 		pthread_join(threadAtenderKernel, NULL);
 
