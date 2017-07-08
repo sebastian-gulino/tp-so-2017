@@ -197,7 +197,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 			pcbEjecutando->programCounter++;
 			pcbEjecutando->rafagas++;
 
-			switch (devolvioPcb){
+			switch (retornoPCB){
 			case IO:{
 
 				log_info(logger, "Corto la ejecución actual por una peticion de entrada salida");
@@ -363,7 +363,7 @@ void inicializarEstructuras(){
 	signalFinalizarCPU = false;
 	finPrograma = false;
 	//TODO refactorizar
-	devolvioPcb = 0;
+	retornoPCB = 0;
 
 
 }

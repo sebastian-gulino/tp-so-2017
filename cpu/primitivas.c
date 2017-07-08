@@ -313,7 +313,7 @@ void s_wait(t_nombre_semaforo semaforo) {
 		int bloqueado = ((t_struct_numero*) structRecibido)->numero;
 
 		if(bloqueado==1){
-			devolvioPcb = WAIT;
+			retornoPCB = WAIT;
 			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforo);
 		}else {
 			log_trace(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", pcbEjecutando->PID, semaforo);

@@ -33,7 +33,7 @@ t_configuracion cargarConfiguracion();
 
 bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma;
 
-int devolvioPcb;
+int retornoPCB;
 
 #define WAIT 1
 #define IO 2
