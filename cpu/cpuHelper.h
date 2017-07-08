@@ -31,7 +31,7 @@ t_configuracion configuracion;
 t_configuracion cargarConfiguracion();
 
 
-bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma;
+bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma, seguirEjecutando;
 
 int retornoPCB;
 

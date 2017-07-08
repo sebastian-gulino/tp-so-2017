@@ -102,7 +102,6 @@ int conectarAMemoria (){
 
 void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones_kernel){
 
-	//TODO ver de pasar a una variable para el while
 	while(1) {
 
 		void* structRecibido;
@@ -118,16 +117,19 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 				pcbEjecutando = (t_struct_pcb*) structRecibido;
 
+				// TODO manejar desde la memoria
 				// Envio a memoria el process id del proceso que voy a ejecutar
 				t_struct_numero* pid = malloc(sizeof(t_struct_numero));
 				pid->numero = pcbEjecutando->PID;
 				socket_enviar(socketMemoria, D_STRUCT_PID, pid);
 				free(pid);
 
+				seguirEjecutando=true;
+				cpuLibre=false;
+
 				ejecutarProceso(funcionesAnsisop,funciones_kernel);
 
 			}
-			//TODO ver si hay que recibir algun otro tipo de mensaje del kernel
 
 		}
 	}
@@ -139,7 +141,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 	int quantumDisponible = pcbEjecutando->quantum;
 
-	while(quantumDisponible > 0 || quantum == 0){
+	while((quantumDisponible > 0 || pcbEjecutando->quantum == 0) && seguirEjecutando ){
 
 		char * instruccion = pedirSiguienteInstruccion();
 
@@ -152,13 +154,13 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_info(logger,"El proceso %d finalizo exitosamente",pcbEjecutando->PID);
 
-				// Envio nuevamente el pcb al kernel
-				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
+				socket_enviar(socketKernel, D_STRUCT_PCB_FINOK, pcbEjecutando);
 
 				free(instruccion);
 				instruccion=NULL;
 
-				salirProceso();
+				salirProceso(0);
 				return;
 			}
 
@@ -168,16 +170,12 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_error(logger, "Hubo stackoverflow, aborto el proceso");
 
-				t_struct_numero * procesoAbortado = malloc(sizeof(t_struct_numero));
-				procesoAbortado->numero = pcbEjecutando->PID;
-				//TODO manejar desde el kernel el D_STRUCT_ABORT
-				socket_enviar(socketKernel, D_STRUCT_ABORT, procesoAbortado);
-
-				free(procesoAbortado);
+				retornoPCB=D_STRUCT_ERROR_STACK_OVERFLOW;
 
 				free(instruccion);
 				instruccion = NULL;
-				salirProceso();
+
+				salirProceso(retornoPCB);
 				return;
 			}
 			if(finPrograma){
@@ -189,7 +187,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				free(instruccion);
 				instruccion = NULL;
-				salirProceso();
+				salirProceso(0);
 				return;
 			}
 
@@ -197,47 +195,27 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 			pcbEjecutando->programCounter++;
 			pcbEjecutando->rafagas++;
 
-			switch (retornoPCB){
-			case IO:{
-
-				log_info(logger, "Corto la ejecución actual por una peticion de entrada salida");
-
-				//TODO crear una nueva operacion para mandar PCB_IO
-				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
-
-				free(instruccion);
-				instruccion = NULL;
-				salirProceso();
-				return;
-			}
-			case WAIT:{
-				log_info(logger, "Corto la ejecución actual por operación WAIT bloqueante");
-
-				//TODO crear una nueva operacion para mandar PCB_WAIT
-				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
-
-				free(instruccion);
-				instruccion = NULL;
-				salirProceso();
-				return;
-			}
+			if(retornoPCB!=0 || signalFinalizarCPU){
+				salirProceso(retornoPCB);
 			}
 
-			//TODO pedir al kernel el quantum sleep y usar aca
-			usleep(configuracion.puertoKernel * 1000);
+			usleep(pcbEjecutando->quantum_sleep * 1000);
 
 			free(instruccion);
 			instruccion = NULL;
 
 		} else {
-			//TODO manejar error cuando no vino instruccion cargada
+			retornoPCB=D_STRUCT_ERROR_INSTRUCCION;
 			return;
 		}
 
 	}
-	//TODO crear una nueva operacion para informar que se termino el quantum
-	socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
-	salirProceso();
+
+	if (quantumDisponible==0 && pcbEjecutando->quantum!=0){
+		//TODO SERIALIZAR
+		socket_enviar(socketKernel,D_STRUCT_PCB_FIN_QUANTUM,pcbEjecutando);
+		salirProceso();
+	}
 
 }
 
@@ -312,9 +290,16 @@ void liberarRegistroStack(registroStack* registroStack){
 	}
 }
 
-void salirProceso(){
-	//Marco la cpu como disponible para un nuevo proceso
+void salirProceso(int retornoPCB){
+
+	// Marco la cpu como disponible para un nuevo proceso
 	cpuLibre=true;
+	// Corto la condicion del while para no seguir leyendo instrucciones
+	seguirEjecutando=false;
+
+	if (retornoPCB != 0){
+		socket_enviar(socketKernel, retornoPCB, pcbEjecutando);
+	}
 
 	//Libero los recursos del pcb
 	liberarPCB();
@@ -362,7 +347,7 @@ void inicializarEstructuras(){
 	stackOverflow = false;
 	signalFinalizarCPU = false;
 	finPrograma = false;
-	//TODO refactorizar
+	seguirEjecutando = true;
 	retornoPCB = 0;
 
 
@@ -424,7 +409,7 @@ char * pedirSiguienteInstruccion(){
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			salirErrorMemoria();
+			retornoPCB=D_STRUCT_ERROR_MEMORIA;
 			return NULL;
 
 		} else {
@@ -447,37 +432,22 @@ bool validarPedidoMemoria(){
 	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "La memoria se desconecto del sistema");
-		salirErrorMemoria();
+		retornoPCB=D_STRUCT_ERROR_MEMORIA;
 		return false;
 
 	} else {
 
-		//TODO hay que manejar desde la memoria esta solicitud
 		int estadoPedido = ((t_struct_numero*) structRecibido)->numero;
 
 		free(structRecibido);
 
 		//Pedido rechazado por la memoria
-		if(estadoPedido == 0){
+		if(estadoPedido == MEMORIA_ERROR){
 			return false;
 		}
 		return true;
 
 	}
-}
-
-void salirErrorMemoria(){
-	log_info(logger,"Se finaliza abortivamente la ejecucion del proceso %d por error en la memoria",pcbEjecutando->PID);
-
-	t_struct_numero * procesoAbortado = malloc(sizeof(t_struct_numero));
-	procesoAbortado->numero = pcbEjecutando->PID;
-
-	// TODO Manejar desde el kernel la recepcion de un proceso abortado
-	socket_enviar(socketKernel,D_STRUCT_ABORT,procesoAbortado);
-
-	free(procesoAbortado);
-
-	salirProceso();
 }
 
 void salirErrorCpu(){
