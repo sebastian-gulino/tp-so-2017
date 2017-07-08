@@ -8,6 +8,7 @@ t_config * config;
 
 t_configuracion configuracion;
 
+void * memoriaPrincipal;
 
 void cargarConfiguracion(void) {
 
@@ -31,7 +32,7 @@ void cargarConfiguracion(void) {
 
 	log_info(logger,"El Puerto es %d\n",configuracion.puerto);
 	log_info(logger,"La cantidad de Marcos es %d\n",configuracion.marcos);
-	log_info(logger,"El tamaÃ±o de cada Marco es %d\n",configuracion.marcoSize);
+	log_info(logger,"El tamaño de cada Marco es %d\n",configuracion.marcoSize);
 	log_info(logger,"Las entradas en Cache son %d\n",configuracion.entradasCache);
 	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %d\n",configuracion.cacheXProc);
 	log_info(logger,"El reemplazo de cache es %d\n",configuracion.reemplazoCache);
@@ -56,7 +57,7 @@ void crearThreadAtenderConexiones(){
 
 void administrarConexiones(){
 
-	//Creo el servidor de memoria que recibirÃ¡ las nuevas conexiones
+	//Creo el servidor de memoria que recibirá las nuevas conexiones
 	int socketServidor = crearServidor(configuracion.puerto);
 
 	pthread_t nueva_solicitud;
@@ -65,7 +66,7 @@ void administrarConexiones(){
 	tamanio_pagina->numero = configuracion.marcoSize;
 
 	while(1){
-		//Por defecto acepto el cliente que se estÃ¡ conectando
+		//Por defecto acepto el cliente que se está conectando
 		int socketCliente = aceptarCliente(socketServidor);
 
 		if(socketCliente!=-1){
@@ -115,7 +116,7 @@ void administrarConexiones(){
 
 								log_error(logger,"No se pudo hacer el handshake");
 
-								//Ciero el FD del cliente que habÃ­a aceptado
+								//Ciero el FD del cliente que había aceptado
 								close(socketCliente);
 				}
 			}
@@ -131,57 +132,57 @@ void manejarCpu(int i){
 	void * structRecibido;
 
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Cpu %d cerrÃ³ la conexiÃ³n.",i);
+		log_info(logger,"El Cpu %d cerró la conexión.",i);
 		removerClientePorCierreDeConexion(i,listaCpus);
 	} else {
 	}
 };
 
-void manejarKernel(int socketKernel){
-
-	while(1) {
-
-		t_tipoEstructura tipoEstructura;
-		void * structRecibido;
-
-		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
-
-			log_info(logger,"El Kernel %d cerrÃ³ la conexiÃ³n.",socketKernel);
-			removerClientePorCierreDeConexion(socketKernel,listaKernel);
-
-		} else {
-
-			switch(tipoEstructura){
-			case D_STRUCT_MALC:
-
-				log_info(logger,"Se solicita crear segmento para el PID %i",
-						((t_struct_malloc* )structRecibido)->PID);
-
-				// TODO ver con edu que pasa con los valores no enteros de paginas
-				int paginasNecesarias =
-						((t_struct_malloc* )structRecibido)->tamano_segmento / configuracion.marcoSize;
-
-				int resultado = asignarPaginasProceso(((t_struct_malloc* )structRecibido)->PID, paginasNecesarias);
-
-				//Le comunico al kernel si se pudo realizar operacion
-				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
-				respuestaAsignacion->numero = resultado;
-					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
-
-					if(resultado == -1){
-					log_error(logger,"No se pudo crear el segmento solicitado");
-					} else {
-					log_info(logger,"Se creo con exito el segmento solicitado");
-					}
-
-					free(respuestaAsignacion);
-
-					break;
-
-				}
-			}
-	}
-}
+//void manejarKernel(int socketKernel){
+//
+//	while(1) {
+//
+//		t_tipoEstructura tipoEstructura;
+//		void * structRecibido;
+//
+//		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
+//
+//			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
+//			removerClientePorCierreDeConexion(socketKernel,listaKernel);
+//
+//		} else {
+//
+//			switch(tipoEstructura){
+//			case D_STRUCT_MALC:
+//
+//				log_info(logger,"Se solicita crear segmento para el PID %i",
+//						((t_struct_malloc* )structRecibido)->PID);
+//
+//				// TODO ver con edu que pasa con los valores no enteros de paginas
+//				int paginasNecesarias =
+//						((t_struct_malloc* )structRecibido)->tamano_segmento / configuracion.marcoSize;
+//
+////				int resultado = asignarPaginasProceso(((t_struct_malloc* )structRecibido)->PID, paginasNecesarias);
+//
+//				//Le comunico al kernel si se pudo realizar operacion
+//				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
+//				respuestaAsignacion->numero = resultado;
+//					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+//
+//					if(resultado == -1){
+//					log_error(logger,"No se pudo crear el segmento solicitado");
+//					} else {
+//					log_info(logger,"Se creo con exito el segmento solicitado");
+//					}
+//
+//					free(respuestaAsignacion);
+//
+//					break;
+//
+//				}
+//			}
+//	}
+//}
 
 void removerClientePorCierreDeConexion(int cliente, t_list* lista) {
 
@@ -207,7 +208,7 @@ void crearEstructurasAdministrativas(){
 	int limit = configuracion.marcos;
 	int tamanioFrame = configuracion.marcoSize;
 	for(i = 0; i < limit; i++){
-		tablaInvertida[i].pid = 0;
+		tablaInvertida[i].pid = FRAME_LIBRE;
 		tablaInvertida[i].frame = i;
 		tablaInvertida[i].pagina = 0;
 	}
@@ -217,24 +218,25 @@ void crearEstructurasAdministrativas(){
 		framesTablaInvertida++;
 	}
 	for(i = 0; i < framesTablaInvertida; i++){
-		tablaInvertida[i].pid = -1;
+		tablaInvertida[i].pid = FRAME_ESTRUCTURA_ADMINISTRATIVA;
 	}
-	log_info(logger, "Estructuras Administrativas creadas exitosamente.");
-	log_info(logger, "Las estructuras administrativas ocupan %d marcos de memoria", framesTablaInvertida);
+	log_info(logger, "Estructuras Administrativas creadas exitosamente.\n");
+	log_info(logger, "Las estructuras administrativas ocupan %d marcos de memoria.\n", framesTablaInvertida);
 }
 
-void escribirPagina(int pagina, void* bytes, int size, int offset){
-	frame* marcosMemoria = memoriaPrincipal;
-	unsigned char* punteroOffset = marcosMemoria[pagina];
+void escribirPagina(int numeroFrame, void* bytes, int size, int offset){
+	frame * marcosMemoria = memoriaPrincipal;
+	unsigned char* punteroOffset = marcosMemoria[numeroFrame];
 	memcpy((void*) punteroOffset[offset],bytes,size);
-	log_info(logger,"Se escribio la pagina %d", pagina);
+	log_info(logger,"Se escribio la pagina %d", numeroFrame);
 }
 
 int cantidadFramesLibres(){
 	int limite = configuracion.marcos;
-	int i, framesLibres;
+	int i = 0;
+	int framesLibres = 0;
 	for(i = 0; i < limite; i++){
-		if(tablaInvertida[i].pid == 0){
+		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			framesLibres++;
 		}
 	}
@@ -248,11 +250,11 @@ void registrarUsoDeFrame(int pid,int numeroFrame, int paginaProceso){
 }
 
 int obtenerPrimerFrameLibre(){
-	int i;
+	int i = 0;
 	int primeroLibre = -1;
 	int limite = configuracion.marcos;
 	while(primeroLibre < 0 && i < limite){
-		if(tablaInvertida[i].pid == 0){
+		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			primeroLibre = i;
 		}
 		i++;
@@ -260,32 +262,52 @@ int obtenerPrimerFrameLibre(){
 	return primeroLibre;
 }
 
+int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
+	int i = 0;
+	int contador = 0;
+	int limite = configuracion.marcos;
+	while(contador < cantidadDeFrames && i < limite){
+		if(tablaInvertida[i].pid == FRAME_LIBRE){
+			contador++;
+		} else {
+			contador = 0;
+		}
+		i++;
+	}
+	int indice = -1;
+	if(contador == cantidadDeFrames){
+		indice = i - contador;
+	}
+	return indice;
+}
 
-void escribirEnMemoria(int pid, void* contenido, int cantidadBytes){
+
+void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
+	int i = 0;
 	int bytesPorFrame = configuracion.marcoSize;
 	int framesNecesarios = cantidadBytes/bytesPorFrame;
 	if(cantidadBytes%bytesPorFrame != 0){
 		framesNecesarios++;
 	}
-	int framesLibres = cantidadFramesLibres();
-	if(framesNecesarios <= framesLibres){
-		int cantidadBytesLibres = bytesPorFrame * framesLibres;
-		if(cantidadBytes <= cantidadBytesLibres){
-			int i;
-			for(i = 0; i < framesLibres;i++){
-				int numeroFrame = obtenerPrimerFrameLibre();
-				registrarUsoDeFrame(pid,numeroFrame,i+1);
-				if(cantidadBytes <= bytesPorFrame){
-					//ESCRIBIR
-				} else {
-					cantidadBytes = cantidadBytes - bytesPorFrame;
-				}
+	if(bytesContiguos > 0){
+		int primerFrameLibre = obtenerPrimerosNFramesLibre(framesNecesarios);
+		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
+			for(i = 0; i < framesNecesarios;i++){
+				registrarUsoDeFrame(pid,primerFrameLibre+i,i+1);
 			}
 		} else {
-			log_info(logger,"No se escribio en memoria por que lo que se queria escribir era muy grande.");
+			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispone de los %d frames libres contiguos necesarios.\n",pid,framesNecesarios);
 		}
 	} else {
-		log_info(logger,"No se escribio en memoria por falta de paginas libres.");
+		int framesLibres = cantidadFramesLibres();
+		if(framesNecesarios <= framesLibres){
+			for(i = 0; i < framesNecesarios;i++){
+				int numeroFrame = obtenerPrimerFrameLibre();
+				registrarUsoDeFrame(pid,numeroFrame,i+1);
+			}
+		} else {
+			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispones de %d frames libres.\n",pid,framesNecesarios);
+		}
 	}
 }
 
@@ -314,7 +336,7 @@ void crearCache(){
 	cache = malloc(sizeof(t_cache) * CANTIDAD_ELEMENTOS_CACHE);
 	int i;
 	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
-		cache[i].pid = 0;
+		cache[i].pid = FRAME_LIBRE;
 	}
 }
 
@@ -331,37 +353,17 @@ void actualizarCache(int pid,int pagina,void* punteroMarco){
 
 }
 
-int asignarPaginasProceso(int pid, int numeroFramesPedidos){
-	int framesLibres = cantidadFramesLibres();
-	if(numeroFramesPedidos <= framesLibres){
-		int i;
-		for(i = 0;i < numeroFramesPedidos; i++){
-			int indiceFrameLibre = obtenerPrimerFrameLibre();
-			tablaInvertida[indiceFrameLibre].pid = pid;
-		}
-		//TODO no tiene que retornar 1 sino la direccion del segmento reservado
-		log_info(logger,"Se reservaron %d frames para el proceso %d",numeroFramesPedidos,pid);
-		return 1;
-
-	} else {
-		// Si no puedo asignar paginas al proceso
-		return -1;
-
-	}
-
-}
-
 void finalizarPrograma(int pid){
 	int i;
 	int limite = configuracion.marcos;
 	for(i = 0; i < limite; i++){
 		if(tablaInvertida[i].pid == pid){
-			tablaInvertida[i].pid = 0;
+			tablaInvertida[i].pid = FRAME_LIBRE;
 		}
 	}
 	t_resultado_busqueda_cache resultado = buscarPIDCache(pid);
 	for(i = 0; i < resultado.cantidad; i++){
-		cache[resultado.indices[i]].pid = 0;
+		cache[resultado.indices[i]].pid = FRAME_LIBRE;
 	}
 	log_info(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
 }
@@ -373,3 +375,5 @@ void imprimirTablaPaginas(){
 		printf("Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
 	}
 }
+
+
