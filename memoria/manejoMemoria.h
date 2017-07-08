@@ -14,12 +14,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define FRAME_LIBRE 0
+#define FRAME_ESTRUCTURA_ADMINISTRATIVA -1
+
 t_list* listaCpus;
 t_list* listaKernel;
 
 pthread_t threadAtenderConexiones;
-
-void* memoriaPrincipal;
 
 typedef unsigned char frame[500];
 
@@ -63,7 +64,7 @@ void administrarConexiones();
 
 void aplicarRetardo(int retardo);
 
-int asignarPaginasProceso(int pid, int numeroFramesPedidos);
+void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos);
 
 void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames);
 
@@ -87,12 +88,14 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista);
 
 void liberarMemoriaPrincipal();
 
-void escribirPagina(int pagina, void* bytes, int size, int offset);
+void escribirPagina(int frame, void* bytes, int size, int offset);
 
 void* leerPagina(int pagina, int pid);
 
 void vaciarCache();
 
 void imprimirTablaPaginas();
+
+int obtenerPrimerosNFramesLibre(int cantidad);
 
 #endif /* MANEJOMEMORIA_H_ */
