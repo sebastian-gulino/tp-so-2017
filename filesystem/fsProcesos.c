@@ -5,8 +5,9 @@
 void  validarArchivo(t_struct_abrir * archivo){
 
 	char pathFile[260];
-
-	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path); //Se usa sprintf para obtener el path
+	t_struct_abrir * toSend = malloc(sizeof(t_struct_abrir));
+	toSend = archivo;
+	sprintf(pathFile, "%s/Archivos%s", configuracion.puntoMontaje, archivo->path); //Se usa sprintf para obtener el path
 																				   //completo en el punto de montaje especificado
 
 	FILE * file = fopen(pathFile, "r"); //Se abre el archivo, de esta manera verificamos que exista.
@@ -17,35 +18,37 @@ void  validarArchivo(t_struct_abrir * archivo){
 
 			if(crearArchivo(archivo->path) == 1){ //Se crea el archivo en el path especificado
 
-				fclose(file);
+				//fclose(file);
+				toSend->confirmacion = 2;
 				log_info(logger, "Se creo el archivo en: %s", pathFile);
-				archivo->confirmacion = 2;
-				socket_enviar(socketCliente, D_STRUCT_ABRIR, archivo);
+				socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 				return;
 
 			}
 
-			archivo->confirmacion = -1;
-			socket_enviar(socketCliente, D_STRUCT_ABRIR, archivo);
+
+			toSend->confirmacion = -1;
+			log_error(logger, "No se pudo crear el archivo en: %s", pathFile);
+			socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 			return;
 
 		}
 		fclose(file);
-		log_info(logger, "El archivo en el path: %s no existe", pathFile);
-		archivo->confirmacion = 0;
-		socket_enviar(socketCliente, D_STRUCT_ABRIR, archivo);
+		log_error(logger, "El archivo en el path: %s no existe", pathFile);
+		toSend->confirmacion = 0;
+		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
 	} else{
 		fclose(file);
-		log_info(logger, "El archivo en el path: %s no existe", pathFile);
-		archivo->confirmacion = 0;
-		socket_enviar(socketCliente, D_STRUCT_ABRIR, archivo);
+		log_error(logger, "El archivo en el path: %s no existe", pathFile);
+		toSend->confirmacion = 0;
+		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
 	}
 	fclose(file);
 	log_info(logger, "Se verifico el archivo del path: %s", pathFile);
-	archivo->confirmacion = 1;
-	socket_enviar(socketCliente, D_STRUCT_ABRIR, archivo);
+	toSend->confirmacion = 1;
+	socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 	return;
 
 }
@@ -112,15 +115,18 @@ void borrarArchivo(t_struct_borrar * archivo){
 	char pathFile[260];
 	char blockPath[260];
 	t_config * fileData;
+	t_struct_borrar * toSend = malloc(sizeof(t_struct_borrar));
+	toSend = archivo;
 
 		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
 
 		if(fopen(pathFile, "r")==NULL){ //Se verifica que el archivo a borrarse exista.
 
 			log_info(logger, "El archivo del path: %s no existe", pathFile);
-			archivo->confirmacion = -1;
 
-			socket_enviar(socketCliente, D_STRUCT_BORRAR, archivo);
+			toSend->confirmacion = -1;
+
+			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 
 			return;
 
@@ -155,18 +161,18 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s fue eliminado satisfactoriamente", pathFile);
 
-			archivo->confirmacion = 1;
+			toSend->confirmacion = 1;
 
-			socket_enviar(socketCliente, D_STRUCT_BORRAR, archivo);
+			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;
 
 			}
 
 			log_info(logger, "El archivo del path: %s NO fue eliminado satisfactoriamente", pathFile);
 
-			archivo->confirmacion = 0;
+			toSend->confirmacion = 0;
 
-			socket_enviar(socketCliente, D_STRUCT_BORRAR, archivo);
+			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;
 
 }
@@ -186,13 +192,18 @@ void obtenerDatos(t_struct_obtener * archivo){
 	FILE * file;
 	int tamanioTotal = archivo->size;
 
+	t_struct_obtener * toSend = malloc(sizeof(t_struct_obtener));
+
+	toSend = archivo;
+
 	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
 
 	if(archivo->modo_lectura==0){ //Verifico que el archivo este en modo lectura
 
-		log_info(logger, "El archivo del path: %s no tiene permisos de lectura", pathFile);
-		archivo->confirmacion = 0;
-		socket_enviar(socketCliente, D_STRUCT_OBTENER, archivo);
+		log_error(logger, "El archivo del path: %s no tiene permisos de lectura", pathFile);
+
+		toSend->confirmacion = 0;
+		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		return;
 	}
 
@@ -256,10 +267,10 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		}
 
-		memcpy(archivo->obtenido, dataObtenida, tamanioTotal);
-		archivo->confirmacion = 1;
+		memcpy(toSend->obtenido, dataObtenida, tamanioTotal);
 
-		socket_enviar(socketCliente, D_STRUCT_OBTENER, archivo);
+		toSend->confirmacion = 1;
+		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		log_info(logger, "Se leyeron %d bytes de datos del archivo en el path: %s", tamanioTotal, pathFile);
 		return;
 
@@ -278,18 +289,20 @@ void guardarDatos(t_struct_guardar * archivo){
 	char * bloques_array = string_new();
 	char * block;
 	char *char_size;
+	t_struct_guardar * toSend = malloc(sizeof(t_struct_guardar));
+	toSend = archivo;
 
 	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
 		log_info(logger, "El archivo del path: %s no existe", pathFile);
-		archivo->confirmacion = -1;
-		socket_enviar(socketCliente, D_STRUCT_GUARDAR, archivo);
+		toSend->confirmacion = -1;
+		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}	if(archivo->modo_escritura == 0){ //Verifico que el modo escritura este activo
 		log_info(logger, "El archivo del path: %s no tiene permisos de escritura", pathFile);
-		archivo->confirmacion = -2;
-		socket_enviar(socketCliente, D_STRUCT_GUARDAR, archivo);
+		toSend->confirmacion = -2;
+		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}
 
@@ -343,8 +356,9 @@ void guardarDatos(t_struct_guardar * archivo){
 
 						if(bloquesLibres()==0){
 
-							archivo->confirmacion = -3;
-							socket_enviar(socketCliente, D_STRUCT_GUARDAR, archivo);
+							log_error(logger, "No se pueden guardar los datos en el archivo: %s, por falta de bloques", pathFile);
+							toSend->confirmacion = -3;
+							socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 							return;
 
 						}
@@ -456,18 +470,19 @@ void guardarDatos(t_struct_guardar * archivo){
 
 			config_save(fileData);
 
-			log_info(logger, "Se guardaron %d bytes en el archivo del path: %s. Tamaño final del archivo: %d", tamanioTotal, pathFile, size);
+			log_info(logger, "Se guardaron %d bytes en el archivo del path: %s. Tamaño final del archivo: %d", tamanioTotal, pathFile, (size-archivo->size));
 
 		//Si lo pedido no se termino de escribir por falta de bloques.
 			if(archivo->size>0){
 
-				archivo->confirmacion = -4;
-				socket_enviar(socketCliente, D_STRUCT_GUARDAR, archivo);
+				log_error(logger, "No se guardaron %d bytes en el archivo del path: %s.", archivo->size, pathFile);
+				toSend->confirmacion = -4;
+				socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 				return;
 			}
 
-			archivo->confirmacion = 1;
-			socket_enviar(socketCliente, D_STRUCT_GUARDAR, archivo);
+			toSend->confirmacion = 1;
+			socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 
 	return;
 

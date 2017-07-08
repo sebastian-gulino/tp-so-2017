@@ -99,4 +99,6 @@ int solicitarSegmentoCodigo(int pid, int tam_programa);
 
 int solicitarSegmentoStack(int pid);
 
+int conectarFS();
+
 #endif /* KERNELHELPER_H_ */

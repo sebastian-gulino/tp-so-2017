@@ -21,7 +21,7 @@
 #include <libgen.h>
 #include <dirent.h>
 #include <math.h>
-
+#include <estructuras.h>
 
 enum {
     SADICA = 1024
