@@ -2,44 +2,45 @@
 
 #define CANTIDAD_ELEMENTOS_CACHE 15
 
-t_configuracion cargarConfiguracion() {
+typedef unsigned char frame[500];
 
-	t_config * config;
-	t_configuracion configuracion;
+t_config * config;
+
+t_configuracion configuracion;
+
+
+void cargarConfiguracion(void) {
 
 	config = config_create("./config.txt");
 
-		if(config == NULL){
+	if(config == NULL){
 
-			config = config_create("../config.txt");
+		config = config_create("../config.txt");
 
-		}
-
-	configuracion.puerto = config_get_int_value(config, "PUERTO");
-	log_info(logger,"El Puerto es %d",configuracion.puerto);
-
-	configuracion.marcos = strdup(config_get_string_value(config, "MARCOS"));
-	log_info(logger,"La cantidad de Marcos es %s",configuracion.marcos);
+	}
 
 	configuracion.marcoSize = config_get_int_value(config, "MARCO_SIZE");
-	log_info(logger,"El tamaño de cada Marco es %d",configuracion.marcoSize);
+	configuracion.puerto = config_get_int_value(config, "PUERTO");
+	configuracion.marcos = config_get_int_value(config, "MARCOS");
+	configuracion.marcoSize = config_get_int_value(config, "MARCO_SIZE");
+	configuracion.entradasCache = config_get_int_value(config, "ENTRADAS_CACHE");
+	configuracion.cacheXProc = config_get_int_value(config, "CACHE_X_PROC");
+	configuracion.reemplazoCache = config_get_int_value(config, "REEMPLAZO_CACHE");
+	configuracion.retardoMemoria = config_get_int_value(config, "RETARDO_MEMORIA");
+	configuracion.stackSize = config_get_int_value(config, "STACK_SIZE");
 
-	configuracion.entradasCache = strdup(config_get_string_value(config, "ENTRADAS_CACHE"));
-	log_info(logger,"Las entradas en Cache son %s",configuracion.entradasCache);
+	log_info(logger,"El Puerto es %d\n",configuracion.puerto);
+	log_info(logger,"La cantidad de Marcos es %d\n",configuracion.marcos);
+	log_info(logger,"El tamaÃ±o de cada Marco es %d\n",configuracion.marcoSize);
+	log_info(logger,"Las entradas en Cache son %d\n",configuracion.entradasCache);
+	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %d\n",configuracion.cacheXProc);
+	log_info(logger,"El reemplazo de cache es %d\n",configuracion.reemplazoCache);
+	log_info(logger,"El retardo de la Memoria es %d\n",configuracion.retardoMemoria);
+	log_info(logger,"La cantidad de paginas asignada al Stack es %d\n",configuracion.stackSize);
+}
 
-	configuracion.cacheXProc = strdup(config_get_string_value(config, "CACHE_X_PROC"));
-	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %s",configuracion.cacheXProc);
-
-	configuracion.reemplazoCache = strdup(config_get_string_value(config, "REEMPLAZO_CACHE"));
-	log_info(logger,"El reemplazo de cache es %s",configuracion.reemplazoCache);
-
-	configuracion.retardoMemoria = strdup(config_get_string_value(config, "RETARDO_MEMORIA"));
-	log_info(logger,"El retardo de la Memoria es %s",configuracion.retardoMemoria);
-
-	configuracion.stackSize = strdup(config_get_string_value(config, "STACK_SIZE"));
-	log_info(logger,"La cantidad de paginas asignada al Stack es %s",configuracion.stackSize);
-
-	return configuracion;
+void crearMemoriaPrincipal() {
+	memoriaPrincipal = malloc(configuracion.marcos*configuracion.marcoSize);
 }
 
 void inicializarListas(){
@@ -49,13 +50,13 @@ void inicializarListas(){
 
 void crearThreadAtenderConexiones(){
 
-	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
+//	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
 
 }
 
 void administrarConexiones(){
 
-	//Creo el servidor de memoria que recibirá las nuevas conexiones
+	//Creo el servidor de memoria que recibirÃ¡ las nuevas conexiones
 	int socketServidor = crearServidor(configuracion.puerto);
 
 	pthread_t nueva_solicitud;
@@ -64,7 +65,7 @@ void administrarConexiones(){
 	tamanio_pagina->numero = configuracion.marcoSize;
 
 	while(1){
-		//Por defecto acepto el cliente que se está conectando
+		//Por defecto acepto el cliente que se estÃ¡ conectando
 		int socketCliente = aceptarCliente(socketServidor);
 
 		if(socketCliente!=-1){
@@ -92,7 +93,7 @@ void administrarConexiones(){
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
-								pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
+//								pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
 
 								break;
 							case ES_CPU:
@@ -106,7 +107,7 @@ void administrarConexiones(){
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
-								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
+//								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
 
 								break;
 
@@ -114,7 +115,7 @@ void administrarConexiones(){
 
 								log_error(logger,"No se pudo hacer el handshake");
 
-								//Ciero el FD del cliente que había aceptado
+								//Ciero el FD del cliente que habÃ­a aceptado
 								close(socketCliente);
 				}
 			}
@@ -130,7 +131,7 @@ void manejarCpu(int i){
 	void * structRecibido;
 
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Cpu %d cerró la conexión.",i);
+		log_info(logger,"El Cpu %d cerrÃ³ la conexiÃ³n.",i);
 		removerClientePorCierreDeConexion(i,listaCpus);
 	} else {
 	}
@@ -145,7 +146,7 @@ void manejarKernel(int socketKernel){
 
 		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
 
-			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
+			log_info(logger,"El Kernel %d cerrÃ³ la conexiÃ³n.",socketKernel);
 			removerClientePorCierreDeConexion(socketKernel,listaKernel);
 
 		} else {
@@ -195,10 +196,6 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista) {
 
 }
 
-void crearMemoriaPrincipal() {
-	memoriaPrincipal = malloc(atoi(configuracion.marcos)*configuracion.marcoSize);
-}
-
 void liberarMemoriaPrincipal(){
 	free(memoriaPrincipal);
 }
@@ -207,14 +204,14 @@ void crearEstructurasAdministrativas(){
 	int i;
 
 	tablaInvertida = (t_filaTablaInvertida*)memoriaPrincipal;
-	int limit = atoi(configuracion.marcos);
+	int limit = configuracion.marcos;
+	int tamanioFrame = configuracion.marcoSize;
 	for(i = 0; i < limit; i++){
 		tablaInvertida[i].pid = 0;
 		tablaInvertida[i].frame = i;
+		tablaInvertida[i].pagina = 0;
 	}
-	int tamanioFrame = configuracion.marcoSize;
-
-	int bytesTablaInvertida = sizeof(t_filaTablaInvertida)*500;
+	int bytesTablaInvertida = sizeof(t_filaTablaInvertida)*limit;
 	int framesTablaInvertida = bytesTablaInvertida/tamanioFrame;
 	if(bytesTablaInvertida%tamanioFrame != 0){
 		framesTablaInvertida++;
@@ -234,7 +231,7 @@ void escribirPagina(int pagina, void* bytes, int size, int offset){
 }
 
 int cantidadFramesLibres(){
-	int limite = atoi(configuracion.marcos);
+	int limite = configuracion.marcos;
 	int i, framesLibres;
 	for(i = 0; i < limite; i++){
 		if(tablaInvertida[i].pid == 0){
@@ -253,7 +250,7 @@ void registrarUsoDeFrame(int pid,int numeroFrame, int paginaProceso){
 int obtenerPrimerFrameLibre(){
 	int i;
 	int primeroLibre = -1;
-	int limite = atoi(configuracion.marcos);
+	int limite = configuracion.marcos;
 	while(primeroLibre < 0 && i < limite){
 		if(tablaInvertida[i].pid == 0){
 			primeroLibre = i;
@@ -356,7 +353,7 @@ int asignarPaginasProceso(int pid, int numeroFramesPedidos){
 
 void finalizarPrograma(int pid){
 	int i;
-	int limite = atoi(configuracion.marcos);
+	int limite = configuracion.marcos;
 	for(i = 0; i < limite; i++){
 		if(tablaInvertida[i].pid == pid){
 			tablaInvertida[i].pid = 0;
@@ -371,8 +368,8 @@ void finalizarPrograma(int pid){
 
 void imprimirTablaPaginas(){
 	int i;
-	int limite = atoi(configuracion.marcos);
+	int limite = configuracion.marcos;
 	for(i = 0; i < limite; i++){
-		printf("Frame: %d  PID: %d  #Pagina: %d \n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
+		printf("Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
 	}
 }

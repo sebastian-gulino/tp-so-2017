@@ -2,12 +2,16 @@
 
 int main(void) {
 
+	setvbuf (stdout, NULL, _IONBF, 0);
+
 	//Genera archivo log pars poder escribir el trace de toda la ejecución
+
 	logger = malloc(sizeof(t_log));
+
 	crearLog("/MEMORIA");
 
 	//Levanta la configuración del proceso memoria
-	configuracion = cargarConfiguracion();
+	cargarConfiguracion();
 
 	//Crea la lista de clientes conectados para cpu y kernel
 	inicializarListas();
@@ -26,13 +30,13 @@ int main(void) {
 //	char* aver = (char*)pagina;
 //	printf("%s",aver); //Leo lo que escribi en la página 6
 
-//	TODO descomentar imprimirTablaPaginas();
+	imprimirTablaPaginas();
 
 	liberarMemoriaPrincipal();
 
 	crearThreadAtenderConexiones();
 
-	pthread_join(threadAtenderConexiones, NULL);
+//	pthread_join(threadAtenderConexiones, NULL);
 
 
 	return 0;

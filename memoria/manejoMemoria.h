@@ -14,29 +14,32 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-typedef struct config_t {
-
-	int puerto;
-	char * marcos;
-	int32_t marcoSize;
-	char * entradasCache;
-	char * cacheXProc;
-	char * reemplazoCache;
-	char * retardoMemoria;
-	int32_t stackSize;
-
-} t_configuracion;
-
 t_list* listaCpus;
 t_list* listaKernel;
 
 pthread_t threadAtenderConexiones;
 
-t_configuracion configuracion;
-
 void* memoriaPrincipal;
 
 typedef unsigned char frame[500];
+
+typedef struct resultado_busqueda_cache_t {
+	int cantidad;
+	int indices[15];
+} t_resultado_busqueda_cache;
+
+typedef struct config_t {
+
+	int32_t puerto;
+	int32_t marcos;
+	int32_t marcoSize;
+	int32_t entradasCache;
+	int32_t cacheXProc;
+	int32_t reemplazoCache;
+	int32_t retardoMemoria;
+	int32_t stackSize;
+
+} t_configuracion;
 
 typedef struct cache_t {
 	int pid;
@@ -44,18 +47,13 @@ typedef struct cache_t {
 	void* contenido;
 } t_cache;
 
-typedef struct resultado_busqueda_cache_t {
-	int cantidad;
-	int indices[15];
-} t_resultado_busqueda_cache;
-
 t_cache* cache;
 
 t_struct_numero* tamanio_pagina;
 
 t_filaTablaInvertida* tablaInvertida;
 
-t_configuracion cargarConfiguracion();
+void cargarConfiguracion();
 
 void inicializarListas();
 
@@ -89,15 +87,11 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista);
 
 void liberarMemoriaPrincipal();
 
-
-
 void escribirPagina(int pagina, void* bytes, int size, int offset);
 
 void* leerPagina(int pagina, int pid);
 
 void vaciarCache();
-
-
 
 void imprimirTablaPaginas();
 
