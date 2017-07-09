@@ -63,9 +63,17 @@ t_configuracion cargarConfiguracion() {
 
 void inicializarListas(){
 	listaConsolas = list_create();
-	listaCpus = list_create();
+	listaCpuLibres = list_create();
+	listaCpuOcupadas = list_create();
 	listaProcesos = list_create();
-	cantidad_pid = 1;
+	listaProcesosFinalizar = list_create();
+
+	tablaHeap = list_create();
+	tablaArchivosGlobal = list_create();
+	tablaArchivosProceso = dictionary_create();
+
+
+	maximoPID = 1;
 
 	// Listas planificacion
 	cola_new = queue_create();
@@ -92,8 +100,6 @@ void manejarNuevaConexion(int listener, int *fdmax){
 	switch(((t_struct_numero *)structRecibido)->numero){
 		case ES_CONSOLA:
 
-			//conexion_consola(socketCliente);
-
 			FD_SET(socketCliente, &master_consola);
 
 			list_add(listaConsolas, (void*)socketCliente);
@@ -104,11 +110,9 @@ void manejarNuevaConexion(int listener, int *fdmax){
 
 		case ES_CPU:
 
-			//conexion_cpu(socketCliente);
-
 			FD_SET(socketCliente, &master_cpu);
 
-			list_add(listaCpus, (void*)socketCliente);
+			list_add(listaCpuLibres, (void*)socketCliente);
 
 			enviarConfiguracion(socketCliente,configuracion.stackSize);
 
@@ -151,7 +155,7 @@ void manejarCpu(int i){
 
 	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"El Cpu %d cerró la conexión.",i);
-		removerClientePorCierreDeConexion(i,listaCpus,&master_cpu);
+		removerClientePorCierreDeConexion(i,listaCpuLibres,&master_cpu);
 	} else {
 	}
 };
@@ -174,19 +178,10 @@ void manejarConsola(int socketConsola){
 			// La consola envia un programa para ejecutar
 
 			int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
-
 			char * programa = malloc(tamanio_programa);
-
 			memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
 
-
-			t_pcb pcb = crearPCB(programa, obtener_pid(), tamanio_programa);
-
-			//Envio el process id
-			t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
-			pid_struct->numero = pcb.PID;
-			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
-			free(pid_struct);
+			inicializarProceso(socketConsola,programa,tamanio_programa);
 
 			break;
 
@@ -303,7 +298,7 @@ int conectarAFS(){
 
 	//Se realiza el handshake con la memoria
 	t_struct_numero* es_kernel = malloc(sizeof(t_struct_numero));
-	es_kernel->numero = ES_CONSOLA;
+	es_kernel->numero = ES_KERNEL;
 	socket_enviar(socketCliente, D_STRUCT_NUMERO, es_kernel);
 	free(es_kernel);
 
@@ -339,74 +334,64 @@ int programKiller(int i){
 
 int obtener_pid(){
 
-	int pid = cantidad_pid++;
+	int pid = maximoPID++;
 
 	return pid;
 }
 
-t_pcb crearPCB(char* programa, int PID, int tamanioPrograma) {
+t_struct_pcb* crearPCB(int PID){
 
-	t_metadata_program *metadata = metadata_desde_literal(programa);
+	t_struct_pcb * pcb = malloc(sizeof(t_struct_pcb));
 
-	malloc(sizeof(t_pcb));
+	pcb->PID=PID;
+	pcb->programCounter=0;
+	pcb->stackPointer=0;
+	pcb->estado=E_NEW;
+	pcb->indiceStack = list_create();
+	pcb->indiceCodigo = list_create();
+	//TODO REVISAR
+	pcb->exitcode=0;
+	pcb->cantRegistrosStack=0;
 
-	indiceCodigo = list_create();
-	indiceStack = list_create();
+	registroStack * registro_stack = reg_stack_create();
+	list_add(pcb->indiceStack,registro_stack);
 
-	pcb.cantidadPaginas = sizeof(programa) % tamanio_pagina;
-	pcb.exitcode = 0;
-	pcb.PID=PID;
+	pcb->cantRegistrosStack++;
 
-	int programCounter = 0;
+	crearArchivosPorProceso(pcb->PID);
 
-	while (programCounter!= metadata->instrucciones_size) {
-
-		malloc(sizeof(limitesInstrucciones));
-		limitesInstrucciones.inicioInstruccion = metadata->instrucciones_serializado[programCounter].start;
-		limitesInstrucciones.longitudInstruccion = metadata->instrucciones_serializado[programCounter].offset;
-
-		list_add(indiceCodigo, (void*) &limitesInstrucciones);
-
-		programCounter++;
-	}
-
-	pcb.indiceCodigo = indiceCodigo;
-	pcb.indiceEtiquetas = metadata->etiquetas;
-	pcb.indiceStack = indiceStack;
-
-	metadata_destruir(metadata);
-
-	int segmentoCodigo = solicitarSegmentoCodigo(pcb.PID, tamanioPrograma);
-
-	int segmentoStack = solicitarSegmentoStack(pcb.PID);
-
-	if(segmentoStack == -1 || segmentoCodigo == -1){
-		//Si no pude asignarle memoria dejo el PID en -1 para informar a la consola
-		pcb.PID = -1;
-	}
+	//TODO agrego una entrada en la tabla de info por proceso
+//	entrada_info_proceso* entrada = malloc(sizeof(entrada_info_proceso));
+//	entrada->pid = pcb->PID;
+//	entrada->rafagas_ejecutadas = 0;
+//	entrada->syscall_ejecutadas = 0;
+//	entrada->sem_bloqueado_por = string_new();
+//	entrada->cantidadAllocs =0;
+//	entrada->cantidadLiberaciones = 0;
+//	entrada->totalAllocado = 0;
+//	entrada->totalLiberado = 0;
+//	list_add(listaInfoProcesos, entrada);
+//
+//	pcb->banderas.cambio_proceso = false;
+//	pcb->banderas.desconexion = false;
+//	pcb->banderas.ejecutando = false;
+//	pcb->banderas.llamada_a_funcion = false;
+//	pcb->banderas.llamada_sin_retorno = false;
+//	pcb->banderas.se_llamo_a_wait = false;
+//	pcb->banderas.terminacion_anormal = false;
+//	pcb->banderas.termino_programa = false;
 
 	return pcb;
-}
-
-t_stack crearStack(unsigned char pos, t_list * argumentos, t_list * variables, unsigned char retPos, t_posicion_memoria retVar) {
-	t_stack stack;
-	malloc(sizeof(t_stack));
-	stack.posicion = pos;
-	stack.argumentos = argumentos;
-	stack.variables = variables;
-	stack.retPos = retPos;
-	stack.posicionVariableRetorno = retVar;
-
-	return stack;
 
 }
 
-int solicitarSegmentoCodigo(int pid, int tam_programa){
+
+int solicitarSegmentoCodigo(int pid, int tamanioPrograma){
 
 	// Pido a la memoria un segmento para el código
 	t_struct_malloc* seg_codigo = malloc(sizeof(t_struct_malloc));
 	seg_codigo->PID = pid;
-	seg_codigo->tamano_segmento = tam_programa;
+	seg_codigo->tamano_segmento = tamanioPrograma;
 
 	// Envío la solicitud de memoria con el tamaño del programa que quiero ejecutar
 	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_codigo);
@@ -420,44 +405,33 @@ int solicitarSegmentoCodigo(int pid, int tam_programa){
 	void * structRecibido;
 	t_tipoEstructura tipoStruct;
 
-	uint32_t dir_codigo;
-	int respuesta;
-
 	// Recibo la direccion del nuevo segmento de código
-	socket_recibir(socketMemoria, &tipoStruct, &structRecibido);
-
-	if(tipoStruct == D_STRUCT_NUMERO ){
-
-		respuesta = ((t_struct_numero *) structRecibido)->numero;
-		if (respuesta != -1){
-			dir_codigo = ((t_struct_numero *) structRecibido)->numero;
-			log_info(logger,"La direccion del segmento de codigo es %d",dir_codigo);
-		}else{
-			// TODO Imprimir en la consola que no hay espacio para el codigo
-			free(structRecibido);
-			return -1;
-		}
-	} else {
-		printf("No se recibio la direccion del segmento de codigo del proceso\n");
-//		free(structRecibido);
+	if (socket_recibir(socketMemoria, &tipoStruct, &structRecibido) == -1){
+		printf("No se pudo crear segmento de codigo\n");
 		return -1;
 	}
-	free(structRecibido);
-	return dir_codigo;
+
+	int respuesta = ((t_struct_numero *) structRecibido)->numero;
+	if (respuesta == MEMORIA_OK){
+		free(structRecibido);
+		return respuesta;
+	}else{
+		free(structRecibido);
+		return -1;
+	}
 }
 
 int solicitarSegmentoStack(int pid){
 	// Pido a la memoria un segmento para el stack
 	t_struct_malloc* seg_stack = malloc(sizeof(t_struct_malloc));
 	seg_stack->PID = pid;
-	seg_stack->tamano_segmento = configuracion.stackSize;
+	seg_stack->tamano_segmento = tamanio_pagina * configuracion.stackSize;
 
 	// Envío la solicitud de memoria con el tamaño de stack definido por conf
 	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_stack);
 
 	if(resultado != 1){
 		log_info(logger,"No se pudo crear el segmento de stack");
-		//TODO eliminar el segmento de codigo solicitado
 		return -1;
 	}
 	free(seg_stack);
@@ -465,28 +439,164 @@ int solicitarSegmentoStack(int pid){
 	void * structRecibido;
 	t_tipoEstructura tipoStruct;
 
-	uint32_t dir_stack;
-	int respuesta;
+	// Recibo la direccion del nuevo segmento de stack
+	if (socket_recibir(socketMemoria, &tipoStruct, &structRecibido) == -1){
+		printf("No se pudo crear segmento de codigo\n");
+		return -1;
+	}
 
-	// Recibo la direccion del nuevo segmento de código
-	socket_recibir(socketMemoria, &tipoStruct, &structRecibido);
-
-	if(tipoStruct == D_STRUCT_NUMERO ){
-		respuesta = ((t_struct_numero *) structRecibido)->numero;
-		if (respuesta != -1){
-			dir_stack = ((t_struct_numero *) structRecibido)->numero;
-			log_info(logger,"La direccion del segmento de stack es %d",dir_stack);
-		}else{
-			// TODO Imprimir en la consola que no hay espacio para el stack
-			// TODO Eliminar el segmento de codigo solicitado
-			free(structRecibido);
-			return -1;
-		}
-	} else {
-		printf("No se recibio la direccion del segmento de codigo del proceso\n");
+	int respuesta = ((t_struct_numero *) structRecibido)->numero;
+	if (respuesta == MEMORIA_OK){
+		free(structRecibido);
+		return respuesta;
+	}else{
 		free(structRecibido);
 		return -1;
 	}
-	free(structRecibido);
-	return dir_stack;
+}
+
+registroStack* reg_stack_create(){
+	registroStack* reg = malloc(sizeof(registroStack));
+	reg->cantidad_args = 0;
+	reg->args = list_create();
+	reg->cantidad_vars = 0;
+	reg->vars = list_create();
+	reg->retPos = 0;
+	reg->retVar.offsetInstruccion = 0;
+	reg->retVar.pagina = 0;
+	reg->retVar.longitudInstruccion = 0;
+
+	return reg;
+}
+
+void crearArchivosPorProceso(int PID){
+
+	t_list * archivosProceso = list_create();
+	t_registroArchivosProc archivo;
+
+	list_add(archivosProceso, &archivo);
+	list_add(archivosProceso, &archivo);
+	list_add(archivosProceso, &archivo);
+
+	dictionary_put(tablaArchivosProceso,PID,archivosProceso);
+}
+
+void agregarColaListos(t_struct_pcb* pcb){
+
+	if(kernelPlanificando){
+		pcb->estado=E_READY;
+		list_add(cola_ready, pcb);
+		cantidadTotalPID++;
+	} else {
+		log_info(logger, "Se recibe un PCB para ingresar a ready pero no se esta planificando");
+		return;
+	}
+}
+
+int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
+
+	if(solicitarSegmentoCodigo(pcb->PID,tamanioPrograma)==MEMORIA_OK
+			&& solicitarSegmentoStack(pcb->PID)==MEMORIA_OK){
+
+		int cantidadPaginasCodigo = tamanioPrograma / tamanio_pagina;
+
+		if(tamanioPrograma%tamanio_pagina>0) cantidadPaginasCodigo++;
+
+		pcb->paginaActualStack=cantidadPaginasCodigo;
+		pcb->primerPaginaStack=pcb->paginaActualStack;
+		pcb->stackPointer=cantidadPaginasCodigo;
+		pcb->paginasStack=configuracion.stackSize;
+		pcb->paginasCodigo=cantidadPaginasCodigo;
+
+	}
+
+	log_info(logger,"No se pudieron reservar las paginas al proceso %d",pcb->PID);
+	return -1;
+
+}
+
+inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
+
+	t_struct_pcb * pcb = NULL;
+	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
+
+	if(cantidadTotalPID<configuracion.gradoMultiprog){
+
+		pcb = crearPCB(obtener_pid());
+
+		agregarColaListos(pcb);
+
+		// Reservo las paginas para codigo y stack
+		if (reservarPaginas(programa,pcb,tamanio_programa) == -1) {
+
+			// Si no pude asignarlas aviso al a consola del rechazo
+			pid_struct->numero = -1;
+			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
+			free(pid_struct);
+
+		} else {
+
+			// Si pude rechazarlas envio a la consola el process ID
+			t_registroTablaProcesos * registroProceso = malloc(sizeof(t_registroTablaProcesos));
+			registroProceso->PID = pcb->PID;
+			registroProceso->socket = socketConsola;
+
+			list_add(listaProcesos,registroProceso);
+
+			pid_struct->numero = pcb->PID;
+			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
+			free(pid_struct);
+
+			t_metadata_program* datosPrograma = metadata_desde_literal(programa);
+
+			pcb->quantum=configuracion.quantum;
+			pcb->quantum_sleep=configuracion.quantumSleep;
+			pcb->programCounter=datosPrograma->instruccion_inicio;
+			pcb->rafagas=0;
+			pcb->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
+
+			memcpy(pcb->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+
+			int i;
+			for (i = 0;	i < datosPrograma->instrucciones_size;i++) {
+
+				t_intructions instruccion =	datosPrograma->instrucciones_serializado[i];
+
+				t_intructions* agregarInst = malloc(sizeof(t_intructions));
+
+				agregarInst->offset = instruccion.offset;
+				agregarInst->start = instruccion.start;
+
+				list_add(pcb->indiceCodigo, agregarInst);
+			}
+
+			metadata_destruir(datosPrograma);
+
+		}
+
+	} else {
+
+		// El grado de multiprogramacion no me permite admitir el proceso aun..
+		pcb = crearPCB(obtener_pid());
+
+		list_add(cola_new,pcb);
+
+		t_registroTablaProcesos * registroProceso = malloc(sizeof(t_registroTablaProcesos));
+		registroProceso->PID = pcb->PID;
+		registroProceso->socket = socketConsola;
+
+		list_add(listaProcesos,registroProceso);
+
+		pid_struct->numero = pcb->PID;
+		//TODO agregar nueva operacion para informar que el proceso esta en espera y manejar en consola
+		socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
+		free(pid_struct);
+
+	}
+
+	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
+		//TODO implementar.
+		planificar(NULL);
+	}
+
 }

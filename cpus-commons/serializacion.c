@@ -194,7 +194,15 @@ t_stream * serializeStruct_malc(t_struct_malloc * estructuraOrigen){
 
 	char * data = crearDataConHeader(D_STRUCT_MALC, paquete->length); //creo el data
 
-	memcpy(data + sizeof(t_header), estructuraOrigen, sizeof(t_struct_malloc));		//copio a data el numero.
+	int tamanoTotal = sizeof(t_header), tamanoDato = 0;
+
+	memcpy(data + tamanoTotal, &estructuraOrigen->PID, tamanoDato= sizeof(uint32_t));
+
+	tamanoTotal+=tamanoDato;
+
+	memcpy(data + tamanoTotal, &estructuraOrigen->tamano_segmento, tamanoDato= sizeof(uint32_t));
+
+	tamanoTotal+=tamanoDato;
 
 	paquete->data = data;
 
@@ -1296,9 +1304,18 @@ t_struct_string * deserializeStruct_string(char * dataPaquete, uint16_t length){
 t_struct_malloc * deserializeStruct_malc(char * dataPaquete, uint16_t length){
 	t_struct_malloc * estructuraDestino = malloc(sizeof(t_struct_malloc));
 
-	memcpy(estructuraDestino, dataPaquete, 2*sizeof(uint32_t)); //copio el data del paquete a la estructura.
+	int tamanoDato = 0, tamanoTotal = 0;
+
+	memcpy(&estructuraDestino->PID,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+
+	tamanoTotal+= tamanoDato;
+
+	memcpy(&estructuraDestino->tamano_segmento,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+
+	tamanoTotal+= tamanoDato;
 
 	return estructuraDestino;
+
 }
 
 t_struct_programa * deserializeStruct_prog(char* dataPaquete, uint16_t length){

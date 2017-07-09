@@ -44,23 +44,28 @@ t_configuracion configuracion;
 // Variable que almacenará el tamaño de cada pagina de memoria
 int32_t tamanio_pagina;
 
-// cantidad de PID del sistema
-int cantidad_pid;
+int maximoPID, cantidadTotalPID;
 
-// FD del socket de comunicacion con memoria
-int socketMemoria;
+// FD del socket de comunicacion con memoria y filesystem
+int socketMemoria, socketFS;
 
-t_list *listaCpus;
+bool kernelPlanificando;
+
 t_list *listaConsolas;
+t_list *listaCpuLibres;
+t_list *listaCpuOcupadas;
 t_list *listaProcesos;
+t_list *listaProcesosFinalizar;
+t_list *tablaHeap;
+t_list *tablaArchivosGlobal;
+t_dictionary *tablaArchivosProceso;
 
 //Declaro las listas para manejar la planificación
-t_queue* cola_new;
-t_queue* cola_exit;
+t_list* cola_new;
+t_list* cola_exit;
 t_list* cola_ready;
 t_list* cola_block;
 t_list* cola_exec;
-
 
 pthread_t threadAtenderConexiones;
 
@@ -68,7 +73,7 @@ pthread_t threadAtenderConexiones;
 fd_set master_consola;
 fd_set master_cpu;
 
-t_pcb pcb;
+t_struct_pcb pcb;
 t_limites_instrucciones limitesInstrucciones;
 t_list * indiceCodigo;
 t_list * indiceStack;
@@ -93,12 +98,18 @@ int obtener_pid();
 
 void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet);
 
-void enviarConfiguracion(int socketCliente, int valor)
+void enviarConfiguracion(int socketCliente, int valor);
 
-t_pcb crearPCB(char* programa, int PID, int tamanioPrograma);
+t_struct_pcb* crearPCB(int PID);
 
 int solicitarSegmentoCodigo(int pid, int tam_programa);
 
 int solicitarSegmentoStack(int pid);
+
+registroStack* reg_stack_create();
+
+void agregarColaListos(t_struct_pcb* pcb);
+
+void crearArchivosPorProceso(int PID);
 
 #endif /* KERNELHELPER_H_ */

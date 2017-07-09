@@ -58,6 +58,11 @@ typedef struct {
 	t_posicion_memoria retVar;
 }  __attribute__((packed)) registroStack;
 
+typedef struct registroTablaProcesos {
+	uint32_t socket;
+	uint32_t PID;
+} t_registroTablaProcesos;
+
 typedef struct Stream {
 	int length;
 	char* data;
@@ -187,14 +192,21 @@ typedef struct struct_env_bytes{
 		void* buffer;
 }__attribute__ ((__packed__)) t_struct_programa;
 
+enum {
+	E_NEW=1,
+	E_READY=2,
+	E_BLOCK=3,
+	E_EXEC=4,
+	E_EXIT=5
+} estadosPrograma;
+
 // TODO serializar los nuevos campos!!
 typedef struct struct_pcb {
 		int PID;
 		int programCounter;
 		int paginasCodigo;
 		int cpuID;
-		t_intructions * indiceCodigo;
-		int cantidadInstrucciones;
+		t_list * indiceCodigo;
 		int paginasStack;
 		int cantRegistrosStack;
 		int stackPointer;
@@ -207,6 +219,7 @@ typedef struct struct_pcb {
 		uint32_t quantum;
 		uint32_t quantum_sleep;
 		uint32_t rafagas;
+		uint32_t estado;
 
 } __attribute__ ((__packed__)) t_struct_pcb;
 
@@ -267,5 +280,18 @@ typedef struct struct_guardar{
 	void * buffer;
 	int confirmacion;
 }__attribute__((__packed__)) t_struct_guardar;
+
+typedef struct {
+	uint32_t PID;
+	t_list* tabla;
+} t_tabla_archivos_proc;
+
+typedef struct {
+	uint32_t cursor;
+	t_descriptor_archivo fd_TablaGlobal;
+	t_flags flags;
+} t_registroArchivosProc;
+
+
 
 #endif /* ESTRUCTURAS_H_ */

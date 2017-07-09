@@ -16,7 +16,7 @@ int main(int arc, char * argv[]) {
 	socketMemoria = conectarAMemoria();
 
 	//Conecta el Kernel al filesystem
-	int socketFS = conectarAFS();
+	socketFS = conectarAFS();
 
 	crearThreadAtenderConexiones();
 
