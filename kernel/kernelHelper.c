@@ -113,7 +113,12 @@ void manejarNuevaConexion(int listener, int *fdmax){
 
 			FD_SET(socketCliente, &master_cpu);
 
-			list_add(listaCpuLibres, (void*)socketCliente);
+			t_cpu * nuevaCPU = malloc(sizeof(t_cpu));
+			nuevaCPU->socket=socketCliente;
+			nuevaCPU->PID=-1;
+			nuevaCPU->quantum=0;
+
+			list_add(listaCpuLibres, nuevaCPU);
 
 			enviarConfiguracion(socketCliente,configuracion.stackSize);
 
@@ -149,15 +154,44 @@ void enviarConfiguracion(int socketCliente, int valor){
 
 }
 
-void manejarCpu(int i){
+void manejarCpu(int socketCPU){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Cpu %d cerró la conexión.",i);
-		removerClientePorCierreDeConexion(i,listaCpuLibres,&master_cpu);
+	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
+		removerClientePorCierreDeConexion(socketCPU,listaCpuLibres,&master_cpu);
+		//TODO Incorporar la logica para liquidar procesos
 	} else {
+
+		switch(tipoEstructura){
+		case D_STRUCT_OBTENER_COMPARTIDA: ;
+
+			// La cpu quiere obtener el valor de una variable compartida
+			char * obtenerVarCompartida = ((t_struct_string*) structRecibido)->string ;
+			obtenerVariableCompartida(socketCPU, obtenerVarCompartida);
+
+			break;
+
+		case D_STRUCT_GRABAR_COMPARTIDA: ;
+
+			// La cpu quiere asignar el valor de una variable compartida
+			t_struct_var_compartida * grabarVarCompartida = ((t_struct_var_compartida*) structRecibido);
+			grabarVariableCompartida(socketCPU, grabarVarCompartida);
+
+			break;
+
+		case D_STRUCT_WAIT: ;
+
+			// La cpu quiere realizar wait de un semaforo
+			char * waitSemaforo = ((t_struct_string*) structRecibido)->string ;
+			realizarWaitSemaforo(socketCPU,waitSemaforo);
+
+			break;
+
+		}
+
 	}
 };
 
@@ -313,13 +347,6 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet
 
 }
 
-int programKiller(int i){
-
-	log_info(logger,"La Consola %d se ha desconectado", i);
-	return 1;
-}
-
-
 int obtener_pid(){
 
 	int pid = maximoPID++;
@@ -337,8 +364,7 @@ t_struct_pcb* crearPCB(int PID){
 	pcb->estado=E_NEW;
 	pcb->indiceStack = list_create();
 	pcb->indiceCodigo = list_create();
-	//TODO REVISAR
-	pcb->exitcode=0;
+	pcb->exitcode=99;
 	pcb->cantRegistrosStack=0;
 
 	registroStack * registro_stack = reg_stack_create();
@@ -348,18 +374,9 @@ t_struct_pcb* crearPCB(int PID){
 
 	crearArchivosPorProceso(pcb->PID);
 
-	//TODO agrego una entrada en la tabla de info por proceso
-//	entrada_info_proceso* entrada = malloc(sizeof(entrada_info_proceso));
-//	entrada->pid = pcb->PID;
-//	entrada->rafagas_ejecutadas = 0;
-//	entrada->syscall_ejecutadas = 0;
-//	entrada->sem_bloqueado_por = string_new();
-//	entrada->cantidadAllocs =0;
-//	entrada->cantidadLiberaciones = 0;
-//	entrada->totalAllocado = 0;
-//	entrada->totalLiberado = 0;
-//	list_add(listaInfoProcesos, entrada);
-//
+	crearInformacionProcesoInicial(pcb->PID);
+
+// TODO VER si hace falta
 //	pcb->banderas.cambio_proceso = false;
 //	pcb->banderas.desconexion = false;
 //	pcb->banderas.ejecutando = false;
@@ -372,7 +389,6 @@ t_struct_pcb* crearPCB(int PID){
 	return pcb;
 
 }
-
 
 int solicitarSegmentoCodigo(int pid, int tamanioPrograma){
 
@@ -443,6 +459,58 @@ int solicitarSegmentoStack(int pid){
 	}
 }
 
+void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb){
+
+	int cantidadPaginasCodigo = tamanioPrograma / tamanio_pagina;
+
+	if(tamanioPrograma%tamanio_pagina>0) cantidadPaginasCodigo++;
+
+	int indice;
+	int cantCodigoEnviado=0;
+	int cantCodigoPendiente=tamanioPrograma;
+	int tamanioEnvio;
+
+	for(indice=0; indice < cantidadPaginasCodigo; indice++ ){
+
+		char * codigoPendiente=string_new();
+		char * codigoEnviar=string_new();
+
+		t_struct_sol_escritura * escrituraCodigo = malloc(sizeof(t_struct_sol_escritura));
+		escrituraCodigo->PID=pcb->PID;
+		escrituraCodigo->offset=0;
+		escrituraCodigo->pagina=indice;
+		escrituraCodigo->contenido=tamanio_pagina;
+
+		//TODO handlear estas solicitudes desde la memoria
+		socket_enviar(socketMemoria,D_STRUCT_ESCRITURA_CODIGO,escrituraCodigo);
+
+		cantCodigoPendiente>tamanio_pagina ? tamanioEnvio=tamanio_pagina : tamanioEnvio=cantCodigoPendiente;
+
+		codigoPendiente = string_substring_from(programa,cantCodigoEnviado);
+		codigoEnviar = string_substring_until(codigoPendiente,tamanioEnvio);
+
+		t_struct_programa* programa = malloc(sizeof(t_struct_programa));
+		programa->tamanio = tamanioEnvio;
+		programa->buffer = malloc(tamanioEnvio);
+		programa->base = 1;
+		programa->PID = 1 ;
+		memcpy(programa->buffer,codigoEnviar,tamanioEnvio);
+
+		socket_enviar(socketMemoria,D_STRUCT_CODIGO,programa);
+
+		free(programa->buffer);
+		free(programa);
+		free(codigoPendiente);
+		free(codigoEnviar);
+
+		cantCodigoEnviado += tamanioEnvio;
+		cantCodigoPendiente -= tamanioEnvio;
+
+	}
+
+	log_info(logger,"Se envio el codigo del proceso %d a la memoria",pcb->PID);
+}
+
 registroStack* reg_stack_create(){
 	registroStack* reg = malloc(sizeof(registroStack));
 	reg->cantidad_args = 0;
@@ -496,6 +564,8 @@ int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 		pcb->paginasStack=configuracion.stackSize;
 		pcb->paginasCodigo=cantidadPaginasCodigo;
 
+		return 1;
+
 	}
 
 	log_info(logger,"No se pudieron reservar las paginas al proceso %d",pcb->PID);
@@ -534,6 +604,8 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 			pid_struct->numero = pcb->PID;
 			socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
 			free(pid_struct);
+
+			enviarCodigoMemoria(programa,tamanio_programa,pcb);
 
 			t_metadata_program* datosPrograma = metadata_desde_literal(programa);
 
@@ -576,7 +648,6 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 		list_add(listaProcesos,registroProceso);
 
 		pid_struct->numero = pcb->PID;
-		//TODO agregar nueva operacion para informar que el proceso esta en espera y manejar en consola
 		socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
 		free(pid_struct);
 
@@ -666,6 +737,19 @@ t_struct_pcb * obtenerPCBActivo(int PID){
 
 	return NULL;
 
+}
+
+void crearInformacionProcesoInicial(int PID){
+	t_registroInformacionProceso * registro = malloc(sizeof(t_registroInformacionProceso));
+		registro->pid = PID;
+		registro->cantidad_liberar_heap=0;
+		registro->cantidad_solicitar_heap=0;
+		registro->rafagas=0;
+		registro->semaforo_bloqueo = NULL;
+		registro->syscall=0;
+		registro->total_heap_liberado=0;
+		registro->total_heap_solicitado=0;
+		list_add(listaInformacionProcesos,registro);
 }
 
 t_registroInformacionProceso * recuperarInformacionProceso(int PID){
@@ -871,6 +955,196 @@ void abortarPrograma(int socketConsola, bool finalizarPrograma){
 		liberarMemoriaProceso(pcbRecuperado);
 		informarLiberarHeap(pcbRecuperado);
 		if(finalizarPrograma) informarFinalizacionConsola(pcbRecuperado);
+	}
+
+}
+
+void obtenerVariableCompartida(int socketCPU, char * varCompartida){
+
+	t_struct_var_compartida * variableRecuperada = malloc(sizeof(t_struct_var_compartida));
+	int indice;
+
+	for(indice=0; indice < list_size(listaVarCompartidas); indice++){
+		variableRecuperada = list_get(listaVarCompartidas,indice);
+
+		if(string_equals_ignore_case(variableRecuperada->nombre,varCompartida)){
+
+			t_struct_numero * valorCompartida = malloc(sizeof(t_struct_numero));
+			valorCompartida->numero=variableRecuperada->valor;
+
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,valorCompartida);
+			free(valorCompartida);
+
+			break;
+		}
+	}
+
+	free(variableRecuperada);
+
+}
+
+void grabarVariableCompartida(int socketCPU, t_struct_var_compartida * grabarVarCompartida){
+
+	t_struct_var_compartida * variableRecuperada;
+	int indice;
+
+	for(indice=0; indice < list_size(listaVarCompartidas); indice++){
+		variableRecuperada = list_get(listaVarCompartidas,indice);
+
+		if(string_equals_ignore_case(variableRecuperada->nombre,grabarVarCompartida->nombre)){
+
+			variableRecuperada->valor = grabarVarCompartida->valor;
+
+			t_struct_numero * valorCompartida = malloc(sizeof(t_struct_numero));
+			valorCompartida->numero=variableRecuperada->valor;
+
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,valorCompartida);
+			free(valorCompartida);
+
+			break;
+		}
+	}
+
+}
+
+bool verificarProcesoFinalizar(t_struct_pcb * pcb){
+
+	int indice;
+
+	for(indice=0; indice < list_size(listaProcesosFinalizar); indice++){
+		int * PIDRecuperado = list_get(listaProcesosFinalizar,indice);
+		if(&PIDRecuperado == pcb->PID){
+			list_remove(listaProcesosFinalizar,indice);
+			return true;
+		}
+	}
+	return false;
+}
+
+void actualizarPCBExec(t_struct_pcb * pcbBuscado){
+
+	int indice;
+	t_struct_pcb * pcbRecuperado;
+
+	for(indice=0; indice < list_size(cola_exec); indice++){
+		pcbRecuperado= list_get(cola_exec,indice);
+		if(pcbRecuperado->PID==pcbBuscado->PID){
+			list_remove(cola_exec,indice);
+			list_add_in_index(cola_exec,indice,pcbBuscado);
+		}
+	}
+}
+
+t_cpu* buscarCPUenLista(t_list * lista, int socketCPU, bool quitarDeLista){
+
+	int indice;
+	t_cpu * cpuRecuperada;
+
+	for(indice=0;indice<list_size(lista);indice++){
+		cpuRecuperada = list_get(lista,indice);
+
+		if(cpuRecuperada->socket==socketCPU){
+
+			if(quitarDeLista) list_remove(lista,indice);
+
+			return cpuRecuperada;
+		}
+	}
+
+	return NULL;
+
+}
+
+t_cpu* obtenerCPUporSocket(int socketCPU, bool quitarDeLista){
+
+	t_cpu* cpuEncontrada;
+
+	cpuEncontrada = buscarCPUenLista(listaCpuLibres,socketCPU,quitarDeLista);
+	if(cpuEncontrada!=NULL) return cpuEncontrada;
+
+	cpuEncontrada = buscarCPUenLista(listaCpuOcupadas,socketCPU,quitarDeLista);
+	if(cpuEncontrada!=NULL) return cpuEncontrada;
+
+	return NULL;
+}
+
+void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
+
+	t_struct_semaforo * semaforoRecuperado;
+	bool encontreSemaforo = false;
+	t_struct_numero * respuesta = malloc(sizeof(t_struct_numero));
+	int indice;
+
+	for(indice=0; indice < list_size(listaSemaforos); indice++){
+		semaforoRecuperado = list_get(listaSemaforos,indice);
+
+		if(string_equals_ignore_case(semaforoRecuperado->nombre,waitSemaforo)){
+
+			log_info(logger,"CPU %d realiza wait sobre el semaforo %s",socketCPU,waitSemaforo);
+			encontreSemaforo = true;
+			semaforoRecuperado->valor--;
+
+			// Si el semaforo queda menor a 0 el proceso queda bloqueado lo informo con un 1, caso contrario 0
+			semaforoRecuperado->valor<0 ? respuesta->numero=1 : respuesta->numero=0;
+
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+			free(respuesta);
+
+			if(semaforoRecuperado->valor<0){
+
+				t_tipoEstructura tipoEstructura;
+				void * structRecibido;
+
+				log_info(logger,"El semaforo se bloquea, verifico si corresponde matar el proceso o pasarlo a block");
+
+				t_struct_pcb * pcbBloqueado = ((t_struct_pcb*) structRecibido);
+				//TODO actualizar exit code con mensaje por semaforo bloqueado
+
+				if(verificarProcesoFinalizar(pcbBloqueado)){
+
+					log_info(logger,"Corresponde finalizar el proceso %d",pcbBloqueado->PID);
+
+					actualizarPCBExec(pcbBloqueado);
+					pasarColaExit(pcbBloqueado);
+					liberarMemoriaProceso(pcbBloqueado);
+					informarFinalizacionConsola(pcbBloqueado);
+					informarLiberarHeap(pcbBloqueado);
+					//TODO implementar pasarProximoProcDeNewAReady
+					traerProcesoColaNew();
+
+					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
+					list_add(listaCpuLibres,cpuProcesando);
+
+					semaforoRecuperado->valor++;
+				}else{
+					log_info(logger,"Corresponde pasar a block el proceso %d",pcbBloqueado->PID);
+
+					actualizarPCBExec(pcbBloqueado);
+
+					t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbBloqueado.PID);
+					free(registro->semaforo_bloqueo);registro->semaforo_bloqueo=string_new();
+
+					string_append(&(registro->semaforo_bloqueo),waitSemaforo);
+
+					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
+					list_add(listaCpuLibres,cpuProcesando);
+
+					//TODO implementar pasarPcbDeEjecutandoABloqueados
+					ingresarPCBaColaBlock(pcbBloqueado);
+
+				}
+
+				if (list_size(cola_ready) > 0) {
+					planificar(NULL);
+				}
+			}
+		}
+	}
+
+	if(!encontreSemaforo){
+		respuesta->numero=-1;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+		free(respuesta);
 	}
 
 }

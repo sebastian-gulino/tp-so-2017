@@ -183,7 +183,6 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 	strcpy(obtenerVarCompartida->string,"!\0");
 	strcat(obtenerVarCompartida->string,variableCompartida);
 
-	// TODO manejar en el kernel la solicitud de variables compartidas.
 	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
 	t_tipoEstructura tipoEstructura;
@@ -220,10 +219,30 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 	strcpy(varCompartida->nombre,"!\0");
 	strcat(varCompartida->nombre,variableCompartida);
 
-	//TODO manejar en el kernel
 	socket_enviar(socketKernel,D_STRUCT_GRABAR_COMPARTIDA,varCompartida);
 
-	return valor;
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		retornoPCB=D_STRUCT_ERROR_KERNEL;
+		return -1;
+
+	} else {
+
+		// El kernel ante una solicitud de grabar variable compartida debe retornarme el valor asignado.
+		t_valor_variable valor = ((t_struct_numero*) structRecibido)->numero;
+
+		log_trace(logger, "Variable Compartida: '%s' -> Valor: '%d'.", variableCompartida, valor);
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+		return valor;
+	}
+
 }
 
 void irAlLabel(t_nombre_etiqueta etiqueta) {

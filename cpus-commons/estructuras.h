@@ -69,15 +69,21 @@ typedef struct Stream {
 } t_stream;
 
 typedef struct Cabecera {
-		uint32_t id;		/* ID de operacion */
-		uint32_t longitud; /* Longitud del mensaje, en bytes */
-	} cabecera_t;
+	uint32_t id;		/* ID de operacion */
+	uint32_t longitud; /* Longitud del mensaje, en bytes */
+} cabecera_t;
 
 typedef struct{
-		bool lectura;
-		bool escritura;
-		bool creacion;
+	bool lectura;
+	bool escritura;
+	bool creacion;
 } t_flags;
+
+typedef struct{
+	uint32_t socket;
+	uint32_t quantum;
+	uint32_t PID;
+} t_cpu;
 
 typedef struct InformacionProcesos {
 	uint32_t pid;
@@ -114,7 +120,9 @@ enum{
 
 	//Comunicacion Kernel - Memoria
 	D_STRUCT_MALC=4,
-	D_STRUCT_LIBERAR_MEMORIA=48,
+	D_STRUCT_LIBERAR_MEMORIA=49,
+	D_STRUCT_ESCRITURA_CODIGO=50,
+	D_STRUCT_CODIGO=51,
 
 	//Comunicacion Consola - Kernel
 	D_STRUCT_PROG=5,
@@ -275,8 +283,8 @@ typedef struct {
 } __attribute__((packed)) t_struct_sol_escritura;
 
 typedef struct {
-	char *nombre;
-	int valor;
+	t_nombre_variable * nombre;
+	t_valor_variable valor;
 } __attribute__((packed)) t_struct_var_compartida;
 
 typedef struct {

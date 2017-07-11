@@ -51,7 +51,10 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				paquete = serializeStruct_malc((t_struct_malloc *) estructuraOrigen);
 				break;
 			case D_STRUCT_PROG:
-				paquete = serializeStruct_prog((t_struct_programa *) estructuraOrigen);
+				paquete = serializeStruct_prog((t_struct_programa *) estructuraOrigen, D_STRUCT_PROG);
+				break;
+			case D_STRUCT_CODIGO:
+				paquete = serializeStruct_prog((t_struct_programa *) estructuraOrigen, D_STRUCT_CODIGO);
 				break;
 			case D_STRUCT_IMPR:
 				paquete = serializeStruct_string((t_struct_string *) estructuraOrigen, D_STRUCT_IMPR);
@@ -61,6 +64,12 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				break;
 			case D_STRUCT_PCB:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_PCB);
+				break;
+			case D_STRUCT_ERROR_WAIT:
+				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_ERROR_WAIT);
+				break;
+			case D_STRUCT_ERROR_SEM:
+				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_ERROR_SEM);
 				break;
 			case D_STRUCT_PID:
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_PID);
@@ -81,7 +90,10 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_SIGUSR1);
 				break;
 			case D_STRUCT_SOL_ESCR:
-				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen);
+				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_SOL_ESCR);
+				break;
+			case D_STRUCT_ESCRITURA_CODIGO:
+				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_ESCRITURA_CODIGO);
 				break;
 			case D_STRUCT_PCB_FINOK:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_PCB_FINOK);
@@ -212,13 +224,13 @@ t_stream * serializeStruct_malc(t_struct_malloc * estructuraOrigen){
 	return paquete;
 }
 
-t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen){
+t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen, int headerOperacion){
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
 	paquete->length = sizeof(t_header) + sizeof(uint32_t) + sizeof(uint32_t) +sizeof(uint32_t) + estructuraOrigen->tamanio;
 
-	char* data = crearDataConHeader(D_STRUCT_PROG, paquete->length);
+	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
 	int tamanoTotal = sizeof(t_header), tamanoDato = 0;
 
@@ -380,13 +392,13 @@ t_stream * serializeStruct_lect(t_posicion_memoria * estructuraOrigen, int heade
 
 }
 
-t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen){
+t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen, int headerOperacion){
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
 	paquete->length = sizeof(t_header) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t);
 
-	char* data = crearDataConHeader(D_STRUCT_SOL_ESCR, paquete->length);
+	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
 	int tamanoTotal = sizeof(t_header), tamanoDato = 0;
 
@@ -686,6 +698,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 			case D_STRUCT_PROG:
 				estructuraDestino = deserializeStruct_prog(dataPaquete, length);
 				break;
+			case D_STRUCT_CODIGO:
+				estructuraDestino = deserializeStruct_prog(dataPaquete, length);
+				break;
 			case D_STRUCT_IMPR:
 				estructuraDestino = deserializeStruct_string(dataPaquete, length);
 				break;
@@ -693,6 +708,12 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_PCB:
+				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
+				break;
+			case D_STRUCT_ERROR_WAIT:
+				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
+				break;
+			case D_STRUCT_ERROR_SEM:
 				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
 				break;
 			case D_STRUCT_PID:
@@ -714,6 +735,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_SOL_ESCR:
+				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
+				break;
+			case D_STRUCT_ESCRITURA_CODIGO:
 				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
 				break;
 			case D_STRUCT_PCB_FINOK:

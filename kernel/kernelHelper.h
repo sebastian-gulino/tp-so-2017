@@ -73,6 +73,7 @@ t_list* cola_block;
 t_list* cola_exec;
 
 t_list* listaSemaforos;
+t_list* listaVarCompartidas;
 
 pthread_t threadAtenderConexiones;
 
