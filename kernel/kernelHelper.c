@@ -484,7 +484,7 @@ void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb
 		//TODO handlear estas solicitudes desde la memoria
 		socket_enviar(socketMemoria,D_STRUCT_ESCRITURA_CODIGO,escrituraCodigo);
 
-		cantCodigoPendiente>tamanio_pagina ? tamanioEnvio=tamanio_pagina : tamanioEnvio=cantCodigoPendiente;
+		tamanioEnvio = cantCodigoPendiente>tamanio_pagina ? tamanio_pagina : cantCodigoPendiente;
 
 		codigoPendiente = string_substring_from(programa,cantCodigoEnviado);
 		codigoEnviar = string_substring_until(codigoPendiente,tamanioEnvio);
@@ -803,10 +803,10 @@ void liberarArchivosProceso(t_struct_pcb * pcb){
 	// FD 0 / 1 / 2 reservados para el sistema
 	for(indice=3; indice < list_size(archivosProceso); indice++){
 		t_registroArchivosProc * registroTablaProceso = list_get(archivosProceso,indice);
-		t_registroArchivosGlobal * registroTablaGlobal = list_get(tablaArchivosGlobal,registroTablaProceso.fd_TablaGlobal);
+		t_registroArchivosGlobal * registroTablaGlobal = list_get(tablaArchivosGlobal,registroTablaProceso->fd_TablaGlobal);
 
 		if(registroTablaGlobal->cantidadAbierto==1){
-			list_remove(tablaArchivosGlobal,registroTablaProceso->fd_TablaGlobal)
+			list_remove(tablaArchivosGlobal,registroTablaProceso->fd_TablaGlobal);
 		} else {
 			registroTablaGlobal->cantidadAbierto--;
 		}
@@ -948,7 +948,7 @@ void abortarPrograma(int socketConsola, bool finalizarPrograma){
 
 	if(pcbRecuperado->estado == E_EXEC){
 		int * pidFinalizar = malloc(sizeof(t_registroTablaProcesos));
-		&pidFinalizar=PID;
+		pidFinalizar=PID;
 		list_add(listaProcesosFinalizar,pidFinalizar);
 	} else {
 		pasarColaExit(pcbRecuperado);
@@ -1085,7 +1085,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 			semaforoRecuperado->valor--;
 
 			// Si el semaforo queda menor a 0 el proceso queda bloqueado lo informo con un 1, caso contrario 0
-			semaforoRecuperado->valor<0 ? respuesta->numero=1 : respuesta->numero=0;
+			respuesta->numero = semaforoRecuperado->valor<0 ? 1 : 0;
 
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
 			free(respuesta);
@@ -1121,7 +1121,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 					actualizarPCBExec(pcbBloqueado);
 
-					t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbBloqueado.PID);
+					t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbBloqueado->PID);
 					free(registro->semaforo_bloqueo);registro->semaforo_bloqueo=string_new();
 
 					string_append(&(registro->semaforo_bloqueo),waitSemaforo);
