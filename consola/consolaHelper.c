@@ -232,7 +232,7 @@ void recibirMensajes(t_proceso* proceso){
 		signal(SIGUSR1, manejarSignal);
 
 		if (socket_recibir(proceso->socketKernel, &tipoEstructura, &structRecibido) != -1) {
-
+			//TODO manejar impresiones en el kernel
 			switch(tipoEstructura){
 			case D_STRUCT_IMPR:
 				;
@@ -342,12 +342,9 @@ void terminarProceso(t_proceso* proceso){
 void manejarDesconexion(){
 	log_destroy(logger);
 
-	void matarHiloSocket (t_proceso * proceso){
-		pthread_kill(proceso->hilo,SIGUSR1);
-		close(proceso->socketKernel);
-	}
+	list_iterate(listaProcesos, (void*) terminarProceso);
 
-	list_iterate(listaProcesos, (void*) matarHiloSocket);
+	list_destroy(listaProcesos);
 
 	exit(EXIT_SUCCESS);
 }

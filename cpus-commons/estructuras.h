@@ -79,6 +79,33 @@ typedef struct{
 		bool creacion;
 } t_flags;
 
+typedef struct InformacionProcesos {
+	uint32_t pid;
+	uint32_t rafagas;
+	uint32_t syscall;
+	uint32_t cantidad_solicitar_heap;
+	uint32_t total_heap_solicitado;
+	uint32_t cantidad_liberar_heap;
+	uint32_t total_heap_liberado;
+	char * semaforo_bloqueo;
+} t_registroInformacionProceso;
+
+typedef struct RegistroTablaHeap {
+	uint32_t PID;
+	uint32_t numeroPagina;
+	t_list * listaBloques;
+	uint32_t espacioDisponible;
+	uint32_t espacioMaximoBloque;
+} t_registroTablaHeap;
+
+typedef struct BloqueHeap {
+	bool isFree;
+	uint32_t size;
+	uint32_t numeroBloque;
+	uint32_t offset;
+	uint32_t fin;
+} t_bloqueHeap;
+
 enum{
 	//Generales
 	D_STRUCT_NUMERO=1,
@@ -87,6 +114,7 @@ enum{
 
 	//Comunicacion Kernel - Memoria
 	D_STRUCT_MALC=4,
+	D_STRUCT_LIBERAR_MEMORIA=48,
 
 	//Comunicacion Consola - Kernel
 	D_STRUCT_PROG=5,
@@ -192,6 +220,11 @@ typedef struct struct_env_bytes{
 		void* buffer;
 }__attribute__ ((__packed__)) t_struct_programa;
 
+typedef struct semaforo{
+	t_nombre_semaforo * nombre;
+	uint32_t valor;
+}__attribute__ ((__packed__)) t_struct_semaforo;
+
 enum {
 	E_NEW=1,
 	E_READY=2,
@@ -199,6 +232,20 @@ enum {
 	E_EXEC=4,
 	E_EXIT=5
 } estadosPrograma;
+
+enum {
+	EC_FINALIZO_OK=0,
+	EC_NO_RECURSOS=-1,
+	EC_ARCHIVO_INEX=-2,
+	EC_ARCHIVO_LE_PERMISOS=-3,
+	EC_ARCHIVO_ES_PERMISOS=-4,
+	EC_EXCEP_MEMORIA=-5,
+	EC_DESCONEXION_CONSOLA=-6,
+	EC_FINALIZADO_CONSOLA=-7,
+	EC_RESERVA_MAYOR_PAGINA=-8,
+	EC_MAXIMO_PAGINAS=9,
+	EC_SIN_DEFINICION=-20
+} exitCodeValidos;
 
 // TODO serializar los nuevos campos!!
 typedef struct struct_pcb {
@@ -286,12 +333,16 @@ typedef struct {
 	t_list* tabla;
 } t_tabla_archivos_proc;
 
-typedef struct {
+typedef struct registroArchivosProceso{
 	uint32_t cursor;
 	t_descriptor_archivo fd_TablaGlobal;
 	t_flags flags;
 } t_registroArchivosProc;
 
+typedef struct registroArchivosGlobal{
+	char* nombre;
+	uint32_t cantidadAbierto;
+} t_registroArchivosGlobal;
 
 
 #endif /* ESTRUCTURAS_H_ */

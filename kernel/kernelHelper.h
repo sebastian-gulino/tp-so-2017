@@ -57,8 +57,13 @@ t_list *listaCpuOcupadas;
 t_list *listaProcesos;
 t_list *listaProcesosFinalizar;
 t_list *tablaHeap;
+
+// Listas para la gestion de archivos
 t_list *tablaArchivosGlobal;
 t_dictionary *tablaArchivosProceso;
+
+// Lista en la que iremos resguardando la informacion para la consola del kernel
+t_list *listaInformacionProcesos;
 
 //Declaro las listas para manejar la planificación
 t_list* cola_new;
@@ -66,6 +71,8 @@ t_list* cola_exit;
 t_list* cola_ready;
 t_list* cola_block;
 t_list* cola_exec;
+
+t_list* listaSemaforos;
 
 pthread_t threadAtenderConexiones;
 

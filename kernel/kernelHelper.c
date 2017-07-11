@@ -72,6 +72,7 @@ void inicializarListas(){
 	tablaArchivosGlobal = list_create();
 	tablaArchivosProceso = dictionary_create();
 
+	listaInformacionProcesos = list_create();
 
 	maximoPID = 1;
 
@@ -168,8 +169,8 @@ void manejarConsola(int socketConsola){
 	if (socket_recibir(socketConsola,&tipoEstructura,&structRecibido) == -1) {
 
 		log_info(logger,"La Consola %d cerró la conexión.",socketConsola);
+		abortarPrograma(socketConsola,false);
 		removerClientePorCierreDeConexion(socketConsola,listaConsolas,&master_consola);
-		//TODO esta consola podría tener algun proceso en ejecucion hay que cancelarlo de la cpu
 
 	} else {
 
@@ -185,28 +186,15 @@ void manejarConsola(int socketConsola){
 
 			break;
 
-		}
+		case D_STRUCT_FIN_PROG: ;
+			// La consola envia finalizar un programa
+			abortarPrograma(socketConsola,true);
 
-//		TODO para desconectar la consola hay que verificar si el programa esta en CPU,
-//		cancelarlo eliminarlo de las colas, etc.
-//		if(((t_struct_numero *)structRecibido)->numero == 243){
-//			t_struct_numero confirmation_send;
-//
-//			if (programKiller(socketConsola) == 0){
-//
-//				confirmation_send.numero = 0;
-//
-//				socket_enviar(socketConsola, D_STRUCT_NUMERO, &confirmation_send);
-//
-//			} else {
-//
-//				confirmation_send.numero = 1;
-//				socket_enviar(socketConsola, D_STRUCT_NUMERO, &confirmation_send);
-//			}
-//
-//		}
+			break;
 
 		}
+
+	}
 
 };
 
@@ -597,6 +585,292 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
 		//TODO implementar.
 		planificar(NULL);
+	}
+
+}
+
+int obtenerPIDporConsola(int consolaBuscada){
+
+	int indice;
+
+	for (indice=0; indice < list_size(listaProcesos); indice++){
+		t_registroTablaProcesos * registroProceso = list_get(listaProcesos,indice);
+
+		if(registroProceso->socket == consolaBuscada){
+			return registroProceso->PID;
+		}
+	}
+
+	return -1;
+}
+
+t_registroTablaProcesos* obtenerConsolaPorPID(int PIDBuscado){
+
+	int indice;
+
+	for (indice=0; indice < list_size(listaProcesos); indice++){
+		t_registroTablaProcesos * registroProceso = list_get(listaProcesos,indice);
+
+		if(registroProceso->PID == PIDBuscado){
+			return registroProceso;
+		}
+	}
+
+	return NULL;
+}
+
+void eliminarRegistroProceso(int consolaBuscada){
+
+	int indice;
+
+	for (indice=0; indice < list_size(listaProcesos); indice++){
+		t_registroTablaProcesos * registroProceso = list_get(listaProcesos,indice);
+
+		if(registroProceso->socket == consolaBuscada){
+			list_remove(listaProcesos,indice);
+		}
+	}
+}
+
+t_struct_pcb * buscarEnCola(t_list * cola,int PID){
+
+	int indice;
+	t_struct_pcb * pcbRecuperado;
+
+	for(indice=0; indice<list_size(cola); indice++){
+		pcbRecuperado = list_get(cola, indice);
+		if (pcbRecuperado->PID == PID){
+			return pcbRecuperado;
+		}
+	}
+
+	return NULL;
+}
+
+t_struct_pcb * obtenerPCBActivo(int PID){
+
+	t_struct_pcb * pcbRecuperado;
+
+	// Busco en todas las colas activas de procesos
+	pcbRecuperado = buscarEnCola(cola_new,PID);
+	if(pcbRecuperado!=NULL) return pcbRecuperado;
+
+	pcbRecuperado = buscarEnCola(cola_ready,PID);
+	if(pcbRecuperado!=NULL) return pcbRecuperado;
+
+	pcbRecuperado = buscarEnCola(cola_exec,PID);
+	if(pcbRecuperado!=NULL) return pcbRecuperado;
+
+	pcbRecuperado = buscarEnCola(cola_block,PID);
+	if(pcbRecuperado!=NULL) return pcbRecuperado;
+
+	return NULL;
+
+}
+
+t_registroInformacionProceso * recuperarInformacionProceso(int PID){
+	int indice;
+
+	for(indice=0; indice<list_size(listaInformacionProcesos); indice ++){
+		t_registroInformacionProceso * registro = list_get(listaInformacionProcesos,indice);
+		if(registro->pid == PID) return registro;
+	}
+
+	return NULL;
+}
+
+void liberarSemaforo(t_nombre_semaforo* semaforo){
+
+	int indice;
+
+	t_struct_semaforo * semaforoRecuperado;
+
+	for (indice=0; indice < list_size(listaSemaforos); indice++){
+		semaforoRecuperado = list_get(listaSemaforos,indice);
+		if(string_equals_ignore_case(semaforoRecuperado->nombre,&semaforo)){
+			semaforoRecuperado->valor++;
+			log_info(logger,"Se incrementa el semaforo %s",semaforoRecuperado->nombre);
+		}
+	}
+
+}
+
+void liberarSemaforoProceso(t_struct_pcb * pcb){
+
+	t_registroInformacionProceso * registro = recuperarInformacionProceso(pcb->PID);
+
+	if (registro->semaforo_bloqueo == NULL || string_is_empty(registro->semaforo_bloqueo)){
+		return;
+	}
+
+	liberarSemaforo(registro->semaforo_bloqueo);
+
+	free(registro->semaforo_bloqueo);
+	registro->semaforo_bloqueo = string_new();
+
+}
+
+void liberarArchivosProceso(t_struct_pcb * pcb){
+
+	t_list * archivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(pcb->PID));
+
+	int indice;
+
+	// FD 0 / 1 / 2 reservados para el sistema
+	for(indice=3; indice < list_size(archivosProceso); indice++){
+		t_registroArchivosProc * registroTablaProceso = list_get(archivosProceso,indice);
+		t_registroArchivosGlobal * registroTablaGlobal = list_get(tablaArchivosGlobal,registroTablaProceso.fd_TablaGlobal);
+
+		if(registroTablaGlobal->cantidadAbierto==1){
+			list_remove(tablaArchivosGlobal,registroTablaProceso->fd_TablaGlobal)
+		} else {
+			registroTablaGlobal->cantidadAbierto--;
+		}
+	}
+
+}
+
+void liberarMemoriaProceso(t_struct_pcb * pcb){
+
+	t_struct_numero * PID = malloc(sizeof(t_struct_numero));
+
+	PID->numero = pcb->PID;
+
+	//TODO manejar en memoria para liberar
+	socket_enviar(socketMemoria,D_STRUCT_LIBERAR_MEMORIA, PID);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if(socket_recibir(socketMemoria,&tipoEstructura,&structRecibido) == -1){
+
+		int resultado = ((t_struct_numero*) structRecibido)->numero;
+
+		if (resultado==MEMORIA_OK){
+			log_info(logger,"Se libero la memoria correspondiente al proceso %d",pcb->PID);
+		} else {
+			log_error(logger,"No se pudo liberar la memoria correspondiente al proceso %d",pcb->PID);
+		}
+	}
+}
+
+void removerDeCola(t_list * cola, int estado, int PID){
+
+	int indice;
+	t_struct_pcb * pcbRecuperado;
+
+	for(indice=0; indice < list_size(cola); indice++){
+		pcbRecuperado = list_get(cola,indice);
+		if(pcbRecuperado->PID == PID){
+			list_remove(cola,indice);
+			if(pcbRecuperado->estado!=E_NEW){
+				cantidadTotalPID--;
+				liberarSemaforoProceso(pcbRecuperado);
+				liberarArchivosProceso(pcbRecuperado);
+			}
+			list_add(cola_exit,pcbRecuperado);
+			pcbRecuperado->estado=E_EXIT;
+		}
+	}
+
+}
+
+void pasarColaExit(t_struct_pcb * pcbFinalizar){
+	if(!kernelPlanificando){
+		log_info(logger,"El kernel no esta planificando, no se pasa el proceso %d a la cola de Exit",pcbFinalizar->PID);
+		return;
+	}
+
+	if(pcbFinalizar->estado==E_NEW) removerDeCola(cola_new,E_NEW,pcbFinalizar->PID);
+	if(pcbFinalizar->estado==E_READY) removerDeCola(cola_ready,E_READY,pcbFinalizar->PID);
+	if(pcbFinalizar->estado==E_EXEC) removerDeCola(cola_exec,E_EXEC,pcbFinalizar->PID);
+	if(pcbFinalizar->estado==E_BLOCK) removerDeCola(cola_block,E_BLOCK,pcbFinalizar->PID);
+}
+
+void informarLiberarHeap(t_struct_pcb * pcb){
+
+	int indice;
+	t_registroTablaHeap * registroHeapRecuperado;
+
+	for(indice=0; indice < list_size(tablaHeap); indice++){
+		if(registroHeapRecuperado->PID==pcb->PID){
+			log_info(logger,"El proceso %d no libero la pagina de heap %d, la libero..",pcb->PID,registroHeapRecuperado->numeroPagina);
+			list_clean(registroHeapRecuperado->listaBloques);
+			registroHeapRecuperado->PID=-1;
+			registroHeapRecuperado->numeroPagina=-1;
+			t_bloqueHeap * bloqueMetadata = malloc(sizeof(t_bloqueHeap));
+
+			bloqueMetadata->isFree=true;
+			bloqueMetadata->offset=5;
+			bloqueMetadata->numeroBloque=-1;
+			bloqueMetadata->size=tamanio_pagina-5;
+			bloqueMetadata->fin=tamanio_pagina;
+
+			list_add(registroHeapRecuperado->listaBloques,bloqueMetadata);
+		}
+	}
+
+	log_info(logger,"El proceso %d libero todas las paginas de heap",pcb->PID);
+
+}
+
+void eliminarProcesoLista(t_registroTablaProcesos * proceso){
+	int indice;
+
+	for (indice=0; indice < list_size(listaProcesos); indice++){
+		t_registroTablaProcesos * registroProceso = list_get(listaProcesos,indice);
+
+		if(registroProceso->socket == proceso->socket){
+			list_remove(listaProcesos,indice);
+		}
+	}
+}
+
+void informarFinalizacionConsola(t_struct_pcb * pcb){
+
+	t_registroTablaProcesos * proceso = obtenerConsolaPorPID(pcb->PID);
+
+	t_struct_numero * PID = malloc(sizeof(t_struct_numero));
+	PID->numero = pcb->PID;
+
+	socket_enviar(proceso->socket,D_STRUCT_FIN_PROG,PID);
+	free(PID);
+	eliminarProcesoLista(proceso);
+}
+
+void abortarPrograma(int socketConsola, bool finalizarPrograma){
+
+	int PID = obtenerPIDporConsola(socketConsola);
+
+	if(PID ==-1) {
+		log_error(logger,"La consola %d no esta ejecutando ningun proceso, puede cerrarse", socketConsola);
+		return;
+	}
+
+	eliminarRegistroProceso(socketConsola);
+
+	t_struct_pcb * pcbRecuperado = obtenerPCBActivo(PID);
+
+	if(pcbRecuperado == NULL){
+		log_error(logger,"El proceso PID %d ya finalizo, no debe abortarse", PID);
+		return;
+	}
+
+	if(finalizarPrograma){
+		pcbRecuperado->exitcode = EC_FINALIZADO_CONSOLA;
+	} else {
+		pcbRecuperado->exitcode = EC_DESCONEXION_CONSOLA;
+	}
+
+	if(pcbRecuperado->estado == E_EXEC){
+		int * pidFinalizar = malloc(sizeof(t_registroTablaProcesos));
+		&pidFinalizar=PID;
+		list_add(listaProcesosFinalizar,pidFinalizar);
+	} else {
+		pasarColaExit(pcbRecuperado);
+		liberarMemoriaProceso(pcbRecuperado);
+		informarLiberarHeap(pcbRecuperado);
+		if(finalizarPrograma) informarFinalizacionConsola(pcbRecuperado);
 	}
 
 }
