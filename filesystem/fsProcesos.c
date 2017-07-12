@@ -19,38 +19,34 @@ void  validarArchivo(t_struct_abrir * archivo){
 			if(crearArchivo(archivo->path) == 1){ //Se crea el archivo en el path especificado
 
 				//fclose(file);
-				toSend->confirmacion = 2;
+				toSend->confirmacion = FS_ABRIR_CREAR_OK;
 				log_info(logger, "Se creo el archivo en: %s", pathFile);
 				socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 				return;
 
 			}
 
-
-			toSend->confirmacion = -1;
+			toSend->confirmacion = FS_ABRIR_CREAR_ERROR;
 			log_error(logger, "No se pudo crear el archivo en: %s", pathFile);
 			socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 			return;
 
 		}
+
 		fclose(file);
 		log_error(logger, "El archivo en el path: %s no existe", pathFile);
-		toSend->confirmacion = 0;
+		toSend->confirmacion = FS_ABRIR_NO_CREAR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
+
 	} else{
+
 		fclose(file);
-		log_error(logger, "El archivo en el path: %s no existe", pathFile);
-		toSend->confirmacion = 0;
+		log_error(logger, "Se verifico el archivo del path: %s", pathFile);
+		toSend->confirmacion = FS_ABRIR_NO_CREAR_OK;
 		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
 	}
-	fclose(file);
-	log_info(logger, "Se verifico el archivo del path: %s", pathFile);
-	toSend->confirmacion = 1;
-	socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-	return;
-
 }
 
 //Creación de un archivo, en caso que al abrir uno este no exista y se haya abierto en modo creación
@@ -124,7 +120,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s no existe", pathFile);
 
-			toSend->confirmacion = -1;
+			toSend->confirmacion = FS_BORRAR_ERROR;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 
@@ -161,7 +157,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s fue eliminado satisfactoriamente", pathFile);
 
-			toSend->confirmacion = 1;
+			toSend->confirmacion = FS_BORRAR_OK;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;
@@ -170,7 +166,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s NO fue eliminado satisfactoriamente", pathFile);
 
-			toSend->confirmacion = 0;
+			toSend->confirmacion = FS_BORRAR_ERROR;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;

@@ -229,15 +229,26 @@ void manejarKernel(int i){
 
 			switch(tipoEstructura){
 
-			case D_STRUCT_ABRIR:
+			case D_STRUCT_ARCHIVO_ABR: ;
 
-				validarArchivo(((t_struct_abrir *) structRecibido));
+				t_struct_archivo * archivoAb = ((t_struct_archivo*) structRecibido);
+
+				t_struct_abrir * archivoAbrir = malloc(sizeof(t_struct_abrir));
+				archivoAbrir->path=archivoAb->informacion;
+				archivoAbrir->modo_creacion = archivoAb->flags.creacion ? 1 : 0;
+
+				validarArchivo(archivoAbrir);
 
 			break;
 
-			case D_STRUCT_BORRAR:
+			case D_STRUCT_ARCHIVO_BOR: ;
 
-				borrarArchivo(((t_struct_borrar *) structRecibido));
+				t_struct_archivo * archivoBo = ((t_struct_archivo*) structRecibido);
+
+				t_struct_borrar * archivoBorrar = malloc(sizeof(t_struct_abrir));
+				archivoBorrar->path=archivoBo->informacion;
+
+				borrarArchivo(archivoBorrar);
 
 			break;
 

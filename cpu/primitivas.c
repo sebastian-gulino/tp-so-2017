@@ -495,7 +495,6 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 	archivo->flags.escritura=flags.escritura;
 	archivo->flags.lectura=flags.lectura;
 
-	//TODO manejar desde el kernel, debe devolver un numero con el puntero.
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ABR,archivo);
 
 	free(archivo->informacion);
@@ -543,7 +542,6 @@ void borrar(t_descriptor_archivo fdArchivo) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=0;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_BOR,archivo);
 
 	free(archivo);
