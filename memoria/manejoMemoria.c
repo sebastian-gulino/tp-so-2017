@@ -38,6 +38,8 @@ void cargarConfiguracion(void) {
 	log_info(logger,"El reemplazo de cache es %d\n",configuracion.reemplazoCache);
 	log_info(logger,"El retardo de la Memoria es %d\n",configuracion.retardoMemoria);
 	log_info(logger,"La cantidad de paginas asignada al Stack es %d\n",configuracion.stackSize);
+
+	config_destroy(config);
 }
 
 void crearMemoriaPrincipal() {
@@ -51,7 +53,7 @@ void inicializarListas(){
 
 void crearThreadAtenderConexiones(){
 
-//	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
+	pthread_create(&threadAtenderConexiones, NULL, administrarConexiones, NULL);
 
 }
 
@@ -94,7 +96,7 @@ void administrarConexiones(){
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
-//								pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
+								pthread_create(&nueva_solicitud, NULL, manejarKernel, socketCliente);
 
 								break;
 							case ES_CPU:
@@ -108,7 +110,7 @@ void administrarConexiones(){
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
-//								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
+								pthread_create(&nueva_solicitud, NULL, manejarCpu, socketCliente);
 
 								break;
 
@@ -138,51 +140,50 @@ void manejarCpu(int i){
 	}
 };
 
-//void manejarKernel(int socketKernel){
-//
-//	while(1) {
-//
-//		t_tipoEstructura tipoEstructura;
-//		void * structRecibido;
-//
-//		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
-//
-//			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
-//			removerClientePorCierreDeConexion(socketKernel,listaKernel);
-//
-//		} else {
-//
-//			switch(tipoEstructura){
-//			case D_STRUCT_MALC:
-//
-//				log_info(logger,"Se solicita crear segmento para el PID %i",
-//						((t_struct_malloc* )structRecibido)->PID);
-//
-//				// TODO ver con edu que pasa con los valores no enteros de paginas
-//				int paginasNecesarias =
-//						((t_struct_malloc* )structRecibido)->tamano_segmento / configuracion.marcoSize;
-//
-////				int resultado = asignarPaginasProceso(((t_struct_malloc* )structRecibido)->PID, paginasNecesarias);
-//
-//				//Le comunico al kernel si se pudo realizar operacion
-//				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
-//				respuestaAsignacion->numero = resultado;
-//					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
-//
-//					if(resultado == -1){
-//					log_error(logger,"No se pudo crear el segmento solicitado");
-//					} else {
-//					log_info(logger,"Se creo con exito el segmento solicitado");
-//					}
-//
-//					free(respuestaAsignacion);
-//
-//					break;
-//
-//				}
-//			}
-//	}
-//}
+void manejarKernel(int socketKernel){
+
+	while(1) {
+
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+
+		if (socket_recibir(socketKernel,&tipoEstructura,&structRecibido) == -1) {
+
+			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
+			removerClientePorCierreDeConexion(socketKernel,listaKernel);
+
+		} else {
+
+			switch(tipoEstructura){
+			case D_STRUCT_MALC:
+
+				log_info(logger,"Se solicita crear segmento para el PID %i",
+						((t_struct_malloc* )structRecibido)->PID);
+
+				int PID = ((t_struct_malloc* )structRecibido)->PID;
+				int tamanioSegmento = ((t_struct_malloc* )structRecibido)->tamano_segmento;
+
+				bool sePudoAsignar = reservarFramesProceso(PID,tamanioSegmento,0);
+
+				//Le comunico al kernel si se pudo realizar operacion
+				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
+				respuestaAsignacion->numero = sePudoAsignar ? MEMORIA_OK : MEMORIA_ERROR;
+					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+
+					if(!sePudoAsignar){
+					log_error(logger,"No se pudo crear el segmento solicitado");
+					} else {
+					log_info(logger,"Se creo con exito el segmento solicitado");
+					}
+
+					free(respuestaAsignacion);
+
+					break;
+
+				}
+			}
+	}
+}
 
 void removerClientePorCierreDeConexion(int cliente, t_list* lista) {
 
@@ -282,7 +283,7 @@ int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
 }
 
 
-void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
+bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
 	int i = 0;
 	int bytesPorFrame = configuracion.marcoSize;
 	int framesNecesarios = cantidadBytes/bytesPorFrame;
@@ -294,9 +295,11 @@ void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
 				registrarUsoDeFrame(pid,primerFrameLibre+i,i+1);
+				return true;
 			}
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispone de los %d frames libres contiguos necesarios.\n",pid,framesNecesarios);
+			return false;
 		}
 	} else {
 		int framesLibres = cantidadFramesLibres();
@@ -304,9 +307,11 @@ void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 			for(i = 0; i < framesNecesarios;i++){
 				int numeroFrame = obtenerPrimerFrameLibre();
 				registrarUsoDeFrame(pid,numeroFrame,i+1);
+				return true;
 			}
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispones de %d frames libres.\n",pid,framesNecesarios);
+			return false;
 		}
 	}
 }

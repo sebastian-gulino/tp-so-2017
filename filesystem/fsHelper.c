@@ -20,6 +20,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
 	log_info(logger,"PUNTO_MONTAJE = %s",configuracion.puntoMontaje);
 
+	config_destroy(config);
+
 	return configuracion;
 
 }
@@ -81,7 +83,7 @@ void setMetadata(){
 		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
 
-
+		config_destroy(mtdt);
 }
 void crearServidorMonocliente(){
 
@@ -101,7 +103,7 @@ void crearServidorMonocliente(){
 			if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
 				log_info(logger,"No se recibio correctamente a quien atendio el Filesystem");
 
-			} else if ((((t_struct_numero*) structRecibido)->numero) == ES_CONSOLA){
+			} else if ((((t_struct_numero*) structRecibido)->numero) == ES_KERNEL){
 
 					log_info(logger,"Se conecto el Kernel");
 

@@ -5,9 +5,6 @@ int main(void) {
 	setvbuf (stdout, NULL, _IONBF, 0);
 
 	//Genera archivo log pars poder escribir el trace de toda la ejecución
-
-	logger = malloc(sizeof(t_log));
-
 	crearLog("/MEMORIA");
 
 	//Levanta la configuración del proceso memoria
@@ -32,28 +29,27 @@ int main(void) {
 //	char* aver = (char*)pagina;
 //	printf("%s",aver); //Leo lo que escribi en la página 6
 
-	reservarFramesProceso(111,4096,1);
+//	reservarFramesProceso(111,4096,1);
+//
+//	reservarFramesProceso(666,1024,0);
+//
+//	reservarFramesProceso(555,512,0);
+//
+//	reservarFramesProceso(444,512,0);
+//
+//	finalizarPrograma(555);
+//
+//	reservarFramesProceso(333,1024,1);
+//
+//	imprimirTablaPaginas();
+//
+////	asignarPaginasProceso(666,1);
+//
+//	liberarMemoriaPrincipal();
 
-	reservarFramesProceso(666,1024,0);
+	crearThreadAtenderConexiones();
 
-	reservarFramesProceso(555,512,0);
-
-	reservarFramesProceso(444,512,0);
-
-	finalizarPrograma(555);
-
-	reservarFramesProceso(333,1024,1);
-
-	imprimirTablaPaginas();
-
-//	asignarPaginasProceso(666,1);
-
-	liberarMemoriaPrincipal();
-
-//	crearThreadAtenderConexiones();
-
-//	pthread_join(threadAtenderConexiones, NULL);
-
+	pthread_join(threadAtenderConexiones, NULL);
 
 	return 0;
 

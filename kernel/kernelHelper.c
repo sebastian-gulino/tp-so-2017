@@ -58,6 +58,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puertoEscucha = config_get_int_value(config,"PUERTO_ESCUCHA");
 	log_info(logger,"PUERTO_ESCUCHA = %d \n",configuracion.puertoEscucha);
 
+	config_destroy(config);
+
 	return configuracion;
 }
 
@@ -75,10 +77,11 @@ void inicializarListas(){
 	listaInformacionProcesos = list_create();
 
 	maximoPID = 1;
+	kernelPlanificando = true;
 
 	// Listas planificacion
-	cola_new = queue_create();
-	cola_exit = queue_create();
+	cola_new = list_create();
+	cola_exit = list_create();
 	cola_ready = list_create();
 	cola_block = list_create();
 	cola_exec = list_create();
@@ -225,9 +228,17 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_ARCHIVO_MOV: ;
 
-			// La cpu quiere cerrar un archivo
+			// La cpu quiere mover el cursor dentro de un archivo
 			t_struct_archivo * archivoMover = ((t_struct_archivo*) structRecibido);
 			moverCursorArchivo(socketCPU, archivoMover);
+
+			break;
+
+		case D_STRUCT_ARCHIVO_ESC: ;
+
+			// La cpu quiere escribir en un archivo
+			t_struct_archivo * archivoEscribir = ((t_struct_archivo*) structRecibido);
+			escribirArchivo(socketCPU, archivoEscribir);
 
 			break;
 
@@ -575,7 +586,7 @@ void crearArchivosPorProceso(int PID){
 	list_add(archivosProceso, &archivo);
 	list_add(archivosProceso, &archivo);
 
-	dictionary_put(tablaArchivosProceso,PID,archivosProceso);
+	dictionary_put(tablaArchivosProceso,string_itoa(PID),archivosProceso);
 }
 
 void agregarColaListos(t_struct_pcb* pcb){
@@ -614,7 +625,7 @@ int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 
 }
 
-inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
+void inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 
 	t_struct_pcb * pcb = NULL;
 	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
@@ -626,7 +637,7 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 		agregarColaListos(pcb);
 
 		// Reservo las paginas para codigo y stack
-		if (reservarPaginas(programa,pcb,tamanio_programa) == -1) {
+		if (reservarPaginas(pcb,programa,tamanio_programa) == -1) {
 
 			// Si no pude asignarlas aviso al a consola del rechazo
 			pid_struct->numero = -1;
@@ -783,15 +794,15 @@ t_struct_pcb * obtenerPCBActivo(int PID){
 
 void crearInformacionProcesoInicial(int PID){
 	t_registroInformacionProceso * registro = malloc(sizeof(t_registroInformacionProceso));
-		registro->pid = PID;
-		registro->cantidad_liberar_heap=0;
-		registro->cantidad_solicitar_heap=0;
-		registro->rafagas=0;
-		registro->semaforo_bloqueo = NULL;
-		registro->syscall=0;
-		registro->total_heap_liberado=0;
-		registro->total_heap_solicitado=0;
-		list_add(listaInformacionProcesos,registro);
+	registro->pid = PID;
+	registro->cantidad_liberar_heap=0;
+	registro->cantidad_solicitar_heap=0;
+	registro->rafagas=0;
+	registro->semaforo_bloqueo = NULL;
+	registro->syscall=0;
+	registro->total_heap_liberado=0;
+	registro->total_heap_solicitado=0;
+	list_add(listaInformacionProcesos,registro);
 }
 
 t_registroInformacionProceso * recuperarInformacionProceso(int PID){
@@ -884,7 +895,7 @@ void removerDeCola(t_list * cola, t_list * nuevaCola, int nuevoEstado, int PID,
 		bool liberarSemaforos, bool liberarArchivos, bool disminuirProcesos){
 
 	if(!kernelPlanificando){
-		log_info("Se solicito pasar el proceso %d al estado %d pero la planificacion esta detenida",PID,nuevoEstado);
+		log_info(logger,"Se solicito pasar el proceso %d al estado %d pero la planificacion esta detenida",PID,nuevoEstado);
 		return;
 	}
 
@@ -1343,6 +1354,32 @@ t_descriptor_archivo obtenerArchivoTablaGlobal(t_struct_archivo * archivo){
 	return -1;
 }
 
+t_registroArchivosProc * obtenerRegistroTablaProceso(t_struct_archivo * archivo){
+
+	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+
+	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+		return NULL;
+	} else {
+		t_registroArchivosProc * registroArchivoProceso =list_get(tablaArchivosProceso,archivo->fileDescriptor);
+
+		if(registroArchivoProceso==NULL){
+			return NULL;
+		} else {
+			return registroArchivoProceso;
+		}
+	}
+}
+
+t_registroArchivosGlobal * obtenerRegistroTablaGlobal(t_registroArchivosProc * registroArchivoProceso){
+
+	t_registroArchivosGlobal * registroGlobal =
+						list_get(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
+
+	return registroGlobal;
+
+}
+
 void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	t_struct_numero * resultadoAbrir = malloc(sizeof(t_struct_numero));
@@ -1386,7 +1423,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 			resultadoAbrir->numero = newFDProceso;
 
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoAbrir);
-			log_info("El archivo solicitado por el proceso %d es fd %d", archivo->pid,newFDProceso);
+			log_info(logger, "El archivo solicitado por el proceso %d es fd %d", archivo->pid,newFDProceso);
 
 			free(resultadoAbrir);
 
@@ -1407,7 +1444,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 			resultadoAbrir->numero = newFDProceso;
 
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoAbrir);
-			log_info("El archivo solicitado por el proceso %d es fd %d", archivo->pid,newFDProceso);
+			log_info(logger,"El archivo solicitado por el proceso %d es fd %d", archivo->pid,newFDProceso);
 
 			free(resultadoAbrir);
 
@@ -1419,7 +1456,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoAbrir->numero = KERNEL_ERROR;
 
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoAbrir);
-		log_info("El archivo solicitado por el proceso %d no se pudo abrir ni crear", archivo->pid);
+		log_info(logger,"El archivo solicitado por el proceso %d no se pudo abrir ni crear", archivo->pid);
 
 		free(resultadoAbrir);
 	}
@@ -1433,71 +1470,60 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
 
-	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
-
-	if(tablaArchivosProceso==NULL){
-
+	t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
+	if(registroArchivoProceso==NULL){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
 
 		free(resultadoBorrar);
+		return;
+	}
+
+	t_registroArchivosGlobal * registroGlobal = obtenerRegistroTablaGlobal(registroArchivoProceso);
+	if(registroGlobal==NULL){
+		resultadoBorrar->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
+
+		free(resultadoBorrar);
+		return;
+	}
+
+	if(registroGlobal->cantidadAbierto!=1){
+
+		resultadoBorrar->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+		log_info(logger,"El archivo %d esta abierto por mas de un proceso", archivo->fileDescriptor);
+
+		free(resultadoBorrar);
 
 	} else {
+		//Puedo borrarlo, se lo pido al FS..
+		socket_enviar(socketFS,D_STRUCT_ARCHIVO_BOR,archivo);
 
-		t_registroArchivosProc * registroArchivoProceso =
-				list_get(tablaArchivosProceso,archivo->fileDescriptor);
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
 
-		if(registroArchivoProceso==NULL){
+		socket_recibir(socketFS,&tipoEstructura,&structRecibido);
+
+		t_struct_borrar * respuestaBorrar = ((t_struct_borrar*) structRecibido);
+
+		if(respuestaBorrar->confirmacion==FS_BORRAR_OK){
+
+			resultadoBorrar->numero = KERNEL_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+			log_info(logger,"El archivo %d se pudo borrar", archivo->fileDescriptor);
+
+			free(resultadoBorrar);
+		} else {
 
 			resultadoBorrar->numero = KERNEL_ERROR;
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
+			log_info(logger,"El archivo %d no se pudo borrar", archivo->fileDescriptor);
 
 			free(resultadoBorrar);
 
-		} else {
-
-			t_registroArchivosGlobal * registroGlobal =
-					list_get(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
-
-			if(registroGlobal->cantidadAbierto!=1){
-
-				resultadoBorrar->numero = KERNEL_ERROR;
-				socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-				log_info(logger,"El archivo %d esta abierto por mas de un proceso", archivo->fileDescriptor);
-
-				free(resultadoBorrar);
-
-			} else {
-				//Puedo borrarlo, se lo pido al FS..
-				socket_enviar(socketFS,D_STRUCT_ARCHIVO_BOR,archivo);
-
-				t_tipoEstructura tipoEstructura;
-				void * structRecibido;
-
-				socket_recibir(socketFS,&tipoEstructura,&structRecibido);
-
-				t_struct_borrar * respuestaBorrar = ((t_struct_borrar*) structRecibido);
-
-				if(respuestaBorrar->confirmacion==FS_BORRAR_OK){
-
-					resultadoBorrar->numero = KERNEL_OK;
-					socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-					log_info(logger,"El archivo %d se pudo borrar", archivo->fileDescriptor);
-
-					free(resultadoBorrar);
-				} else {
-
-					resultadoBorrar->numero = KERNEL_ERROR;
-					socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-					log_info(logger,"El archivo %d no se pudo borrar", archivo->fileDescriptor);
-
-					free(resultadoBorrar);
-
-				}
-
-			}
 		}
 	}
 }
@@ -1595,4 +1621,8 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 			free(resultadoMover);
 		}
 	}
+}
+
+void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
+
 }

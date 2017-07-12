@@ -192,7 +192,7 @@ void iniciarPrograma(char* pathArchivo){
 		pthread_cancel(pthread_self());
 	};
 
-	t_proceso* proceso;
+	t_proceso* proceso = malloc(sizeof(t_proceso));
 
 	proceso->pid = ((t_struct_numero *)structRecibido)->numero;
 	proceso->inicioEjec = time(&rawtime);

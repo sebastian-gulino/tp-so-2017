@@ -85,7 +85,7 @@ typedef struct{
 	uint32_t PID;
 } t_cpu;
 
-typedef struct InformacionProcesos {
+typedef struct {
 	uint32_t pid;
 	uint32_t rafagas;
 	uint32_t syscall;
@@ -94,7 +94,7 @@ typedef struct InformacionProcesos {
 	uint32_t cantidad_liberar_heap;
 	uint32_t total_heap_liberado;
 	char * semaforo_bloqueo;
-} t_registroInformacionProceso;
+} __attribute__ ((__packed__)) t_registroInformacionProceso;
 
 typedef struct RegistroTablaHeap {
 	uint32_t PID;

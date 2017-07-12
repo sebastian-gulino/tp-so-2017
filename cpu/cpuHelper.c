@@ -25,6 +25,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puertoMemoria = config_get_int_value(config, "PUERTO_MEMORIA");
 	log_info(logger,"PUERTO_MEMORIA = %d",configuracion.puertoMemoria);
 
+	config_destroy(config);
+
 	return configuracion;
 }
 
