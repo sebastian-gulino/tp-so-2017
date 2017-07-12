@@ -214,6 +214,15 @@ void manejarCpu(int socketCPU){
 			borrarArchivo(socketCPU,archivoBorrar);
 
 			break;
+
+		case D_STRUCT_ARCHIVO_CER: ;
+
+			// La cpu quiere borrar un archivo
+			t_struct_archivo * archivoBorrar = ((t_struct_archivo*) structRecibido);
+			borrarArchivo(socketCPU,archivoBorrar);
+
+			break;
+
 		}
 
 	}
