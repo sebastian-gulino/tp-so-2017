@@ -283,6 +283,7 @@ typedef struct struct_pcb {
 		int tamanioIndiceEtiquetas;
 		char * indiceEtiquetas;
 		int exitcode;
+		uint32_t cantidadInstrucciones;
 		uint32_t quantum;
 		uint32_t quantum_sleep;
 		uint32_t rafagas;

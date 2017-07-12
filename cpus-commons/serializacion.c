@@ -23,17 +23,6 @@ char * crearDataConHeader(uint8_t tipoEstructura, int length){
 	return data;
 }
 
-int getStartInstruccion(t_intructions instruccion){ return instruccion.start; }
-
-int getOffsetInstruccion (t_intructions instruccion){ return instruccion.offset; }
-
-t_intructions cargarIndiceCodigo(t_puntero_instruccion comienzo_instruccion, t_size longitud_instruccion){
-
-	t_intructions instruccion = { .start = comienzo_instruccion, .offset = longitud_instruccion };
-
-	return instruccion;
-}
-
 t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 	t_stream * paquete=NULL;
 
@@ -284,18 +273,19 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 	memcpy(data + tamTot , &estructuraOrigen->cpuID, tamDato = sizeof(uint32_t));
 	tamTot += tamDato;
 
+	memcpy(data + tamTot , &estructuraOrigen->estado, tamDato = sizeof(uint32_t));
+	tamTot += tamDato;
+
 	memcpy(data + tamTot , &estructuraOrigen->exitcode, tamDato = sizeof(uint32_t));
 	tamTot += tamDato;
 
 	int contadorInstrucciones = 0;
 
 	while (contadorInstrucciones < estructuraOrigen->cantidadInstrucciones){
-		t_puntero_instruccion startInstruccion = getStartInstruccion((estructuraOrigen->indiceCodigo)[contadorInstrucciones]);
-		memcpy(data + tamTot , &startInstruccion, tamDato = sizeof(t_puntero_instruccion));
-		tamTot += tamDato;
 
-		t_size offsetInstruccion = getOffsetInstruccion((estructuraOrigen->indiceCodigo)[contadorInstrucciones]);
-		memcpy(data + tamTot , &offsetInstruccion, tamDato = sizeof(t_size));
+		t_intructions * instruccion = (t_intructions*) list_get(estructuraOrigen->indiceCodigo, contadorInstrucciones);
+
+		memcpy(data + tamTot , &instruccion, tamDato = sizeof(t_intructions));
 		tamTot += tamDato;
 
 		contadorInstrucciones++;
@@ -357,6 +347,15 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 	tamTot += tamDato;
 
 	memcpy(data + tamTot , &estructuraOrigen->programCounter, tamDato = sizeof(int));
+	tamTot += tamDato;
+
+	memcpy(data + tamTot , &estructuraOrigen->quantum, tamDato = sizeof(uint32_t));
+	tamTot += tamDato;
+
+	memcpy(data + tamTot , &estructuraOrigen->quantum_sleep, tamDato = sizeof(uint32_t));
+	tamTot += tamDato;
+
+	memcpy(data + tamTot , &estructuraOrigen->rafagas, tamDato = sizeof(uint32_t));
 	tamTot += tamDato;
 
 	memcpy(data + tamTot , &estructuraOrigen->stackPointer, tamDato = sizeof(int));
@@ -904,6 +903,10 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 
 	tamanoTotal+= tamanoDato;
 
+	memcpy(&estructuraDestino->estado,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+
+	tamanoTotal+= tamanoDato;
+
 	memcpy(&estructuraDestino->exitcode,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
 
 	tamanoTotal+= tamanoDato;
@@ -914,17 +917,12 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 
 	while(contadorInstrucciones < estructuraDestino->cantidadInstrucciones){
 
-		t_puntero_instruccion startInstruccion = 0;
-		t_size offsetInstruccion = 0;
+		t_intructions * instruccion = malloc(sizeof(t_intructions));
 
-		memcpy(&startInstruccion,dataPaquete+tamanoTotal,tamanoDato=sizeof(t_puntero_instruccion));
+		memcpy(&instruccion,dataPaquete+tamanoTotal,tamanoDato=sizeof(t_intructions));
 		tamanoTotal+= tamanoDato;
 
-		memcpy(&offsetInstruccion,dataPaquete+tamanoTotal,tamanoDato=sizeof(t_size));
-		tamanoTotal+= tamanoDato;
-
-
-		(estructuraDestino->indiceCodigo)[contadorInstrucciones] = cargarIndiceCodigo(startInstruccion, offsetInstruccion);
+		list_add(estructuraDestino->indiceCodigo,instruccion);
 
 		contadorInstrucciones++;
 	}
@@ -1023,6 +1021,15 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 	tamanoTotal+= tamanoDato;
 
 	memcpy(&estructuraDestino->programCounter,dataPaquete+tamanoTotal,tamanoDato=sizeof(int));
+	tamanoTotal+= tamanoDato;
+
+	memcpy(&estructuraDestino->quantum,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+	tamanoTotal+= tamanoDato;
+
+	memcpy(&estructuraDestino->quantum_sleep,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+	tamanoTotal+= tamanoDato;
+
+	memcpy(&estructuraDestino->rafagas,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
 	tamanoTotal+= tamanoDato;
 
 	memcpy(&estructuraDestino->stackPointer,dataPaquete+tamanoTotal,tamanoDato=sizeof(int));

@@ -217,9 +217,9 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_ARCHIVO_CER: ;
 
-			// La cpu quiere borrar un archivo
-			t_struct_archivo * archivoBorrar = ((t_struct_archivo*) structRecibido);
-			borrarArchivo(socketCPU,archivoBorrar);
+			// La cpu quiere cerrar un archivo
+			t_struct_archivo * archivoCerrar = ((t_struct_archivo*) structRecibido);
+			cerrarArchivo(socketCPU, archivoCerrar);
 
 			break;
 
@@ -647,6 +647,7 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 			pcb->programCounter=datosPrograma->instruccion_inicio;
 			pcb->rafagas=0;
 			pcb->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
+			pcb->cantidadInstrucciones=datosPrograma->instrucciones_size;
 
 			memcpy(pcb->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
 
@@ -688,7 +689,7 @@ inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 
 	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
 		//TODO implementar.
-		planificar(NULL);
+		//planificar(NULL);
 	}
 
 }
@@ -1184,7 +1185,8 @@ void traerProcesoColaNew(){
 	free(structRecibido);
 
 	if(list_size(listaCpuLibres)>0){
-		planificar(NULL);
+		//TODO Implementar
+		//planificar(NULL);
 	}
 
 }
@@ -1203,7 +1205,8 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
 			if(list_size(listaCpuLibres)>0){
-				planificar(NULL);
+				// TODO Implementar
+				// planificar(NULL);
 			}
 			break;
 		}
@@ -1489,4 +1492,8 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 			}
 		}
 	}
+}
+
+void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
+
 }

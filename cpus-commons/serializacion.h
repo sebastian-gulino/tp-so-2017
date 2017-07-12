@@ -16,10 +16,10 @@
 	t_stream * serializeStruct_char(t_struct_char * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_string(t_struct_string * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_malc(t_struct_malloc * estructuraOrigen);
-	t_stream * serializeStruct_prog(t_struct_programa * estructuraOrigen);
+	t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_lect(t_posicion_memoria * estructuraOrigen, int headerOperacion);
-	t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen);
+	t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_graComp(t_struct_var_compartida * estructuraOrigen);
 	t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_solHeap(t_struct_sol_heap * estructuraOrigen);
