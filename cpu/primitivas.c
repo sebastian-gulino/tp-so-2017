@@ -585,7 +585,6 @@ void cerrar(t_descriptor_archivo fdArchivo) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=0;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_CER,archivo);
 
 	free(archivo);
@@ -628,7 +627,6 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=posicion;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_MOV,archivo);
 
 	free(archivo);

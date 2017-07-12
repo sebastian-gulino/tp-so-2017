@@ -223,6 +223,14 @@ void manejarCpu(int socketCPU){
 
 			break;
 
+		case D_STRUCT_ARCHIVO_MOV: ;
+
+			// La cpu quiere cerrar un archivo
+			t_struct_archivo * archivoMover = ((t_struct_archivo*) structRecibido);
+			moverCursorArchivo(socketCPU, archivoMover);
+
+			break;
+
 		}
 
 	}
@@ -1431,7 +1439,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-		log_info("El proceso %d no tiene archivos abiertos", archivo->pid);
+		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
 
 		free(resultadoBorrar);
 
@@ -1444,7 +1452,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 			resultadoBorrar->numero = KERNEL_ERROR;
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-			log_info("El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
+			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
 
 			free(resultadoBorrar);
 
@@ -1457,7 +1465,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 				resultadoBorrar->numero = KERNEL_ERROR;
 				socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-				log_info("El archivo %d esta abierto por mas de un proceso", archivo->fileDescriptor);
+				log_info(logger,"El archivo %d esta abierto por mas de un proceso", archivo->fileDescriptor);
 
 				free(resultadoBorrar);
 
@@ -1470,20 +1478,20 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 				socket_recibir(socketFS,&tipoEstructura,&structRecibido);
 
-				t_struct_borrar * respuestaBorrar = ((t_struct_abrir*) structRecibido);
+				t_struct_borrar * respuestaBorrar = ((t_struct_borrar*) structRecibido);
 
 				if(respuestaBorrar->confirmacion==FS_BORRAR_OK){
 
 					resultadoBorrar->numero = KERNEL_OK;
 					socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-					log_info("El archivo %d se pudo borrar", archivo->fileDescriptor);
+					log_info(logger,"El archivo %d se pudo borrar", archivo->fileDescriptor);
 
 					free(resultadoBorrar);
 				} else {
 
 					resultadoBorrar->numero = KERNEL_ERROR;
 					socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-					log_info("El archivo %d no se pudo borrar", archivo->fileDescriptor);
+					log_info(logger,"El archivo %d no se pudo borrar", archivo->fileDescriptor);
 
 					free(resultadoBorrar);
 
@@ -1496,4 +1504,95 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
+	t_struct_numero * resultadoBorrar = malloc(sizeof(t_struct_numero));
+
+	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
+	registroInfo->syscall++;
+
+	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+
+	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+
+		resultadoBorrar->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
+
+		free(resultadoBorrar);
+
+	} else {
+
+		t_registroArchivosProc * registroArchivoProceso =
+				list_get(tablaArchivosProceso,archivo->fileDescriptor);
+
+		if(registroArchivoProceso==NULL){
+
+			resultadoBorrar->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
+
+			free(resultadoBorrar);
+
+		} else {
+
+			list_remove(tablaArchivosProceso,archivo->fileDescriptor);
+
+			t_registroArchivosGlobal * registroGlobal =
+					list_get(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
+
+			if(registroGlobal->cantidadAbierto==1){
+				list_remove(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
+			} else{
+				registroGlobal->cantidadAbierto--;
+			}
+
+			resultadoBorrar->numero = KERNEL_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+			log_info(logger,"El proceso %d pudo cerrar el archivo solicitado", archivo->pid);
+
+			free(resultadoBorrar);
+		}
+	}
+}
+
+void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
+
+	t_struct_numero * resultadoMover = malloc(sizeof(t_struct_numero));
+
+	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
+	registroInfo->syscall++;
+
+	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+
+	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+
+			resultadoMover->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
+			log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
+
+			free(resultadoMover);
+
+	} else {
+
+		t_registroArchivosProc * registroArchivoProceso =
+				list_get(tablaArchivosProceso,archivo->fileDescriptor);
+
+		if(registroArchivoProceso==NULL){
+
+			resultadoMover->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
+			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
+
+			free(resultadoMover);
+
+		} else {
+
+			registroArchivoProceso->cursor=archivo->tamanio;
+
+			resultadoMover->numero = KERNEL_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
+			log_info(logger,"El proceso %d movio el cursor dentro del archivo solicitado", archivo->pid);
+
+			free(resultadoMover);
+		}
+	}
 }
