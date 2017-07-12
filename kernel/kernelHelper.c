@@ -190,6 +190,21 @@ void manejarCpu(int socketCPU){
 
 			break;
 
+		case D_STRUCT_SIGNAL: ;
+
+			// La cpu quiere realizar signal de un semaforo
+			char * signalSemaforo = ((t_struct_string*) structRecibido)->string ;
+			realizarSignalSemaforo(socketCPU,signalSemaforo);
+
+			break;
+
+		case D_STRUCT_ARCHIVO_ABR: ;
+
+			// La cpu quiere abrir un archivo
+			t_struct_archivo * archivo = ((t_struct_archivo*) structRecibido);
+			abrirArchivo(socketCPU,archivo);
+
+			break;
 		}
 
 	}
@@ -838,7 +853,13 @@ void liberarMemoriaProceso(t_struct_pcb * pcb){
 	}
 }
 
-void removerDeCola(t_list * cola, int estado, int PID){
+void removerDeCola(t_list * cola, t_list * nuevaCola, int nuevoEstado, int PID,
+		bool liberarSemaforos, bool liberarArchivos, bool disminuirProcesos){
+
+	if(!kernelPlanificando){
+		log_info("Se solicito pasar el proceso %d al estado %d pero la planificacion esta detenida",PID,nuevoEstado);
+		return;
+	}
 
 	int indice;
 	t_struct_pcb * pcbRecuperado;
@@ -847,13 +868,13 @@ void removerDeCola(t_list * cola, int estado, int PID){
 		pcbRecuperado = list_get(cola,indice);
 		if(pcbRecuperado->PID == PID){
 			list_remove(cola,indice);
-			if(pcbRecuperado->estado!=E_NEW){
-				cantidadTotalPID--;
-				liberarSemaforoProceso(pcbRecuperado);
-				liberarArchivosProceso(pcbRecuperado);
-			}
-			list_add(cola_exit,pcbRecuperado);
-			pcbRecuperado->estado=E_EXIT;
+
+			if(disminuirProcesos) cantidadTotalPID--;
+			if(liberarSemaforos) liberarSemaforoProceso(pcbRecuperado);
+			if(liberarArchivos) liberarArchivosProceso(pcbRecuperado);
+
+			list_add(nuevaCola,pcbRecuperado);
+			pcbRecuperado->estado=nuevoEstado;
 		}
 	}
 
@@ -865,10 +886,10 @@ void pasarColaExit(t_struct_pcb * pcbFinalizar){
 		return;
 	}
 
-	if(pcbFinalizar->estado==E_NEW) removerDeCola(cola_new,E_NEW,pcbFinalizar->PID);
-	if(pcbFinalizar->estado==E_READY) removerDeCola(cola_ready,E_READY,pcbFinalizar->PID);
-	if(pcbFinalizar->estado==E_EXEC) removerDeCola(cola_exec,E_EXEC,pcbFinalizar->PID);
-	if(pcbFinalizar->estado==E_BLOCK) removerDeCola(cola_block,E_BLOCK,pcbFinalizar->PID);
+	if(pcbFinalizar->estado==E_NEW) removerDeCola(cola_new,cola_exit,E_EXIT,pcbFinalizar->PID,false,false,false);
+	if(pcbFinalizar->estado==E_READY) removerDeCola(cola_ready,cola_exit,E_EXIT,pcbFinalizar->PID,true,true,true);
+	if(pcbFinalizar->estado==E_EXEC) removerDeCola(cola_exec,cola_exit,E_EXIT,pcbFinalizar->PID,true,true,true);
+	if(pcbFinalizar->estado==E_BLOCK) removerDeCola(cola_block,cola_exit,E_EXIT,pcbFinalizar->PID,true,true,true);
 }
 
 void informarLiberarHeap(t_struct_pcb * pcb){
@@ -1068,6 +1089,110 @@ t_cpu* obtenerCPUporSocket(int socketCPU, bool quitarDeLista){
 	return NULL;
 }
 
+void traerProcesoColaNew(){
+	if(!kernelPlanificando){
+		log_info(logger,"Se solicita traer proceso de la cola de new pero el kernel no esta planificando");
+		return;
+	}
+
+	if(list_size(cola_new)==0) return;
+
+	t_struct_pcb * pcbNew = list_remove(cola_new,0);
+
+	t_registroTablaProcesos * proceso = obtenerConsolaPorPID(pcbNew->PID);
+
+	t_struct_numero * pidNew = malloc(sizeof(t_struct_numero));
+	pidNew->numero=pcbNew->PID;
+
+	// TODO HANDLEAR EN LA CONSOLA
+	socket_enviar(proceso->socket,D_STRUCT_SOLICITAR_CODIGO,pidNew);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	socket_recibir(proceso->socket,&tipoEstructura,&structRecibido);
+
+	int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
+	char * programa = malloc(tamanio_programa);
+
+	memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
+
+	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
+
+	if (reservarPaginas(programa,pcbNew,tamanio_programa) == -1) {
+
+		// Si no pude asignarlas aviso al a consola del rechazo
+		pid_struct->numero = -1;
+		socket_enviar(proceso->socket, D_STRUCT_NUMERO, pid_struct);
+		free(pid_struct);
+
+	} else {
+
+		pid_struct->numero = pcbNew->PID;
+		socket_enviar(proceso->socket, D_STRUCT_NUMERO, pid_struct);
+		free(pid_struct);
+
+		enviarCodigoMemoria(programa,tamanio_programa,pcbNew);
+
+		t_metadata_program* datosPrograma = metadata_desde_literal(programa);
+
+		pcbNew->quantum=configuracion.quantum;
+		pcbNew->quantum_sleep=configuracion.quantumSleep;
+		pcbNew->programCounter=datosPrograma->instruccion_inicio;
+		pcbNew->rafagas=0;
+		pcbNew->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
+
+		memcpy(pcbNew->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+
+		int i;
+		for (i = 0;	i < datosPrograma->instrucciones_size;i++) {
+
+			t_intructions instruccion =	datosPrograma->instrucciones_serializado[i];
+
+			t_intructions* agregarInst = malloc(sizeof(t_intructions));
+
+			agregarInst->offset = instruccion.offset;
+			agregarInst->start = instruccion.start;
+
+			list_add(pcbNew->indiceCodigo, agregarInst);
+		}
+
+		metadata_destruir(datosPrograma);
+
+	}
+
+	agregarColaListos(pcbNew);
+	free(programa);
+	free(structRecibido);
+
+	if(list_size(listaCpuLibres)>0){
+		planificar(NULL);
+	}
+
+}
+
+void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
+
+	int indice;
+	t_struct_pcb * pcbRecuperado;
+
+	for(indice=0;indice < list_size(cola_block);indice++){
+		pcbRecuperado = list_get(cola_block,indice);
+		t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbRecuperado->PID);
+
+		if(string_equals_ignore_case(registro->semaforo_bloqueo,semaforoRecuperado->nombre)){
+			removerDeCola(cola_block,cola_ready,E_READY,pcbRecuperado->PID,false,false,false);
+			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
+
+			if(list_size(listaCpuLibres)>0){
+				planificar(NULL);
+			}
+			break;
+		}
+	}
+
+}
+
 void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 	t_struct_semaforo * semaforoRecuperado;
@@ -1109,7 +1234,6 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 					liberarMemoriaProceso(pcbBloqueado);
 					informarFinalizacionConsola(pcbBloqueado);
 					informarLiberarHeap(pcbBloqueado);
-					//TODO implementar pasarProximoProcDeNewAReady
 					traerProcesoColaNew();
 
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
@@ -1129,9 +1253,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
 					list_add(listaCpuLibres,cpuProcesando);
 
-					//TODO implementar pasarPcbDeEjecutandoABloqueados
-					ingresarPCBaColaBlock(pcbBloqueado);
-
+					removerDeCola(cola_exec,cola_block,E_BLOCK,pcbBloqueado->PID,false,false,false);
 				}
 
 				if (list_size(cola_ready) > 0) {
@@ -1146,5 +1268,71 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
 		free(respuesta);
 	}
+
+}
+
+void realizarSignalSemaforo(socketCPU,signalSemaforo){
+	t_struct_semaforo * semaforoRecuperado;
+	bool encontreSemaforo = false;
+	t_struct_numero * respuesta = malloc(sizeof(t_struct_numero));
+	int indice;
+
+	for(indice=0; indice < list_size(listaSemaforos); indice++){
+		semaforoRecuperado = list_get(listaSemaforos,indice);
+
+		if(string_equals_ignore_case(semaforoRecuperado->nombre,signalSemaforo)){
+
+			log_info(logger,"CPU %d realiza signal sobre el semaforo %s",socketCPU,signalSemaforo);
+			encontreSemaforo = true;
+			semaforoRecuperado->valor++;
+			respuesta->numero = KERNEL_OK;
+
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+			free(respuesta);
+
+			desbloquearProcesoEnWait(semaforoRecuperado);
+		}
+	}
+
+	if(!encontreSemaforo){
+		respuesta->numero=KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+		free(respuesta);
+	}
+
+}
+
+t_descriptor_archivo obtenerArchivoTablaGlobal(t_struct_archivo * archivo){
+
+	int indice;
+	for(indice=0; indice < list_size(tablaArchivosGlobal); indice++){
+		t_registroArchivosGlobal * registro = list_get(tablaArchivosGlobal,indice);
+		if(string_equals_ignore_case(registro->nombre,archivo->informacion)){
+			return indice;
+		}
+	}
+	return -1;
+}
+
+void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
+
+	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
+	registroInfo->syscall++;
+
+	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+
+	t_registroArchivosProc * registroArchivoProceso = malloc(sizeof(t_registroArchivosProc));
+
+	registroArchivoProceso->flags=archivo->flags;
+	registroArchivoProceso->fd_TablaGlobal = obtenerArchivoTablaGlobal(archivo);
+
+	socket_enviar(socketFS,D_STRUCT_ARCHIVO_ABR,archivo);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	socket_recibir(socketFS,&tipoEstructura,&structRecibido);
+
+	int archivo = ((t_struct_numero*) structRecibido)->numero;
 
 }

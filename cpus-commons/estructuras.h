@@ -128,6 +128,7 @@ enum{
 	D_STRUCT_PROG=5,
 	D_STRUCT_IMPR=6,
 	D_STRUCT_FIN_PROG=7,
+	D_STRUCT_SOLICITAR_CODIGO=52,
 
 	//Comunicacion Kernel - CPU
 	D_STRUCT_PCB=8,
@@ -191,7 +192,15 @@ enum{
 
 	//Confirmaciones kernel
 	KERNEL_OK=107,
-	KERNEL_ERROR=108
+	KERNEL_ERROR=108,
+
+	//Confirmaciones Filesystem
+	FS_ABRIR_CREAR_OK=109,
+	FS_ABRIR_CREAR_ERROR=110,
+	FS_ABRIR_NO_CREAR_OK=111,
+	FS_ABRIR_NO_CREAR_ERROR=112,
+
+
 
 } t_operaciones;
 
@@ -254,6 +263,7 @@ enum {
 	EC_MAXIMO_PAGINAS=9,
 	EC_SIN_DEFINICION=-20
 } exitCodeValidos;
+
 
 // TODO serializar los nuevos campos!!
 typedef struct struct_pcb {

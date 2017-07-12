@@ -62,6 +62,9 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_FIN_PROG:
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_FIN_PROG);
 				break;
+			case D_STRUCT_SOLICITAR_CODIGO:
+				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_SOLICITAR_CODIGO);
+				break;
 			case D_STRUCT_PCB:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_PCB);
 				break;
@@ -705,6 +708,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_string(dataPaquete, length);
 				break;
 			case D_STRUCT_FIN_PROG:
+				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
+				break;
+			case D_STRUCT_SOLICITAR_CODIGO:
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_PCB:

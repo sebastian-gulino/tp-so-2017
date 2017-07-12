@@ -311,7 +311,6 @@ void retornar(t_valor_variable retorno) {
 //FUNCIONES KERNEL
 void s_wait(t_nombre_semaforo semaforo) {
 
-	//TODO manejar solicitud de wait en el kernel
 	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
 	waitSemaforo->string=semaforo;
 
@@ -347,7 +346,6 @@ void s_wait(t_nombre_semaforo semaforo) {
 
 void s_signal(t_nombre_semaforo semaforo) {
 
-	//TODO manejar solicitud de signal en el kernel
 	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
 	signalSemaforo->string=semaforo;
 
