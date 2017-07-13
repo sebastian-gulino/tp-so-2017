@@ -112,6 +112,11 @@ typedef struct BloqueHeap {
 	uint32_t fin;
 } t_bloqueHeap;
 
+typedef struct MetadataHeap {
+	bool isFree;
+	uint32_t size;
+} t_struct_metadataHeap;
+
 enum{
 	//Generales
 	D_STRUCT_NUMERO=1,
@@ -123,6 +128,12 @@ enum{
 	D_STRUCT_LIBERAR_MEMORIA=49,
 	D_STRUCT_ESCRITURA_CODIGO=50,
 	D_STRUCT_CODIGO=51,
+	D_STRUCT_ESCRIBIR_HEAP=57,
+	//TODO SERIALIZAR
+	D_STRUCT_METADATA_HEAP=58,
+	D_STRUCT_LIBERAR_HEAP=59,
+	D_STRUCT_COMPACTAR_HEAP=60,
+	D_STRUCT_LIBERAR_PAGINA=61,
 
 	//Comunicacion Consola - Kernel
 	D_STRUCT_PROG=5,

@@ -139,7 +139,7 @@ void manejarCpu(int i){
 	} else {
 
 		switch(tipoEstructura){
-		case D_STRUCT_LECT_VAR:;
+		case D_STRUCT_LECT_VAR: ;
 
 		t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
 
@@ -149,7 +149,7 @@ void manejarCpu(int i){
 
 		break;
 
-		case D_STRUCT_SOL_ESCR:;
+		case D_STRUCT_SOL_ESCR: ;
 
 
 		t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);

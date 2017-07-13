@@ -133,7 +133,10 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_RTA_HEAP);
 				break;
 			case D_STRUCT_LIB_HEAP:
-				paquete = serializeStruct_libHeap((t_struct_sol_heap *) estructuraOrigen);
+				paquete = serializeStruct_libHeap((t_struct_sol_heap *) estructuraOrigen, D_STRUCT_LIB_HEAP);
+				break;
+			case D_STRUCT_LIBERAR_PAGINA:
+				paquete = serializeStruct_libHeap((t_struct_sol_heap *) estructuraOrigen, D_STRUCT_LIBERAR_PAGINA);
 				break;
 			case D_STRUCT_ARCHIVO_ABR:
 				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_ABR);
@@ -564,13 +567,13 @@ t_stream * serializeStruct_solHeap(t_struct_sol_heap * estructuraOrigen){
 
 }
 
-t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen){
+t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen, int headerOperacion){
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
 	paquete->length = sizeof(t_header) + sizeof(uint32_t) +sizeof(uint32_t);
 
-	char* data = crearDataConHeader(D_STRUCT_LIB_HEAP, paquete->length);
+	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
 	int tamanoTotal = sizeof(t_header), tamanoDato = 0;
 
@@ -838,6 +841,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_LIB_HEAP:
+				estructuraDestino = deserializeStruct_libHeap(dataPaquete, length);
+				break;
+			case D_STRUCT_LIBERAR_PAGINA:
 				estructuraDestino = deserializeStruct_libHeap(dataPaquete, length);
 				break;
 			case D_STRUCT_ARCHIVO_ABR:
