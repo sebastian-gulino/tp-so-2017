@@ -21,35 +21,34 @@ int main(void) {
 
 	crearCache();
 
-//	t_filaTablaInvertida* fila = (t_filaTablaInvertida*)memoriaPrincipal;
-//
-//	escribirEnMemoria(6,"prueba de escritura en memoria");
-//
-//	void* pagina = leerPagina(6);
-//	char* aver = (char*)pagina;
-//	printf("%s",aver); //Leo lo que escribi en la página 6
+	reservarFramesProceso(111,2048,1);
 
-//	reservarFramesProceso(111,4096,1);
-//
-//	reservarFramesProceso(666,1024,0);
-//
-//	reservarFramesProceso(555,512,0);
-//
-//	reservarFramesProceso(444,512,0);
-//
-//	finalizarPrograma(555);
-//
-//	reservarFramesProceso(333,1024,1);
-//
+	imprimirTablaPaginas();
+
+	escribirEnMemoria(25,"esta es una prueba\n",18,100);
+
+	void * pagina = leerPagina(2,111);
+
+	printf("%s\n",pagina + 100);
+
+	pagina = leerPagina(2,111);
+
+	printf("%s\n",pagina + 100);
+
+
+//	imprimirCache();
+
+	vaciarCache();
+
 //	imprimirTablaPaginas();
-//
-////	asignarPaginasProceso(666,1);
-//
-//	liberarMemoriaPrincipal();
 
-	crearThreadAtenderConexiones();
+//	asignarPaginasProceso(666,1);
 
-	pthread_join(threadAtenderConexiones, NULL);
+	liberarMemoriaPrincipal();
+
+//	crearThreadAtenderConexiones();
+//
+//	pthread_join(threadAtenderConexiones, NULL);
 
 	return 0;
 

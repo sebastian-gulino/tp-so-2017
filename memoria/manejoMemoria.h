@@ -22,13 +22,6 @@ t_list* listaKernel;
 
 pthread_t threadAtenderConexiones;
 
-typedef unsigned char frame[500];
-
-typedef struct resultado_busqueda_cache_t {
-	int cantidad;
-	int indices[15];
-} t_resultado_busqueda_cache;
-
 typedef struct config_t {
 
 	int32_t puerto;
@@ -46,6 +39,7 @@ typedef struct cache_t {
 	int pid;
 	int pagina;
 	void* contenido;
+	int contadorDeUso;
 } t_cache;
 
 t_cache* cache;
@@ -53,6 +47,8 @@ t_cache* cache;
 t_struct_numero* tamanio_pagina;
 
 t_filaTablaInvertida* tablaInvertida;
+
+int retardoLecturaMemoria;
 
 void cargarConfiguracion();
 
@@ -62,7 +58,7 @@ void actualizarCache(int pid,int pagina,void* punteroMarco);
 
 void administrarConexiones();
 
-void aplicarRetardo(int retardo);
+void aplicarRetardo();
 
 bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos);
 
@@ -88,13 +84,15 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista);
 
 void liberarMemoriaPrincipal();
 
-void escribirPagina(int frame, void* bytes, int size, int offset);
+void escribirEnMemoria(int frame, void* bytes, int size, int offset);
 
-void* leerPagina(int pagina, int pid);
+void* leerMemoria(int pagina, int pid);
 
 void vaciarCache();
 
 void imprimirTablaPaginas();
+
+void imprimirCache();
 
 int obtenerPrimerosNFramesLibre(int cantidad);
 

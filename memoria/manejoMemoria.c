@@ -2,8 +2,6 @@
 
 #define CANTIDAD_ELEMENTOS_CACHE 15
 
-typedef unsigned char frame[500];
-
 t_config * config;
 
 t_configuracion configuracion;
@@ -19,6 +17,8 @@ void cargarConfiguracion(void) {
 		config = config_create("../config.txt");
 
 	}
+
+	retardoLecturaMemoria = 100;
 
 	configuracion.marcoSize = config_get_int_value(config, "MARCO_SIZE");
 	configuracion.puerto = config_get_int_value(config, "PUERTO");
@@ -249,10 +249,9 @@ void crearEstructurasAdministrativas(){
 	log_info(logger, "Las estructuras administrativas ocupan %d marcos de memoria.\n", framesTablaInvertida);
 }
 
-void escribirPagina(int numeroFrame, void* bytes, int size, int offset){
-	frame * marcosMemoria = memoriaPrincipal;
-	unsigned char* punteroOffset = marcosMemoria[numeroFrame];
-	memcpy((void*) punteroOffset[offset],bytes,size);
+void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
+	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
+	memcpy(punteroFrame + offset,contenido,size);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
 }
 
@@ -318,8 +317,8 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
 				registrarUsoDeFrame(pid,primerFrameLibre+i,i+1);
-				return true;
 			}
+			return true;
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispone de los %d frames libres contiguos necesarios.\n",pid,framesNecesarios);
 			return false;
@@ -330,8 +329,8 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 			for(i = 0; i < framesNecesarios;i++){
 				int numeroFrame = obtenerPrimerFrameLibre();
 				registrarUsoDeFrame(pid,numeroFrame,i+1);
-				return true;
 			}
+			return true;
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispones de %d frames libres.\n",pid,framesNecesarios);
 			return false;
@@ -339,24 +338,48 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 	}
 }
 
-t_resultado_busqueda_cache buscarPIDCache(int pid){
-	int i;
-	t_resultado_busqueda_cache resultado;
-	resultado.cantidad = 0;
-	for(i = 0;i < CANTIDAD_ELEMENTOS_CACHE; i++){
-		if(cache[i].pid == pid){
-			resultado.indices[resultado.cantidad] = i;
-			resultado.cantidad++;
+int buscarProcesoCache(int pagina, int pid){
+	int i = 0;
+	int indice = -1;
+	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
+		if(cache[i].pid == pid && cache[i].pagina == pagina){
+			indice = i;
 		}
 	}
-	return resultado;
+	return indice;
 }
 
+
 void* leerPagina(int pagina, int pid){
-	frame* marcosMemoria = memoriaPrincipal;
-	actualizarCache(pid,pagina,marcosMemoria[pagina]);
-	aplicarRetardo(1);
-	return marcosMemoria[pagina];
+	int indiceCache = buscarProcesoCache(pagina, pid);
+	if(indiceCache > -1){
+		printf("Se lee cache\n");
+		return cache[indiceCache].contenido;
+	} else {
+		printf("Se lee memoria\n");
+		return leerMemoria(pagina,pid);
+	}
+}
+
+int buscarPaginaMemoria(int pagina, int pid){
+	int i = 0;
+	int indice = -1;
+	int cantidadFrames = configuracion.marcos;
+	while(indice < 0 && i < cantidadFrames){
+		if(tablaInvertida[i].pid == pid && tablaInvertida[i].pagina == pagina){
+			indice = i;
+		}
+		i++;
+	}
+	return indice;
+}
+
+void* leerMemoria(int pagina, int pid){
+	int numeroFrame = buscarPaginaMemoria(pagina,pid);
+	void * posicion = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
+	actualizarCache(pid,pagina,posicion);
+	aplicarRetardo();
+	return posicion;
 }
 
 void crearCache(){
@@ -364,6 +387,8 @@ void crearCache(){
 	int i;
 	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
 		cache[i].pid = FRAME_LIBRE;
+		cache[i].pagina = 0;
+		cache[i].contadorDeUso = 0;
 	}
 }
 
@@ -371,13 +396,43 @@ void vaciarCache(){
 	free(cache);
 }
 
-void aplicarRetardo(int retardo){
-	sleep(retardo);
-	log_info(logger,"Durmiendo %d segundos...zzzzzzz",retardo);
+void aplicarRetardo(){
+	usleep(retardoLecturaMemoria);
+	log_info(logger,"Durmiendo %d milisegundos...zzzzzzz",retardoLecturaMemoria);
+}
+
+void establecerRetardoMemoria(int cantidad){
+	retardoLecturaMemoria = cantidad;
+}
+
+int obtenerLRUElementoCache(){
+	int i = 0;
+	int menor = -1;
+	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
+		if(cache[i].contadorDeUso > menor){
+			menor = i;
+		}
+	}
+	return menor;
 }
 
 void actualizarCache(int pid,int pagina,void* punteroMarco){
+	int indiceCache = obtenerLRUElementoCache();
+	cache[indiceCache].contadorDeUso = 1;
+	cache[indiceCache].contenido = punteroMarco;
+	cache[indiceCache].pagina = pagina;
+	cache[indiceCache].pid = pid;
+}
 
+void borrarProcesoCache(int pid){
+	int i = 0;
+	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
+		if(cache[i].pid == pid){
+			cache[i].contadorDeUso = 0;
+			cache[i].pagina = 0;
+			cache[i].pid = FRAME_LIBRE;
+		}
+	}
 }
 
 void finalizarPrograma(int pid){
@@ -388,10 +443,7 @@ void finalizarPrograma(int pid){
 			tablaInvertida[i].pid = FRAME_LIBRE;
 		}
 	}
-	t_resultado_busqueda_cache resultado = buscarPIDCache(pid);
-	for(i = 0; i < resultado.cantidad; i++){
-		cache[resultado.indices[i]].pid = FRAME_LIBRE;
-	}
+	borrarProcesoCache(pid);
 	log_info(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
 }
 
@@ -400,6 +452,14 @@ void imprimirTablaPaginas(){
 	int limite = configuracion.marcos;
 	for(i = 0; i < limite; i++){
 		printf("Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
+	}
+}
+
+void imprimirCache(){
+	int i;
+	int limite = CANTIDAD_ELEMENTOS_CACHE;
+	for(i = 0; i < limite; i++){
+		printf("PID: %d  #Pagina: %d \n",cache[i].pid,cache[i].pagina);
 	}
 }
 
