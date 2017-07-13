@@ -456,7 +456,6 @@ void liberar(t_puntero puntero) {
 	heap->pointer=puntero;
 	heap->pid=pcbEjecutando->PID;
 
-	// TODO MANEJAR En el kernel
 	socket_enviar(socketKernel,D_STRUCT_LIB_HEAP,heap);
 
 	free(heap);

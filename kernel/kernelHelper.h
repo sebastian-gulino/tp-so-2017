@@ -75,6 +75,8 @@ t_list* cola_exec;
 t_list* listaSemaforos;
 t_list* listaVarCompartidas;
 
+int bloqueEspecial;
+
 pthread_t threadAtenderConexiones;
 
 // Declaro los conjuntos de descriptores que contendran a los clientes conectados

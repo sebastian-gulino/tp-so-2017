@@ -291,6 +291,13 @@ void manejarCpu(int socketCPU){
 
 			break;
 
+		case D_STRUCT_LIB_HEAP: ;
+
+			// La cpu quiere escribir en un archivo
+			t_struct_sol_heap * heapLiberar = ((t_struct_sol_heap*) structRecibido);
+			liberarHeap(socketCPU, heapLiberar);
+
+			break;
 
 		}
 
@@ -472,16 +479,6 @@ t_struct_pcb* crearPCB(int PID){
 	crearArchivosPorProceso(pcb->PID);
 
 	crearInformacionProcesoInicial(pcb->PID);
-
-// TODO VER si hace falta
-//	pcb->banderas.cambio_proceso = false;
-//	pcb->banderas.desconexion = false;
-//	pcb->banderas.ejecutando = false;
-//	pcb->banderas.llamada_a_funcion = false;
-//	pcb->banderas.llamada_sin_retorno = false;
-//	pcb->banderas.se_llamo_a_wait = false;
-//	pcb->banderas.terminacion_anormal = false;
-//	pcb->banderas.termino_programa = false;
 
 	return pcb;
 
@@ -2014,6 +2011,645 @@ void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 
 }
 
+int verificarPaginaHeapDisponible(t_struct_sol_heap * solHeap){
+
+	int indice;
+
+	for(indice=0; indice < list_size(tablaHeap); indice++){
+
+		t_registroTablaHeap * registroHeap = list_get(tablaHeap,indice);
+
+		if(registroHeap->PID==solHeap->pid){
+
+			for(indice=0; indice < list_size(registroHeap->listaBloques); indice++){
+
+				t_bloqueHeap * bloqueHeap = list_get(registroHeap->listaBloques, indice);
+
+				if(bloqueHeap->numeroBloque>=0 && bloqueHeap->isFree && bloqueHeap->size >= solHeap->pointer){
+
+					log_info(logger,"Se asigno %d bytes de la pagina %d al proceso %d",solHeap->pointer,registroHeap->numeroPagina,solHeap->pid);
+					return registroHeap->numeroPagina;
+				}
+
+				if(bloqueHeap->numeroBloque<0 && bloqueHeap->isFree && bloqueHeap->size >= (solHeap->pointer + 5)){
+
+					log_info(logger,"Se asigno %d bytes de un bloque nuevo en la pagina %d al proceso %d",solHeap->pointer,registroHeap->numeroPagina,solHeap->pid);
+					return registroHeap->numeroPagina;
+
+				}
+			}
+		}
+	}
+
+	return -1;
+
+}
+
+t_bloqueHeap * buscarUltimoBloque(t_list* listaBloques) {
+
+	int maxBloque = 0;
+	t_bloqueHeap * bloqueRetorno = malloc(sizeof(t_bloqueHeap));
+
+	int indice ;
+	for (indice=0; indice < list_size(listaBloques); indice++) {
+
+		t_bloqueHeap * bloque = list_get(listaBloques,indice);
+
+		if (bloque->numeroBloque > maxBloque) {
+			maxBloque = bloque->numeroBloque;
+			bloqueRetorno = bloque;
+		}
+	}
+
+	return bloqueRetorno;
+}
+
+t_bloqueHeap * crearBloqueHeap(t_struct_sol_heap * solHeap, t_bloqueHeap * bloque, t_list* listaBloques){
+
+	t_bloqueHeap * bloqueNuevo = malloc(sizeof(t_bloqueHeap));
+
+	bloqueNuevo->isFree=false;
+	bloqueNuevo->size=solHeap->pointer;
+	bloqueNuevo->numeroBloque=buscarUltimoBloque(listaBloques)->numeroBloque;
+	bloqueNuevo->offset=bloque->offset;
+	bloqueNuevo->fin=bloqueNuevo->offset+solHeap->pointer;
+
+	return bloqueNuevo;
+}
+
+void recalcularOffset(t_bloqueHeap* bloqueEspecial, t_bloqueHeap* bloqueNuevo) {
+
+	bloqueEspecial->offset = bloqueEspecial->offset + bloqueNuevo->size + 5;
+	bloqueEspecial->size = bloqueEspecial->size - bloqueNuevo->size - 5;
+
+}
+
+int buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
+
+	int indice;
+	t_bloqueHeap * bloqueHeap;
+
+	for(indice=0; indice < list_size(tablaHeap); indice++){
+
+		t_registroTablaHeap * registroHeap = list_get(tablaHeap,indice);
+		if(registroHeap->numeroPagina==pagina){
+
+			for(indice=0; indice < list_size(registroHeap->listaBloques); indice++){
+
+				bloqueHeap = list_get(registroHeap->listaBloques,indice);
+
+				if(bloqueHeap->isFree && bloqueHeap->size >= solicitudHeap->pointer && bloqueHeap->numeroBloque >= 0){
+
+					bloqueEspecial=0;
+					bloqueHeap->isFree=false;
+					bloqueHeap->fin=solicitudHeap->pointer;
+
+				}
+
+				if(bloqueHeap->isFree && bloqueHeap->size >= (solicitudHeap->pointer+5) && bloqueHeap->numeroBloque < 0){
+
+					bloqueEspecial=-1;
+					t_bloqueHeap * bloqueNuevo = crearBloqueHeap(solicitudHeap->pointer, bloqueHeap, registroHeap->listaBloques);
+					recalcularOffset(bloqueHeap,bloqueNuevo);
+
+					t_bloqueHeap * bloqueMetadata = list_remove(registroHeap->listaBloques,indice);
+
+					list_add(registroHeap,bloqueNuevo);
+					list_add(registroHeap,bloqueMetadata);
+
+					bloqueHeap=bloqueNuevo;
+				}
+			}
+		}
+	}
+	return bloqueHeap;
+}
+
+t_registroTablaHeap * buscarPagina(int pagina, int PID){
+
+	int indice;
+	t_registroTablaHeap * registro;
+
+	for(indice=0;indice< list_size(tablaHeap);indice++){
+
+		registro = list_get(tablaHeap,indice);
+		if(registro->PID==PID && registro->numeroPagina==pagina) return registro;
+
+	}
+	return registro;
+}
+
+int buscarPosicionBloque(int pagina, int offset, int PID){
+
+	t_registroTablaHeap * registro=buscarPagina(pagina, PID);
+	int indice;
+
+	for(indice=0; indice<list_size(registro->listaBloques); indice++){
+
+		t_bloqueHeap * bloque=list_get(registro->listaBloques, indice);
+		if(bloque->offset==offset) return indice;
+
+	}
+	return -1;
+}
+
+int posicionBloqueMetadata(t_list * listaBloques){
+
+	int indice;
+	t_bloqueHeap * bloqueActual;
+
+	for(indice=0; indice < list_size(listaBloques); indice++){
+		bloqueActual=list_get(listaBloques,indice);
+		if(bloqueActual->numeroBloque<0) return indice;
+	}
+	return -1;
+}
+
+t_struct_metadataHeap * generarHeapMetadata(int bytes, bool free){
+
+	t_struct_metadataHeap * metadata = malloc(5);
+	metadata->isFree = free;
+	metadata->size = bytes;
+
+	return metadata;
+}
+
+int calcularNuevoNumeroPagina(int pid){
+	t_struct_pcb* pcb =obtenerPCBActivo(pid);
+	int max = pcb->paginasCodigo + pcb->paginasStack;
+	int indice;
+
+	for(indice=0; indice<list_size(tablaHeap);indice++){
+		t_registroTablaHeap * registro = list_get(tablaHeap,indice);
+
+		if(registro->numeroPagina>=max && registro->PID==pid){
+			max = registro->numeroPagina;
+			max++;
+		}
+	}
+	return max;
+}
+
+t_registroTablaHeap * crearNuevaPagina(int bytes, int PID, int numeroPagina){
+
+	t_registroTablaHeap* nuevaPagina = malloc(sizeof(t_registroTablaHeap));
+
+	nuevaPagina->PID=PID;
+	nuevaPagina->espacioMaximoBloque = tamanio_pagina - 5;
+	nuevaPagina->numeroPagina=numeroPagina;
+	nuevaPagina->listaBloques = list_create();
+
+	t_bloqueHeap* bloqueMetadata = malloc(sizeof(t_bloqueHeap));
+	bloqueMetadata->isFree = true;
+	bloqueMetadata->numeroBloque=-1;
+	bloqueMetadata->offset=5;
+	bloqueMetadata->size=tamanio_pagina - 5;
+	bloqueMetadata->fin=tamanio_pagina;
+
+	list_add(nuevaPagina->listaBloques,bloqueMetadata);
+	list_add(tablaHeap,nuevaPagina);
+
+	return nuevaPagina;
+
+}
+
+int compactar(t_registroTablaHeap * paginaCompactar){
+
+	int cantidadBloques = list_size(paginaCompactar->listaBloques);
+
+	if (cantidadBloques > 1) {
+
+		int i = 0;
+		int j = 1;
+
+		t_bloqueHeap* bloque1 = list_get(paginaCompactar->listaBloques, i);
+		t_bloqueHeap* bloque2 = list_get(paginaCompactar->listaBloques, j);
+
+		while (j < cantidadBloques) {
+
+			if (bloque1->isFree && bloque2->isFree) {
+
+				t_struct_sol_escritura * solCompactar;
+				solCompactar->PID = paginaCompactar->PID;
+				solCompactar->pagina = paginaCompactar->numeroPagina;
+				solCompactar->contenido = 5;
+				solCompactar->offset = bloque1->offset- 5;
+
+				t_struct_metadataHeap* metadata = generarHeapMetadata(bloque1->size+bloque2->size+5, false);
+
+				socket_enviar(socketMemoria,D_STRUCT_COMPACTAR_HEAP,solCompactar);
+				socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,metadata);
+
+				t_tipoEstructura tipoEstructura;
+				void * structRecibido;
+				//TODO Ver en la memoria que hace y responde
+
+				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
+				if(respuestaMemoria==MEMORIA_OK){
+
+					bloque1->size += bloque2->size + 5;
+
+					log_info(logger,"Se compactaron los bloques %d y %d, de la pagina %d",i, j, paginaCompactar->numeroPagina);
+					log_info(logger, "Quedaron compactados %d bytes",bloque1->size);
+
+					list_remove(paginaCompactar->listaBloques, j);
+					j = cantidadBloques;
+					return 1 + compactar(paginaCompactar);
+
+				}else{
+					log_info(logger, "Falló la compactación de la pagina %d del proceso %d",paginaCompactar->numeroPagina, paginaCompactar->PID);
+					j = cantidadBloques;
+					return 0;
+				}
+
+			} else {
+
+				i++;
+				j++;
+				bloque1 = list_get(paginaCompactar->listaBloques, i);
+				bloque2 = list_get(paginaCompactar->listaBloques, j);
+
+			}
+		}
+
+		return 0;
+
+	}
+
+	int cantidadFinal = list_size(paginaCompactar->listaBloques);
+
+	t_bloqueHeap * bloque_especial = list_get(paginaCompactar->listaBloques,cantidadFinal - 1);
+
+	bloque_especial->numeroBloque = -1;
+
+	if (cantidadFinal == cantidadBloques) {
+		log_info(logger, "No se compactó ningun bloque de la pagina %d",paginaCompactar->numeroPagina);
+	}
+
+	revisarPaginaslibres(paginaCompactar);
+
+	return 0;
+
+}
+
+void borrarPaginaKernel(t_registroTablaHeap * pagina){
+	int indice;
+	int cantidadRegistrosHeap = list_size(tablaHeap);
+	for(indice=0;indice<cantidadRegistrosHeap;indice++){
+		t_registroTablaHeap* registro = list_get(tablaHeap,indice);
+		if(registro->PID==pagina->PID && registro->numeroPagina==pagina->numeroPagina){
+			list_remove(tablaHeap,indice);
+			indice = cantidadRegistrosHeap;
+		}
+	}
+}
+
+void revisarPaginaslibres(t_registroTablaHeap * paginaRevisar){
+
+	if (list_size(paginaRevisar->listaBloques) == 1) {
+
+		t_struct_sol_heap * paginaLiberar = malloc(sizeof(t_struct_sol_heap));
+		paginaLiberar->pid=paginaRevisar->PID;
+		paginaLiberar->pointer=paginaRevisar->numeroPagina;
+
+
+		socket_enviar(socketMemoria,D_STRUCT_LIBERAR_PAGINA,paginaLiberar);
+
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+		//TODO Ver en la memoria que hace y responde
+
+		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
+		if (respuestaMemoria == MEMORIA_OK) {
+
+			log_info(logger,"Se liberó la pagina %d utilizada por el proceso %d \n ",paginaRevisar->numeroPagina, paginaRevisar->PID);
+			borrarPaginaKernel(paginaRevisar);
+
+		} else {
+			log_info(logger,"No se puso borrar la pagina %d del proceso %d\n ",	paginaRevisar->numeroPagina, paginaRevisar->PID);
+		}
+	}
+}
+
 void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
+
+	t_struct_numero * respuesta = malloc(sizeof(t_struct_numero));
+
+	if((solicitudHeap->pointer + 10) > tamanio_pagina){
+
+		respuesta->numero=KERNEL_ERROR;
+
+		socket_enviar(socketCPU,D_STRUCT_ERROR_HEAP_MAX,respuesta);
+
+	}
+
+	t_registroInformacionProceso * registro = recuperarInformacionProceso(solicitudHeap->pid);
+	registro->cantidad_solicitar_heap++;
+	registro->total_heap_solicitado += solicitudHeap->pointer;
+
+	t_bloqueHeap * bloqueAsignado;
+	t_struct_sol_escritura * punteroStruct;
+	t_struct_sol_escritura * punteroStructEspecial;
+
+	int paginaHeap = verificarPaginaHeapDisponible(solicitudHeap);
+
+	if(paginaHeap>=0){
+
+		bloqueAsignado = buscarPrimerBloqueHeap(solicitudHeap,paginaHeap);
+
+		if(bloqueAsignado->size > solicitudHeap->pointer + 5){
+
+			int indice=buscarPosicionBloque(paginaHeap,bloqueAsignado->offset,solicitudHeap->pid);
+
+			if(indice  >= 0){
+
+			t_bloqueHeap * bloqueParticionado= malloc(sizeof(t_bloqueHeap));
+			bloqueParticionado->size= bloqueAsignado->size-solicitudHeap->pointer-5;
+			bloqueParticionado->isFree=true;
+			bloqueParticionado->numeroBloque=0;
+			bloqueParticionado->offset=bloqueAsignado->offset+solicitudHeap->pointer+5;
+			bloqueParticionado->fin=bloqueParticionado->offset+bloqueParticionado->size;
+
+			bloqueAsignado->size=solicitudHeap->pointer;
+			bloqueAsignado->fin=bloqueAsignado->offset+solicitudHeap->pointer;
+
+			t_registroTablaHeap * estructuraPagina = buscarPagina(paginaHeap, solicitudHeap->pid);
+			list_add_in_index(estructuraPagina->listaBloques, indice+1, bloqueParticionado);
+
+			t_struct_sol_lectura* punteroStructParticionado;
+			punteroStructParticionado->PID = solicitudHeap->pid;
+			punteroStructParticionado->pagina = paginaHeap;
+			punteroStructParticionado->contenido = 5;
+			punteroStructParticionado->offset = bloqueParticionado->offset- 5;
+
+			t_struct_metadataHeap* heapMetadataParticionada = generarHeapMetadata(bloqueParticionado->size, false);
+
+			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructParticionado);
+			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataParticionada);
+
+			t_tipoEstructura tipoEstructura;
+			void * structRecibido;
+			//TODO Ver en la memoria que hace y responde
+			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+
+			//t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
+
+			}else {
+				log_info(logger, "No se encontró el indice del bloque para agregar el bloque particionado");
+			}
+		}
+
+		punteroStruct->PID = solicitudHeap->pid;
+		punteroStruct->pagina = paginaHeap;
+		punteroStruct->contenido = solicitudHeap->pointer;
+		punteroStruct->offset = bloqueAsignado->offset;
+
+		t_puntero puntero = punteroStruct->pagina*tamanio_pagina + punteroStruct->offset;
+
+		punteroStruct->offset = bloqueAsignado->offset - 5;
+		punteroStruct->contenido = 5;
+
+		t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, true);
+
+		t_registroTablaHeap * paginaStruct = buscarPagina(paginaHeap, solicitudHeap->pid);
+
+		int posicionBE = list_size(paginaStruct->listaBloques);
+
+		t_bloqueHeap * bloque_especial = list_get(paginaStruct->listaBloques,posicionBE - 1);
+
+		punteroStructEspecial->PID = solicitudHeap->pid;
+		punteroStructEspecial->pagina = paginaHeap;
+		punteroStructEspecial->contenido = 5;
+		punteroStructEspecial->offset = bloque_especial->offset- 5;
+
+		t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, false);
+
+		socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStruct);
+		socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataActual);
+
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+		//TODO Ver en la memoria que hace y responde
+		bool rtaMemoria = false;
+		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
+		if(respuestaMemoria->numero==MEMORIA_OK){
+			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+			rtaMemoria=true;
+		}
+
+		socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructEspecial);
+		socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataEspecial);
+
+		t_tipoEstructura tipoEstructura2;
+		void * structRecibido2;
+
+		bool rtaMemoriaEspecial = false;
+		socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
+		t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
+
+		if(respuestaMemoriaEspecial->numero==MEMORIA_OK){
+			socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
+			t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
+			rtaMemoriaEspecial=true;
+		}
+
+		if(rtaMemoria && rtaMemoriaEspecial){
+			t_struct_numero * punteroEnviar = malloc(sizeof(t_struct_numero));
+			punteroEnviar->numero=puntero;
+			socket_enviar(socketCPU,D_STRUCT_RTA_HEAP,punteroEnviar);
+		} else {
+			t_struct_numero * punteroError = malloc(sizeof(t_struct_numero));
+			punteroError->numero=KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_ERROR_HEAP,punteroError);
+		}
+
+	} else {
+
+		int respuesta = solicitarSegmentoCodigo(solicitudHeap->pid,tamanio_pagina);
+
+		if(respuesta==MEMORIA_OK){
+
+			paginaHeap = calcularNuevoNumeroPagina(solicitudHeap->pid);
+
+			log_info(logger,"Se creo una nueva pagina de heap %d para el proceso %d",paginaHeap,solicitudHeap);
+
+			t_registroTablaHeap* nuevaPagina = crearNuevaPagina(solicitudHeap->pointer,solicitudHeap->pid,paginaHeap);
+
+			int posBloqueMetadata = posicionBloqueMetadata(nuevaPagina->listaBloques);
+			t_bloqueHeap* bloque_especial = list_get(nuevaPagina->listaBloques,posBloqueMetadata);
+
+			bloqueAsignado = crearBloqueHeap(solicitudHeap->pointer, bloque_especial,nuevaPagina->listaBloques);
+			recalcularOffset(bloque_especial, bloqueAsignado);
+
+			list_remove(nuevaPagina->listaBloques, posBloqueMetadata);
+			list_add(nuevaPagina->listaBloques, bloqueAsignado);
+			list_add(nuevaPagina->listaBloques, bloque_especial);
+
+			punteroStruct->PID = solicitudHeap->pid;
+			punteroStruct->pagina = paginaHeap;
+			punteroStruct->contenido = solicitudHeap->pointer;
+			punteroStruct->offset = bloqueAsignado->offset;
+
+			t_puntero puntero = punteroStruct->pagina*tamanio_pagina + punteroStruct->offset;
+
+			punteroStruct->offset = bloqueAsignado->offset - 5;
+			punteroStruct->contenido = 5;
+
+			t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, true);
+
+			punteroStructEspecial->PID = solicitudHeap->pid;
+			punteroStructEspecial->pagina = paginaHeap;
+			punteroStructEspecial->contenido = 5;
+			punteroStructEspecial->offset = bloque_especial->offset- 5;
+
+			t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, false);
+
+			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStruct);
+			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataActual);
+
+			t_tipoEstructura tipoEstructura;
+			void * structRecibido;
+			//TODO Ver en la memoria que hace y responde
+			bool rtaMemoria = false;
+			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
+			if(respuestaMemoria->numero==MEMORIA_OK){
+				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+				rtaMemoria=true;
+			}
+
+			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructEspecial);
+			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataEspecial);
+
+			t_tipoEstructura tipoEstructura2;
+			void * structRecibido2;
+
+			bool rtaMemoriaEspecial = false;
+			socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
+			t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
+
+			if(respuestaMemoriaEspecial->numero==MEMORIA_OK){
+				socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
+				t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
+				rtaMemoriaEspecial=true;
+			}
+
+			if(rtaMemoria && rtaMemoriaEspecial){
+				t_struct_numero * punteroEnviar = malloc(sizeof(t_struct_numero));
+				punteroEnviar->numero=puntero;
+				socket_enviar(socketCPU,D_STRUCT_RTA_HEAP,punteroEnviar);
+			} else {
+				t_struct_numero * punteroError = malloc(sizeof(t_struct_numero));
+				punteroError->numero=KERNEL_ERROR;
+				socket_enviar(socketCPU,D_STRUCT_ERROR_HEAP,punteroError);
+			}
+
+
+		} else {
+			t_struct_numero * punteroError = malloc(sizeof(t_struct_numero));
+			punteroError->numero=KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_ERROR_HEAP,punteroError);
+			log_info(logger,"No se pudieron asignar paginas de heap al proceso %d",solicitudHeap->pid);
+		}
+	}
+}
+
+void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
+
+	t_struct_sol_lectura * solLiberar = malloc(sizeof(t_struct_sol_lectura));
+	t_struct_numero * rtaLiberar = malloc(sizeof(t_struct_numero));
+	t_registroInformacionProceso * registro;
+	bool pudeLiberar = false;
+
+	solLiberar->PID=solicitudHeap->pid;
+	solLiberar->offset=solicitudHeap->pointer % tamanio_pagina;
+	solLiberar->contenido=4;
+	solLiberar->pagina = solicitudHeap->pointer / tamanio_pagina;
+
+	int numeroPagina, nroBloque;
+	int indice, indice2;
+	int size;
+
+	int tamanioTabla = list_size(tablaHeap);
+
+	for(indice=0; indice < tamanioTabla; indice++){
+
+		t_registroTablaHeap * pagina = list_get(tablaHeap,indice);
+		if(pagina->PID==solicitudHeap->pid && pagina->numeroPagina == solLiberar->pagina){
+
+			int cantidadBloques = list_size(pagina->listaBloques);
+
+			for(indice2=0; indice2 < cantidadBloques; indice2++){
+				t_bloqueHeap* bloqueBorrar = list_get(pagina->listaBloques,indice2);
+
+				registro = recuperarInformacionProceso(solicitudHeap->pid);
+				registro->cantidad_liberar_heap++;
+				registro->total_heap_liberado+=bloqueBorrar->size;
+
+				if(bloqueBorrar->offset == solLiberar->offset){
+					pudeLiberar=true;
+					bloqueBorrar->isFree=true;
+					size = bloqueBorrar->size;
+					numeroPagina = indice;
+					nroBloque = indice2;
+					indice = tamanioTabla;
+					indice2 = cantidadBloques;
+				}
+			}
+		}
+	}
+
+	if(!pudeLiberar){
+
+		rtaLiberar->numero=KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLiberar);
+		return;
+	}
+
+	solLiberar->contenido = 5;
+	solLiberar->offset= solLiberar->offset-5;
+
+	t_struct_metadataHeap* heap = generarHeapMetadata(size,false);
+
+	socket_enviar(socketMemoria,D_STRUCT_LIBERAR_HEAP,solLiberar);
+	socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heap);
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+	//TODO Ver en la memoria que hace y responde
+
+	socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+	t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
+	registro->syscall++;
+
+	if(respuestaMemoria->numero==MEMORIA_OK){
+		rtaLiberar->numero=KERNEL_OK;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLiberar);
+
+		t_registroTablaHeap * paginaBorrar = list_get(tablaHeap,numeroPagina);
+		t_bloqueHeap * bloqueBorrar = list_get(paginaBorrar->listaBloques,nroBloque);
+		bloqueBorrar->isFree=true;
+
+		log_info(logger,"El proceso con PID %d pudo liberar un bloque de heap",solicitudHeap->pid);
+
+		compactar(paginaBorrar);
+
+		return;
+
+	} else {
+		rtaLiberar->numero=KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLiberar);
+		return;
+	}
 
 }

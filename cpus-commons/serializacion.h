@@ -24,7 +24,7 @@
 	t_stream * serializeStruct_graComp(t_struct_var_compartida * estructuraOrigen);
 	t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_solHeap(t_struct_sol_heap * estructuraOrigen);
-	t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen);
+	t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_borrar(t_struct_borrar * estructuraOrigen);
 	t_stream * serializeStruct_abrir(t_struct_abrir * estructuraOrigen);
 	t_stream * serializeStruct_obtener(t_struct_obtener * estructuraOrigen);
