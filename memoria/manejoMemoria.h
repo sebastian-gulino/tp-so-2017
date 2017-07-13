@@ -92,6 +92,8 @@ void vaciarCache();
 
 void imprimirTablaPaginas();
 
+void imprimirCache();
+
 int obtenerPrimerosNFramesLibre(int cantidad);
 
 #endif /* MANEJOMEMORIA_H_ */

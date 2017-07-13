@@ -317,8 +317,8 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
 				registrarUsoDeFrame(pid,primerFrameLibre+i,i+1);
-				return true;
 			}
+			return true;
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispone de los %d frames libres contiguos necesarios.\n",pid,framesNecesarios);
 			return false;
@@ -329,8 +329,8 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 			for(i = 0; i < framesNecesarios;i++){
 				int numeroFrame = obtenerPrimerFrameLibre();
 				registrarUsoDeFrame(pid,numeroFrame,i+1);
-				return true;
 			}
+			return true;
 		} else {
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispones de %d frames libres.\n",pid,framesNecesarios);
 			return false;
@@ -353,8 +353,10 @@ int buscarProcesoCache(int pagina, int pid){
 void* leerPagina(int pagina, int pid){
 	int indiceCache = buscarProcesoCache(pagina, pid);
 	if(indiceCache > -1){
+		printf("Se lee cache\n");
 		return cache[indiceCache].contenido;
 	} else {
+		printf("Se lee memoria\n");
 		return leerMemoria(pagina,pid);
 	}
 }
@@ -374,9 +376,9 @@ int buscarPaginaMemoria(int pagina, int pid){
 
 void* leerMemoria(int pagina, int pid){
 	int numeroFrame = buscarPaginaMemoria(pagina,pid);
-	void * posicion = memoriaPrincipal + numeroFrame*configuracion.marcoSize;
+	void * posicion = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
 	actualizarCache(pid,pagina,posicion);
-//	aplicarRetardo();
+	aplicarRetardo();
 	return posicion;
 }
 
@@ -445,18 +447,19 @@ void finalizarPrograma(int pid){
 	log_info(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
 }
 
-void* leerOffsetPagina(void* marco,int offset,int longitud){
-	char * pagina = (char *) marco;
-	char * contenido = malloc(longitud);
-	memcpy(contenido,pagina[offset],longitud);
-	return contenido;
-}
-
 void imprimirTablaPaginas(){
 	int i;
 	int limite = configuracion.marcos;
 	for(i = 0; i < limite; i++){
 		printf("Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
+	}
+}
+
+void imprimirCache(){
+	int i;
+	int limite = CANTIDAD_ELEMENTOS_CACHE;
+	for(i = 0; i < limite; i++){
+		printf("PID: %d  #Pagina: %d \n",cache[i].pid,cache[i].pagina);
 	}
 }
 

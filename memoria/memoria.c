@@ -23,11 +23,22 @@ int main(void) {
 
 	reservarFramesProceso(111,2048,1);
 
-	escribirEnMemoria(25,"esta es una prueba",18,100);
+	imprimirTablaPaginas();
 
-	void * pagina = leerMemoria(2,111);
+	escribirEnMemoria(25,"esta es una prueba\n",18,100);
 
-	printf("%s",pagina + 100);
+	void * pagina = leerPagina(2,111);
+
+	printf("%s\n",pagina + 100);
+
+	pagina = leerPagina(2,111);
+
+	printf("%s\n",pagina + 100);
+
+
+//	imprimirCache();
+
+	vaciarCache();
 
 //	imprimirTablaPaginas();
 
@@ -35,9 +46,9 @@ int main(void) {
 
 	liberarMemoriaPrincipal();
 
-	crearThreadAtenderConexiones();
-
-	pthread_join(threadAtenderConexiones, NULL);
+//	crearThreadAtenderConexiones();
+//
+//	pthread_join(threadAtenderConexiones, NULL);
 
 	return 0;
 
