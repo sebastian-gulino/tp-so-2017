@@ -42,6 +42,11 @@ typedef struct cache_t {
 	int contadorDeUso;
 } t_cache;
 
+typedef struct resultadoLectura {
+	bool resultado;
+	void * contenido;
+} t_resultadoLectura;
+
 t_cache* cache;
 
 t_struct_numero* tamanio_pagina;
@@ -84,10 +89,6 @@ void removerClientePorCierreDeConexion(int cliente, t_list* lista);
 
 void liberarMemoriaPrincipal();
 
-void escribirEnMemoria(int frame, void* bytes, int size, int offset);
-
-void* leerMemoria(int pagina, int pid);
-
 void vaciarCache();
 
 void imprimirTablaPaginas();
@@ -95,5 +96,9 @@ void imprimirTablaPaginas();
 void imprimirCache();
 
 int obtenerPrimerosNFramesLibre(int cantidad);
+
+t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio);
+
+bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido);
 
 #endif /* MANEJOMEMORIA_H_ */

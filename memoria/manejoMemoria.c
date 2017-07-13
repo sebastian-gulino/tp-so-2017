@@ -249,10 +249,35 @@ void crearEstructurasAdministrativas(){
 	log_info(logger, "Las estructuras administrativas ocupan %d marcos de memoria.\n", framesTablaInvertida);
 }
 
+int buscarPaginaMemoria(int pagina, int pid){
+	int i = 0;
+	int indice = -1;
+	int cantidadFrames = configuracion.marcos;
+	while(indice < 0 && i < cantidadFrames){
+		if(tablaInvertida[i].pid == pid && tablaInvertida[i].pagina == pagina){
+			indice = i;
+		}
+		i++;
+	}
+	return indice;
+}
+
 void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
 	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
 	memcpy(punteroFrame + offset,contenido,size);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
+}
+
+bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido){
+	int numeroFrame = buscarPaginaMemoria(pagina,pid);
+	bool resultado;
+	if(numeroFrame > -1){
+		escribirEnMemoria(numeroFrame,contenido,tamanio,offset);
+		resultado = true;
+	} else {
+		resultado = false;
+	}
+	return resultado;
 }
 
 int cantidadFramesLibres(){
@@ -350,36 +375,33 @@ int buscarProcesoCache(int pagina, int pid){
 }
 
 
-void* leerPagina(int pagina, int pid){
-	int indiceCache = buscarProcesoCache(pagina, pid);
-	if(indiceCache > -1){
-		printf("Se lee cache\n");
-		return cache[indiceCache].contenido;
-	} else {
-		printf("Se lee memoria\n");
-		return leerMemoria(pagina,pid);
-	}
-}
-
-int buscarPaginaMemoria(int pagina, int pid){
-	int i = 0;
-	int indice = -1;
-	int cantidadFrames = configuracion.marcos;
-	while(indice < 0 && i < cantidadFrames){
-		if(tablaInvertida[i].pid == pid && tablaInvertida[i].pagina == pagina){
-			indice = i;
-		}
-		i++;
-	}
-	return indice;
-}
-
-void* leerMemoria(int pagina, int pid){
+void * leerMemoria(int pagina, int pid){
 	int numeroFrame = buscarPaginaMemoria(pagina,pid);
+	aplicarRetardo();
 	void * posicion = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
 	actualizarCache(pid,pagina,posicion);
-	aplicarRetardo();
 	return posicion;
+}
+
+
+t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio){
+	int indiceCache = buscarProcesoCache(pagina, pid);
+	t_resultadoLectura resultado;
+	void * lectura;
+	resultado.resultado = false;
+	resultado.contenido = malloc(tamanio);
+	if(indiceCache > -1){
+		printf("Se lee cache\n");
+		lectura = cache[indiceCache].contenido;
+		resultado.resultado = true;
+		memcpy(resultado.contenido,lectura + offset,tamanio);
+	} else {
+		printf("Se lee memoria\n");
+		lectura = leerMemoria(pagina,pid);
+		resultado.resultado = true;
+		memcpy(resultado.contenido,lectura + offset,tamanio);
+	}
+	return resultado;
 }
 
 void crearCache(){

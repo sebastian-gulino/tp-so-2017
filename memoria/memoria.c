@@ -25,15 +25,15 @@ int main(void) {
 
 	imprimirTablaPaginas();
 
-	escribirEnMemoria(25,"esta es una prueba\n",18,100);
+	bool escritura = escribirPagina(2,111,100,20,"esta es una prueba\n");
 
-	void * pagina = leerPagina(2,111);
+	printf("%d\n",escritura);
 
-	printf("%s\n",pagina + 100);
+	t_resultadoLectura resultado =  leerPagina(2, 111, 100, 20);
 
-	pagina = leerPagina(2,111);
+	printf("%s\n",resultado.contenido);
 
-	printf("%s\n",pagina + 100);
+	printf("%d\n",resultado.resultado);
 
 
 //	imprimirCache();
