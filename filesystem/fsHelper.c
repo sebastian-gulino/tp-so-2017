@@ -20,6 +20,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
 	log_info(logger,"PUNTO_MONTAJE = %s",configuracion.puntoMontaje);
 
+	config_destroy(config);
+
 	return configuracion;
 
 }
@@ -81,7 +83,7 @@ void setMetadata(){
 		metadata.bloque_cant = config_get_int_value(mtdt, "CANTIDAD_BLOQUES");
 		metadata.bloque_size = config_get_int_value(mtdt, "TAMANIO_BLOQUES");
 
-
+		config_destroy(mtdt);
 }
 void crearServidorMonocliente(){
 
@@ -101,7 +103,7 @@ void crearServidorMonocliente(){
 			if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
 				log_info(logger,"No se recibio correctamente a quien atendio el Filesystem");
 
-			} else if ((((t_struct_numero*) structRecibido)->numero) == ES_CONSOLA){
+			} else if ((((t_struct_numero*) structRecibido)->numero) == ES_KERNEL){
 
 					log_info(logger,"Se conecto el Kernel");
 
@@ -229,27 +231,68 @@ void manejarKernel(int i){
 
 			switch(tipoEstructura){
 
-			case D_STRUCT_ABRIR:
+			case D_STRUCT_ARCHIVO_ABR: ;
 
-				validarArchivo(((t_struct_abrir *) structRecibido));
+				t_struct_archivo * archivoAb = ((t_struct_archivo*) structRecibido);
 
-			break;
+				t_struct_abrir * archivoAbrir = malloc(sizeof(t_struct_abrir));
+				archivoAbrir->path=archivoAb->informacion;
+				archivoAbrir->modo_creacion = archivoAb->flags.creacion ? 1 : 0;
 
-			case D_STRUCT_BORRAR:
-
-				borrarArchivo(((t_struct_borrar *) structRecibido));
-
-			break;
-
-			case D_STRUCT_GUARDAR:
-
-				guardarDatos(((t_struct_guardar *) structRecibido));
+				validarArchivo(archivoAbrir);
 
 			break;
 
-			case D_STRUCT_OBTENER:
+			case D_STRUCT_ARCHIVO_BOR: ;
 
-				obtenerDatos(((t_struct_obtener *) structRecibido));
+				t_struct_archivo * archivoBo = ((t_struct_archivo*) structRecibido);
+
+				t_struct_borrar * archivoBorrar = malloc(sizeof(t_struct_abrir));
+				archivoBorrar->path=archivoBo->informacion;
+
+				borrarArchivo(archivoBorrar);
+
+			break;
+
+			case D_STRUCT_ARCHIVO_ESC: ;
+
+				t_struct_archivo * archivoEsc = ((t_struct_archivo*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_numero * desplazamiento = ((t_struct_numero*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_string * path = ((t_struct_string*) structRecibido);
+
+				t_struct_guardar * archivoGuardar = malloc(sizeof(t_struct_guardar));
+				archivoGuardar->path = path->string;
+				archivoGuardar->modo_escritura=archivoEsc->flags.escritura ? 1 : 0;
+				archivoGuardar->offset=desplazamiento->numero;
+				archivoGuardar->size = archivoEsc->tamanio;
+				archivoGuardar->buffer = archivoEsc->informacion;
+
+				guardarDatos(archivoGuardar);
+
+			break;
+
+			case D_STRUCT_ARCHIVO_LEC: ;
+
+				t_struct_archivo * archivoLec = ((t_struct_archivo*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_numero * offset = ((t_struct_numero*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_string * pathArch = ((t_struct_string*) structRecibido);
+
+				t_struct_obtener * archivoLeer = malloc(sizeof(t_struct_obtener));
+
+				archivoLeer->path=pathArch->string;
+				archivoLeer->modo_lectura=archivoLec->flags.lectura ? 1 : 0;
+				archivoLeer->size=archivoLec->tamanio;
+				archivoLeer->offset=offset->numero;
+
+				obtenerDatos(archivoLeer);
 
 			break;
 			}

@@ -60,7 +60,7 @@ void administrarConexiones();
 
 void aplicarRetardo();
 
-void reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos);
+bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos);
 
 void atenderPedidoEscritura(char * solicitante, int pid, int cantidadFrames);
 

@@ -5,9 +5,6 @@ int main(void) {
 	setvbuf (stdout, NULL, _IONBF, 0);
 
 	//Genera archivo log pars poder escribir el trace de toda la ejecución
-
-	logger = malloc(sizeof(t_log));
-
 	crearLog("/MEMORIA");
 
 	//Levanta la configuración del proceso memoria
@@ -38,10 +35,9 @@ int main(void) {
 
 	liberarMemoriaPrincipal();
 
-//	crearThreadAtenderConexiones();
+	crearThreadAtenderConexiones();
 
-//	pthread_join(threadAtenderConexiones, NULL);
-
+	pthread_join(threadAtenderConexiones, NULL);
 
 	return 0;
 

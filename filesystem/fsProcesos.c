@@ -19,38 +19,34 @@ void  validarArchivo(t_struct_abrir * archivo){
 			if(crearArchivo(archivo->path) == 1){ //Se crea el archivo en el path especificado
 
 				//fclose(file);
-				toSend->confirmacion = 2;
+				toSend->confirmacion = FS_ABRIR_CREAR_OK;
 				log_info(logger, "Se creo el archivo en: %s", pathFile);
 				socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 				return;
 
 			}
 
-
-			toSend->confirmacion = -1;
+			toSend->confirmacion = FS_ABRIR_CREAR_ERROR;
 			log_error(logger, "No se pudo crear el archivo en: %s", pathFile);
 			socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 			return;
 
 		}
+
 		fclose(file);
 		log_error(logger, "El archivo en el path: %s no existe", pathFile);
-		toSend->confirmacion = 0;
+		toSend->confirmacion = FS_ABRIR_NO_CREAR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
+
 	} else{
+
 		fclose(file);
-		log_error(logger, "El archivo en el path: %s no existe", pathFile);
-		toSend->confirmacion = 0;
+		log_error(logger, "Se verifico el archivo del path: %s", pathFile);
+		toSend->confirmacion = FS_ABRIR_NO_CREAR_OK;
 		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
 		return;
 	}
-	fclose(file);
-	log_info(logger, "Se verifico el archivo del path: %s", pathFile);
-	toSend->confirmacion = 1;
-	socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-	return;
-
 }
 
 //Creación de un archivo, en caso que al abrir uno este no exista y se haya abierto en modo creación
@@ -89,7 +85,7 @@ int crearArchivo(char * path){
 
 	t_config * data = config_create(pathFile); //Se crea un config en el archivo para manejar sus datos
 
-	config_set_value(data, "SIZE", "0"); //Se agrega el tamaño, al ser un archivo nuevo, su tamaño es 0
+	config_set_value(data, "TAMANIO", "0"); //Se agrega el tamaño, al ser un archivo nuevo, su tamaño es 0
 
 	config_save(data); //Se guarda el config
 
@@ -124,7 +120,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s no existe", pathFile);
 
-			toSend->confirmacion = -1;
+			toSend->confirmacion = FS_BORRAR_ERROR;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 
@@ -134,7 +130,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 		fileData = config_create(pathFile); //Se carga el archivo como config para manejar sus datos
 
-		char** bloques= config_get_array_value(fileData, "BLOCKS"); //Se cargan los bloques que contienen los datos del archivo.
+		char** bloques= config_get_array_value(fileData, "BLOQUES"); //Se cargan los bloques que contienen los datos del archivo.
 
 		int var = 0;
 
@@ -161,7 +157,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s fue eliminado satisfactoriamente", pathFile);
 
-			toSend->confirmacion = 1;
+			toSend->confirmacion = FS_BORRAR_OK;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;
@@ -170,7 +166,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			log_info(logger, "El archivo del path: %s NO fue eliminado satisfactoriamente", pathFile);
 
-			toSend->confirmacion = 0;
+			toSend->confirmacion = FS_BORRAR_ERROR;
 
 			socket_enviar(socketCliente, D_STRUCT_BORRAR, toSend);
 			return;
@@ -183,10 +179,10 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 	char pathFile[260];
 	t_config * fileData;
-	int var = 0;
+	int var = 0, bloq = 0, cantBloques = 0;
 	int end_flag = 0;
 	char *dataObtenida = string_new();
-
+	void * bufferToSend = malloc(archivo->size);
 	char blockPath[260];
 	int readSize;
 	FILE * file;
@@ -202,14 +198,19 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		log_error(logger, "El archivo del path: %s no tiene permisos de lectura", pathFile);
 
-		toSend->confirmacion = 0;
+		toSend->confirmacion = FS_LEER_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		return;
 	}
 
 		fileData = config_create(pathFile);
 
-		char** bloques= config_get_array_value(fileData, "BLOCKS");
+		char** bloques= config_get_array_value(fileData, "BLOQUES");
+
+		while(bloques[bloq]!=NULL){
+			cantBloques++;
+			bloq++;
+		}
 
 		float ratio = archivo->offset / metadata.bloque_size; //Con este calculo verifico cuantos bloques tengo que "saltear" antes de empezar a leer
 
@@ -217,12 +218,23 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		int offblocks = floor(ratio);
 
+		if(cantBloques<offblocks){
+
+			log_error(logger, "Se esta intentando leer fuera de los datos del archivo del path: %s ", pathFile);
+
+			toSend->confirmacion = FS_LEER_ERROR;
+			socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
+			return;
+		}
+
 		var = var+offblocks;
 
 		archivo->offset=archivo->offset - metadata.bloque_size*offblocks;
 		//Según la cantidad de bloques salteados, me moví una cantidad de posiciones del offset dado por lo que lo quito.
 
 		}
+
+
 
 		while(bloques[var] != NULL && end_flag == 0){ //Se itera por todos los bloques o hasta que se haya terminado la lectura
 
@@ -246,7 +258,14 @@ void obtenerDatos(t_struct_obtener * archivo){
 			int fd = fileno(file);
 
 			//Leo del bloque y lo guardo en buffer
-			pread(fd, buffer, readSize, archivo->offset);
+			if(pread(fd, buffer, readSize, archivo->offset)< 0){
+				log_error(logger, "Error de lectura (%s) del archivo en el path: %s ", strerror(errno), pathFile);
+
+				toSend->confirmacion = FS_LEER_ERROR;
+				socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
+							return;
+
+			}
 
 			//Guardo lo leido en un buffer mas grande.
 			string_append(&dataObtenida, buffer);
@@ -267,9 +286,12 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		}
 
-		memcpy(toSend->obtenido, dataObtenida, tamanioTotal);
 
-		toSend->confirmacion = 1;
+		memcpy(bufferToSend, dataObtenida, tamanioTotal);
+
+		toSend->obtenido = bufferToSend;
+
+		toSend->confirmacion = FS_LEER_OK;
 		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		log_info(logger, "Se leyeron %d bytes de datos del archivo en el path: %s", tamanioTotal, pathFile);
 		return;
@@ -279,12 +301,11 @@ void obtenerDatos(t_struct_obtener * archivo){
 //Guardado de datos en los bloques de un archivo dado un buffer(los datos), offset y tamaño de escritura
 void guardarDatos(t_struct_guardar * archivo){
 
-
 	t_config * fileData;
 	off_t posicion = 0;
 	FILE * file;
 	void * block_buffer;
-	int var = 0, writeSize = 0, a = 0, tamanioTotal = archivo->size;
+	int var = 0, writeSize = 0, tamanioTotal = archivo->size, bloquesAsig = 0;
 	char pathFile[260], pathBloque[260];
 	char * bloques_array = string_new();
 	char * block;
@@ -296,20 +317,20 @@ void guardarDatos(t_struct_guardar * archivo){
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
 		log_info(logger, "El archivo del path: %s no existe", pathFile);
-		toSend->confirmacion = -1;
+		toSend->confirmacion = FS_ESCRIBIR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}	if(archivo->modo_escritura == 0){ //Verifico que el modo escritura este activo
 		log_info(logger, "El archivo del path: %s no tiene permisos de escritura", pathFile);
-		toSend->confirmacion = -2;
+		toSend->confirmacion = FS_ESCRIBIR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}
 
 	fileData = config_create(pathFile); //Cargo el config para manejar datos
 
-	char** bloques= config_get_array_value(fileData, "BLOCKS"); //Obtengo los bloques que tiene el archivo
-	int size = config_get_int_value(fileData, "SIZE"); //Obtengo el tamaño del archivo
+	char** bloques= config_get_array_value(fileData, "BLOQUES"); //Obtengo los bloques que tiene el archivo
+	int size = config_get_int_value(fileData, "TAMANIO"); //Obtengo el tamaño del archivo
 
 	if(archivo->size > size){ //Si el tamaño de escritura es mayor al tamaño actual del archivo, es el tamaño final.
 		size = archivo->size;
@@ -317,7 +338,7 @@ void guardarDatos(t_struct_guardar * archivo){
 
 	char_size = string_itoa(size);
 
-	config_set_value(fileData, "SIZE", char_size); //Seteo el size actualizado del archivo
+	config_set_value(fileData, "TAMANIO", char_size); //Seteo el size actualizado del archivo
 	config_save(fileData);
 
 	//Empiezo a crear el array de bloques que van a ser asignados (comienzo con los que ya estan asignados, para luego agregar si es necesario)
@@ -330,6 +351,8 @@ void guardarDatos(t_struct_guardar * archivo){
 		string_append_with_format(&bloques_array, "%s,", block);
 
 		var++;
+
+		bloquesAsig++;
 	}
 
 	//Calculo cuantos bloques enteros debo moverme por el offset
@@ -337,13 +360,17 @@ void guardarDatos(t_struct_guardar * archivo){
 
 	var = 0;
 	int new_blocks;
-
+	posicion = atoi(bloques[var]);
 		if(ratio>0){
 			int counter;
 			int offblocks = floor(ratio);
 			new_blocks = offblocks;
 
-				for (counter = 0; counter < offblocks; ++counter) {
+			if(bloquesAsig>offblocks){
+				bloquesAsig = offblocks;
+			}
+
+				for (counter = 0; counter < bloquesAsig; ++counter) {
 
 					if(bloques[var]!=NULL){
 						posicion = atoi(bloques[var]);
@@ -357,32 +384,32 @@ void guardarDatos(t_struct_guardar * archivo){
 						if(bloquesLibres()==0){
 
 							log_error(logger, "No se pueden guardar los datos en el archivo: %s, por falta de bloques", pathFile);
-							toSend->confirmacion = -3;
+							toSend->confirmacion = FS_ESCRIBIR_ERROR;
 							socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 							return;
 
 						}
-						posicion = 0;
+
 
 					for (counter = 0; counter < new_blocks; ++counter) {
+
+						posicion++;
 
 						while(bitarray_test_bit(bitarray, posicion)){
 
 									posicion++;
 							}
+
 						}
 
-
+					posicion++;
 
 				}
-
+				posicion++;
 				archivo->offset=archivo->offset - metadata.bloque_size*offblocks;
 			}
 
-
-	posicion = atoi(bloques[var]);
-
-	//Escribo lo pedido en cada bloque
+//Escribo lo pedido en cada bloque
 		while(archivo->size>0){
 
 			block_buffer = malloc(metadata.bloque_size); //Maximo que va a ser escrito.
@@ -402,7 +429,7 @@ void guardarDatos(t_struct_guardar * archivo){
 					writeSize = archivo->size;
 
 
-				} else if(archivo->size > metadata.bloque_size){
+				} else if(archivo->size > metadata.bloque_size - archivo->offset){
 					writeSize = metadata.bloque_size - archivo->offset;
 
 			}
@@ -416,7 +443,13 @@ void guardarDatos(t_struct_guardar * archivo){
 			int fd = fileno(file);
 
 			//Escribo en el bloque
-			pwrite(fd, block_buffer, writeSize, archivo->offset);
+			if(pwrite(fd, block_buffer, writeSize, archivo->offset)<0){
+				log_error(logger, "Error de escritura (%s) del archivo en el path: %s ", strerror(errno), pathFile);
+
+						toSend->confirmacion = FS_ESCRIBIR_ERROR;
+						socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
+					break;
+			}
 
 			//Seteo el bloque en el bitarray
 			bitarray_set_bit(bitarray, posicion);
@@ -437,25 +470,24 @@ void guardarDatos(t_struct_guardar * archivo){
 			string_append_with_format(&bloques_array, "%s,", block);
 
 			}
-
+		if(bloques[var]!=NULL){
 			var++;
+		}
+
 			fclose(file);
 
 			//Verifico si tengo que asignar un bloque nuevo para seguir escribiendo o puedo seguir escribiendo los bloques ya asignados
 			if(bloques[var]==NULL){
 
-				var--;
 				if(bloquesLibres()==0){
 
 					break;
 				}
 
-			while(bitarray_test_bit(bitarray, a)){
+			while(bitarray_test_bit(bitarray, posicion)){
 
-								a++;
+								posicion++;
 							}
-			posicion = a;
-
 			} else
 				posicion = atoi(bloques[var]);
 		}
@@ -466,22 +498,22 @@ void guardarDatos(t_struct_guardar * archivo){
 
 			string_append(&bloques_array, "]");
 
-			config_set_value(fileData, "BLOCKS", bloques_array);
+			config_set_value(fileData, "BLOQUES", bloques_array);
 
 			config_save(fileData);
 
-			log_info(logger, "Se guardaron %d bytes en el archivo del path: %s. Tamaño final del archivo: %d", tamanioTotal, pathFile, (size-archivo->size));
+			log_info(logger, "Se guardaron %d bytes en el archivo del path: %s. Tamaño final del archivo: %d", tamanioTotal-archivo->size, pathFile, (size-archivo->size));
 
 		//Si lo pedido no se termino de escribir por falta de bloques.
 			if(archivo->size>0){
 
 				log_error(logger, "No se guardaron %d bytes en el archivo del path: %s.", archivo->size, pathFile);
-				toSend->confirmacion = -4;
+				toSend->confirmacion = FS_ESCRIBIR_ERROR;
 				socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 				return;
 			}
 
-			toSend->confirmacion = 1;
+			toSend->confirmacion = FS_ESCRIBIR_OK;
 			socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 
 	return;

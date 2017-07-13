@@ -106,16 +106,16 @@ t_puntero obtenerPosicionVariable(t_nombre_variable idVariable) {
 
 t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 
-	t_posicion_memoria * var_direccion = malloc(sizeof(t_posicion_memoria));
+	t_struct_sol_lectura * var_direccion = malloc(sizeof(t_posicion_memoria));
 
 	var_direccion->pagina = total_heap_offset / tamanio_pagina;
-	var_direccion->offsetInstruccion = total_heap_offset % tamanio_pagina;
-	var_direccion->longitudInstruccion = sizeof(int);
+	var_direccion->offset = total_heap_offset % tamanio_pagina;
+	var_direccion->contenido = sizeof(int);
+	var_direccion->PID = pcbEjecutando->PID;
 
 	log_trace(logger, "Solicitud Lectura -> Página: %i, Offset: %i, Size: %i.",
-			var_direccion->pagina, var_direccion->offsetInstruccion, sizeof(int));
+			var_direccion->pagina, var_direccion->offset, sizeof(int));
 
-	// TODO manejar esta peticion en memoria en memoria
 	socket_enviar(socketMemoria,D_STRUCT_LECT_VAR,var_direccion);
 
 	free(var_direccion);
@@ -124,7 +124,7 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 
 	if(!validarPedidoMemoria()){
 		log_error(logger, "La variable no pudo dereferenciarse.");
-		salirErrorMemoria();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_MEMORIA;
 		return -1;
 	}
 	else{ // no hubo error de lectura
@@ -134,7 +134,7 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			salirErrorMemoria();
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_MEMORIA;
 			return NULL;
 
 		} else {
@@ -158,11 +158,11 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 	var_escritura->pagina = total_heap_offset / tamanio_pagina;
 	var_escritura->offset = total_heap_offset % tamanio_pagina;
 	var_escritura->contenido = valor;
+	var_escritura->PID = pcbEjecutando->PID;
 
 	log_trace(logger, "Solicitud Escritura -> Página: %i, Offset: %i, Contenido: %d.",
 			var_escritura->pagina, var_escritura->offset, valor);
 
-	//TODO manejar este tipo de operacion en la memoria para escritura
 	socket_enviar(socketMemoria, D_STRUCT_SOL_ESCR, var_escritura);
 
 	free(var_escritura);
@@ -170,7 +170,7 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 
 	if(!validarPedidoMemoria()){
 		log_error(logger, "La variable no pudo asignarse en memoria.");
-		salirErrorMemoria();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_MEMORIA;
 	}
 }
 
@@ -183,7 +183,6 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 	strcpy(obtenerVarCompartida->string,"!\0");
 	strcat(obtenerVarCompartida->string,variableCompartida);
 
-	// TODO manejar en el kernel la solicitud de variables compartidas.
 	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
 	t_tipoEstructura tipoEstructura;
@@ -192,7 +191,7 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 		return NULL;
 
 	} else {
@@ -220,15 +219,36 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 	strcpy(varCompartida->nombre,"!\0");
 	strcat(varCompartida->nombre,variableCompartida);
 
-	//TODO manejar en el kernel
 	socket_enviar(socketKernel,D_STRUCT_GRABAR_COMPARTIDA,varCompartida);
 
-	return valor;
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
+
+		log_error(logger, "El kernel se desconecto del sistema");
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
+		return -1;
+
+	} else {
+
+		// El kernel ante una solicitud de grabar variable compartida debe retornarme el valor asignado.
+		t_valor_variable valor = ((t_struct_numero*) structRecibido)->numero;
+
+		log_trace(logger, "Variable Compartida: '%s' -> Valor: '%d'.", variableCompartida, valor);
+
+		free(structRecibido);
+		structRecibido = NULL;
+
+		return valor;
+	}
+
 }
 
 void irAlLabel(t_nombre_etiqueta etiqueta) {
 
-	log_trace(logger, "Llendo a la etiqueta: '%s'.", etiqueta);
+	log_trace(logger, "Yendo a la etiqueta: '%s'.", etiqueta);
+
 	t_puntero_instruccion posicion_etiqueta = metadata_buscar_etiqueta(etiqueta, pcbEjecutando->indiceEtiquetas, pcbEjecutando->tamanioIndiceEtiquetas);
 
 	if(posicion_etiqueta == -1) log_error(logger, "La etiqueta '%s' no se encuentra en el índice.", etiqueta);
@@ -292,7 +312,6 @@ void retornar(t_valor_variable retorno) {
 //FUNCIONES KERNEL
 void s_wait(t_nombre_semaforo semaforo) {
 
-	//TODO manejar solicitud de wait en el kernel
 	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
 	waitSemaforo->string=semaforo;
 
@@ -305,7 +324,7 @@ void s_wait(t_nombre_semaforo semaforo) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
@@ -313,10 +332,12 @@ void s_wait(t_nombre_semaforo semaforo) {
 		int bloqueado = ((t_struct_numero*) structRecibido)->numero;
 
 		if(bloqueado==1){
-			retornoPCB = WAIT;
+			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_WAIT;
 			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforo);
-		}else {
+		} else if (bloqueado==0) {
 			log_trace(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", pcbEjecutando->PID, semaforo);
+		} else  {
+			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_SEM;
 		}
 
 		free(structRecibido);
@@ -326,7 +347,6 @@ void s_wait(t_nombre_semaforo semaforo) {
 
 void s_signal(t_nombre_semaforo semaforo) {
 
-	//TODO manejar solicitud de signal en el kernel
 	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
 	signalSemaforo->string=semaforo;
 
@@ -339,11 +359,18 @@ void s_signal(t_nombre_semaforo semaforo) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		log_trace(logger, "SIGNAL del semáforo: '%s' realizado exitosamente", semaforo);
+		int resultado = ((t_struct_numero*) structRecibido)->numero;
+
+		if(resultado==KERNEL_ERROR){
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_SEM;
+			log_trace(logger, "No se pudo realizar SIGNAL del semáforo: '%s'", semaforo);
+		} else {
+			log_trace(logger, "SIGNAL del semáforo: '%s' realizado exitosamente", semaforo);
+		}
 
 		free(structRecibido);
 		structRecibido = NULL;
@@ -357,7 +384,7 @@ t_puntero reservar(t_valor_variable espacio) {
 
 	heap->pointer=espacio;
 	heap->pid=pcbEjecutando->PID;
-	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP si esta todo bien, o un D_STRUCT_NUMERO en caso contrario
+	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP
 	socket_enviar(socketKernel,D_STRUCT_SOL_HEAP,heap);
 
 	t_tipoEstructura tipoEstructura;
@@ -366,7 +393,7 @@ t_puntero reservar(t_valor_variable espacio) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 		return -1;
 
 	} else {
@@ -383,11 +410,40 @@ t_puntero reservar(t_valor_variable espacio) {
 
 			break;
 
-		default:
-			log_trace(logger,"No se pudo reservar la memoria dinamica");
+		case D_STRUCT_ERROR_HEAP_MAX: ;
+
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_HEAP_MAX;
+
+			log_error(logger,"Tamaño de pagina solicitada supera el maximo");
 			free(structRecibido);
 			structRecibido = NULL;
+
 			return NULL;
+
+			break;
+
+		case D_STRUCT_ERROR_HEAP: ;
+
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_HEAP;
+
+			log_error(logger,"No se pudo asignar paginas al proceso");
+			free(structRecibido);
+			structRecibido = NULL;
+
+			return NULL;
+
+			break;
+
+		default:
+
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
+
+			log_error(logger,"No se pudo reservar la memoria dinamica");
+			free(structRecibido);
+			structRecibido = NULL;
+
+			return NULL;
+
 			break;
 		}
 	}
@@ -411,11 +467,18 @@ void liberar(t_puntero puntero) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		log_trace(logger, "Se libero correctamente el puntero #%d en la memoria dinamica",puntero);
+		int resultado = ((t_struct_numero*) structRecibido)->numero;
+
+		if(resultado==KERNEL_ERROR){
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_HEAP_LIB;
+			log_trace(logger, "No se pudo liberar el puntero #%d en la memoria dinamica",puntero);
+		} else {
+			log_trace(logger, "Se libero correctamente el puntero #%d en la memoria dinamica",puntero);
+		}
 
 	}
 }
@@ -433,7 +496,6 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 	archivo->flags.escritura=flags.escritura;
 	archivo->flags.lectura=flags.lectura;
 
-	//TODO manejar desde el kernel, debe devolver un numero con el puntero.
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ABR,archivo);
 
 	free(archivo->informacion);
@@ -445,19 +507,31 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 		return -1;
 
 	} else {
 
-		int puntero = ((t_struct_numero*) structRecibido)->numero;
+		int archivo = ((t_struct_numero*) structRecibido)->numero;
+
+		if(archivo==KERNEL_ERROR){
+
+			log_trace(logger, "Error de apertura de archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_APERTURA;
+
+			free(structRecibido);
+			structRecibido = NULL;
+
+			return -1;
+		}
+
+		log_trace(logger, "Apertura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 
 		free(structRecibido);
 		structRecibido = NULL;
 
-		log_trace(logger, "Proceso #%d pudo abrir el archivo");
+		return archivo;
 
-		return puntero;
 	}
 }
 
@@ -469,7 +543,6 @@ void borrar(t_descriptor_archivo fdArchivo) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=0;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_BOR,archivo);
 
 	free(archivo);
@@ -480,14 +553,27 @@ void borrar(t_descriptor_archivo fdArchivo) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		free(structRecibido);
-		structRecibido = NULL;
+		int respuesta = ((t_struct_numero*) structRecibido)->numero;
 
-		log_trace(logger, "Proceso #%d pudo borrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+		if(respuesta==KERNEL_ERROR){
+
+			log_trace(logger, "Error al borrar archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_BORRAR;
+
+			free(structRecibido);
+			structRecibido = NULL;
+		} else {
+
+			log_trace(logger, "Proceso #%d pudo borrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+
+			free(structRecibido);
+			structRecibido = NULL;
+
+		}
 
 	}
 }
@@ -500,7 +586,6 @@ void cerrar(t_descriptor_archivo fdArchivo) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=0;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_CER,archivo);
 
 	free(archivo);
@@ -511,15 +596,27 @@ void cerrar(t_descriptor_archivo fdArchivo) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		free(structRecibido);
-		structRecibido = NULL;
+		int respuesta = ((t_struct_numero*) structRecibido)->numero;
 
-		log_trace(logger, "Proceso #%d pudo cerrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+		if(respuesta==KERNEL_ERROR){
 
+			log_trace(logger, "Error al cerrar archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_CERRAR;
+
+			free(structRecibido);
+			structRecibido = NULL;
+		} else {
+
+			log_trace(logger, "Proceso #%d pudo cerrar el archivo %d",pcbEjecutando->PID,fdArchivo);
+
+			free(structRecibido);
+			structRecibido = NULL;
+
+		}
 	}
 }
 
@@ -531,7 +628,6 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 	archivo->pid=pcbEjecutando->PID;
 	archivo->tamanio=posicion;
 
-	// TODO manejar desde el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_MOV,archivo);
 
 	free(archivo);
@@ -542,14 +638,27 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		free(structRecibido);
-		structRecibido = NULL;
+		int respuesta = ((t_struct_numero*) structRecibido)->numero;
 
-		log_trace(logger, "Proceso #%d pudo mover el cursor dentro del archivo %d",pcbEjecutando->PID,fdArchivo);
+		if(respuesta==KERNEL_ERROR){
+
+			log_trace(logger, "Error al mover el cursor dentro del archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_CURSOR;
+
+			free(structRecibido);
+			structRecibido = NULL;
+		} else {
+
+			log_trace(logger, "Proceso #%d pudo mover el cursor dentro del archivo %d",pcbEjecutando->PID,fdArchivo);
+
+			free(structRecibido);
+			structRecibido = NULL;
+
+		}
 
 	}
 }
@@ -564,7 +673,6 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 	archivo->tamanio=tamanio;
 	archivo->pid=pcbEjecutando->PID;
 
-	//TODO Manejar en el kernel
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ESC,archivo);
 
 	t_tipoEstructura tipoEstructura;
@@ -573,9 +681,16 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
 	} else {
+
+		int resultado = ((t_struct_numero*) structRecibido)->numero;
+
+		if(resultado==KERNEL_ERROR){
+			log_trace(logger, "Error de escritura de archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_ESCRITURA;
+		}
 
 		log_trace(logger, "Escritura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 
@@ -606,11 +721,25 @@ void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variabl
 	if (socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "El kernel se desconecto del sistema");
-		salirErrorCpu();
+		pcbEjecutando->retornoPCB = D_STRUCT_ERROR_KERNEL;
 
 	} else {
 
-		log_trace(logger, "Proceso #%d leyo del archivo '%d'.", pcbEjecutando->PID, fdArchivo);
+		int resultado = ((t_struct_numero*) structRecibido)->numero;
+
+		if(resultado==KERNEL_ERROR){
+			log_trace(logger, "Error de Lectura de archivo para el PID %d",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_LECTURA;
+			return;
+		}
+
+		socket_recibir(socketKernel, &tipoEstructura, &structRecibido);
+
+		t_struct_string * lectura = ((t_struct_string*) structRecibido);
+
+		asignar(informacion,atoi(lectura->string));
+
+		log_trace(logger, "Lectura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 
 		free(structRecibido);
 		structRecibido = NULL;
