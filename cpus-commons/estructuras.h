@@ -129,12 +129,13 @@ enum{
 	D_STRUCT_IMPR=6,
 	D_STRUCT_FIN_PROG=7,
 	D_STRUCT_SOLICITAR_CODIGO=52,
+	D_STRUCT_FIN_PCB=57,
 
 	//Comunicacion Kernel - CPU
 	D_STRUCT_PCB=8,
 	D_STRUCT_ABORT=12,
 	D_STRUCT_SIGUSR1=13,
-	D_STRUCT_PCB_FINOK=15,
+	D_STRUCT_PCB_FIN_OK=15,
 	D_STRUCT_WAIT=16,
 	D_STRUCT_SIGNAL=17,
 	D_STRUCT_OBTENER_COMPARTIDA=18,
@@ -148,7 +149,12 @@ enum{
 	D_STRUCT_ARCHIVO_CER=26,
 	D_STRUCT_ARCHIVO_BOR=27,
 	D_STRUCT_ARCHIVO_MOV=28,
-	D_STRUCT_PCB_FIN_QUANTUM=48,
+	D_STRUCT_PCB_FIN_ERROR=48,
+	D_STRUCT_ABORTAR_EJECUCION=53,
+	D_STRUCT_CONTINUAR_EJECUCION=54,
+	D_STRUCT_FIN_QUANTUM=55,
+	D_STRUCT_FIN_INSTRUCCION=56,
+
 
 	//Motivos de Retorno PCB
 	D_STRUCT_ERROR_MEMORIA=33,
@@ -173,6 +179,7 @@ enum{
 	D_STRUCT_LECT_VAR=11,
 	D_STRUCT_SOL_ESCR=14,
 
+
 	//Comunicacion Kernel - Filesystem
 	D_STRUCT_BORRAR = 29,
 	D_STRUCT_ABRIR = 30,
@@ -193,6 +200,7 @@ enum{
 	//Confirmaciones kernel
 	KERNEL_OK=107,
 	KERNEL_ERROR=108,
+	KERNEL_MULTIPROG=999,
 
 	//Confirmaciones Filesystem
 	FS_ABRIR_CREAR_OK=109,
@@ -200,7 +208,11 @@ enum{
 	FS_ABRIR_NO_CREAR_OK=111,
 	FS_ABRIR_NO_CREAR_ERROR=112,
 	FS_BORRAR_OK=113,
-	FS_BORRAR_ERROR=114
+	FS_BORRAR_ERROR=114,
+	FS_ESCRIBIR_OK=115,
+	FS_ESCRIBIR_ERROR=116,
+	FS_LEER_ERROR=117,
+	FS_LEER_OK=118
 
 
 
@@ -263,11 +275,12 @@ enum {
 	EC_FINALIZADO_CONSOLA=-7,
 	EC_RESERVA_MAYOR_PAGINA=-8,
 	EC_MAXIMO_PAGINAS=9,
+	EC_DESCONEXION_CPU=10,
+	EC_DESCONEXION_KERNEL=11,
+	EC_STACK_OVERFLOW=12,
 	EC_SIN_DEFINICION=-20
 } exitCodeValidos;
 
-
-// TODO serializar los nuevos campos!!
 typedef struct struct_pcb {
 		int PID;
 		int programCounter;
@@ -284,9 +297,8 @@ typedef struct struct_pcb {
 		char * indiceEtiquetas;
 		int exitcode;
 		uint32_t cantidadInstrucciones;
-		uint32_t quantum;
 		uint32_t quantum_sleep;
-		uint32_t rafagas;
+		uint32_t retornoPCB;
 		uint32_t estado;
 
 } __attribute__ ((__packed__)) t_struct_pcb;
@@ -294,6 +306,10 @@ typedef struct struct_pcb {
 typedef struct {
 	int pagina, offset, contenido, PID;
 } __attribute__((packed)) t_struct_sol_escritura;
+
+typedef struct {
+	int pagina, offset, contenido, PID;
+} __attribute__((packed)) t_struct_sol_lectura;
 
 typedef struct {
 	t_nombre_variable * nombre;

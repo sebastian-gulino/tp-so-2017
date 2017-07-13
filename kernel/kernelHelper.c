@@ -34,8 +34,8 @@ t_configuracion cargarConfiguracion() {
 	configuracion.quantum = config_get_int_value(config, "QUANTUM");
 	log_info(logger,"QUANTUM = %d",configuracion.quantum);
 
-	configuracion.quantumSleep = strdup(config_get_string_value(config, "QUANTUM_SLEEP"));
-	log_info(logger,"QUANTUM_SLEEP = %s",configuracion.quantumSleep);
+	configuracion.quantumSleep = config_get_int_value(config, "QUANTUM_SLEEP");
+	log_info(logger,"QUANTUM_SLEEP = %d",configuracion.quantumSleep);
 
 	configuracion.algoritmo = strdup(config_get_string_value(config, "ALGORITMO"));
 	log_info(logger,"ALGORITMO = %s",configuracion.algoritmo);
@@ -165,11 +165,38 @@ void manejarCpu(int socketCPU){
 
 	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
-		removerClientePorCierreDeConexion(socketCPU,listaCpuLibres,&master_cpu);
-		//TODO Incorporar la logica para liquidar procesos
+		matarProcesoEnEjecucion(socketCPU, true);
+		removerClientePorCierreDeConexion(socketCPU,&master_cpu);
+
 	} else {
 
 		switch(tipoEstructura){
+		case D_STRUCT_SIGUSR1: ;
+
+			// La cpu quiere obtener el valor de una variable compartida
+			t_struct_pcb * pcbSIGUSR = ((t_struct_pcb*) structRecibido);
+			actualizarPCBExec(pcbSIGUSR);
+			matarProcesoEnEjecucion(socketCPU, true);
+
+			break;
+
+		case D_STRUCT_PCB_FIN_ERROR: ;
+
+			// La cpu quiere obtener el valor de una variable compartida
+			t_struct_pcb * pcbFinError = ((t_struct_pcb*) structRecibido);
+			actualizarPCBExec(pcbFinError);
+			matarProcesoEnEjecucion(socketCPU, false);
+
+			break;
+
+		case D_STRUCT_PCB_FIN_OK: ;
+
+			// La cpu quiere obtener el valor de una variable compartida
+			t_struct_pcb * pcbFinOk = ((t_struct_pcb*) structRecibido);
+			finalizarProcesoOk(socketCPU, pcbFinOk);
+
+			break;
+
 		case D_STRUCT_OBTENER_COMPARTIDA: ;
 
 			// La cpu quiere obtener el valor de una variable compartida
@@ -199,6 +226,12 @@ void manejarCpu(int socketCPU){
 			// La cpu quiere realizar signal de un semaforo
 			char * signalSemaforo = ((t_struct_string*) structRecibido)->string ;
 			realizarSignalSemaforo(socketCPU,signalSemaforo);
+
+			break;
+
+		case D_STRUCT_FIN_INSTRUCCION: ;
+
+			ejecutarPlanificacion(socketCPU);
 
 			break;
 
@@ -242,6 +275,15 @@ void manejarCpu(int socketCPU){
 
 			break;
 
+		case D_STRUCT_ARCHIVO_LEC: ;
+
+			// La cpu quiere escribir en un archivo
+			t_struct_archivo * archivoLeer = ((t_struct_archivo*) structRecibido);
+			leerArchivo(socketCPU, archivoLeer);
+
+			break;
+
+
 		}
 
 	}
@@ -255,8 +297,9 @@ void manejarConsola(int socketConsola){
 	if (socket_recibir(socketConsola,&tipoEstructura,&structRecibido) == -1) {
 
 		log_info(logger,"La Consola %d cerró la conexión.",socketConsola);
+		//TODO incluir para eliminar de la lista de consolas
 		abortarPrograma(socketConsola,false);
-		removerClientePorCierreDeConexion(socketConsola,listaConsolas,&master_consola);
+		removerClientePorCierreDeConexion(socketConsola,&master_consola);
 
 	} else {
 
@@ -386,13 +429,7 @@ void crearThreadAtenderConexiones(){
 
 }
 
-void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet) {
-
-	//Elimino el cliente de la lista
-	bool _es_cliente_numero(int elemento) {
-		return (elemento == cliente);
-	}
-	list_remove_by_condition(lista, (void*) _es_cliente_numero);
+void removerClientePorCierreDeConexion(int cliente, fd_set *fdSet) {
 
 	//Elimino el cliente del fd_set
 	FD_CLR(cliente,fdSet);
@@ -661,10 +698,8 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 			t_metadata_program* datosPrograma = metadata_desde_literal(programa);
 
-			pcb->quantum=configuracion.quantum;
 			pcb->quantum_sleep=configuracion.quantumSleep;
 			pcb->programCounter=datosPrograma->instruccion_inicio;
-			pcb->rafagas=0;
 			pcb->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
 			pcb->cantidadInstrucciones=datosPrograma->instrucciones_size;
 
@@ -700,15 +735,14 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 		list_add(listaProcesos,registroProceso);
 
-		pid_struct->numero = pcb->PID;
+		pid_struct->numero = KERNEL_MULTIPROG;
 		socket_enviar(socketConsola, D_STRUCT_NUMERO, pid_struct);
 		free(pid_struct);
 
 	}
 
 	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
-		//TODO implementar.
-		//planificar(NULL);
+		ejecutarPlanificacion(NULL);
 	}
 
 }
@@ -973,11 +1007,7 @@ void informarFinalizacionConsola(t_struct_pcb * pcb){
 
 	t_registroTablaProcesos * proceso = obtenerConsolaPorPID(pcb->PID);
 
-	t_struct_numero * PID = malloc(sizeof(t_struct_numero));
-	PID->numero = pcb->PID;
-
-	socket_enviar(proceso->socket,D_STRUCT_FIN_PROG,PID);
-	free(PID);
+	socket_enviar(proceso->socket,D_STRUCT_FIN_PCB,pcb);
 	eliminarProcesoLista(proceso);
 }
 
@@ -1142,7 +1172,6 @@ void traerProcesoColaNew(){
 	t_struct_numero * pidNew = malloc(sizeof(t_struct_numero));
 	pidNew->numero=pcbNew->PID;
 
-	// TODO HANDLEAR EN LA CONSOLA
 	socket_enviar(proceso->socket,D_STRUCT_SOLICITAR_CODIGO,pidNew);
 
 	t_tipoEstructura tipoEstructura;
@@ -1174,10 +1203,8 @@ void traerProcesoColaNew(){
 
 		t_metadata_program* datosPrograma = metadata_desde_literal(programa);
 
-		pcbNew->quantum=configuracion.quantum;
 		pcbNew->quantum_sleep=configuracion.quantumSleep;
 		pcbNew->programCounter=datosPrograma->instruccion_inicio;
-		pcbNew->rafagas=0;
 		pcbNew->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
 
 		memcpy(pcbNew->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
@@ -1204,8 +1231,7 @@ void traerProcesoColaNew(){
 	free(structRecibido);
 
 	if(list_size(listaCpuLibres)>0){
-		//TODO Implementar
-		//planificar(NULL);
+		ejecutarPlanificacion(NULL);
 	}
 
 }
@@ -1224,8 +1250,7 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
 			if(list_size(listaCpuLibres)>0){
-				// TODO Implementar
-				// planificar(NULL);
+				ejecutarPlanificacion(NULL);
 			}
 			break;
 		}
@@ -1297,7 +1322,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				}
 
 				if (list_size(cola_ready) > 0) {
-					planificar(NULL);
+					ejecutarPlanificacion(NULL);
 				}
 			}
 		}
@@ -1537,47 +1562,42 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
 
-	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+	t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
 
+	if(registroArchivoProceso==NULL){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
 
 		free(resultadoBorrar);
-
-	} else {
-
-		t_registroArchivosProc * registroArchivoProceso =
-				list_get(tablaArchivosProceso,archivo->fileDescriptor);
-
-		if(registroArchivoProceso==NULL){
-
-			resultadoBorrar->numero = KERNEL_ERROR;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
-
-			free(resultadoBorrar);
-
-		} else {
-
-			list_remove(tablaArchivosProceso,archivo->fileDescriptor);
-
-			t_registroArchivosGlobal * registroGlobal =
-					list_get(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
-
-			if(registroGlobal->cantidadAbierto==1){
-				list_remove(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
-			} else{
-				registroGlobal->cantidadAbierto--;
-			}
-
-			resultadoBorrar->numero = KERNEL_OK;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
-			log_info(logger,"El proceso %d pudo cerrar el archivo solicitado", archivo->pid);
-
-			free(resultadoBorrar);
-		}
+		return;
 	}
+
+	t_registroArchivosGlobal * registroGlobal = obtenerRegistroTablaGlobal(registroArchivoProceso);
+	if(registroGlobal==NULL){
+		resultadoBorrar->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
+
+		free(resultadoBorrar);
+		return;
+	}
+
+	list_remove(tablaArchivosProceso,archivo->fileDescriptor);
+
+	if(registroGlobal->cantidadAbierto==1){
+		list_remove(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
+	} else{
+		registroGlobal->cantidadAbierto--;
+	}
+
+	resultadoBorrar->numero = KERNEL_OK;
+	socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
+	log_info(logger,"El proceso %d pudo cerrar el archivo solicitado", archivo->pid);
+
+	free(resultadoBorrar);
+
+
 }
 
 void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
@@ -1587,42 +1607,401 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
 
-	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+	t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
 
-	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+	if(registroArchivoProceso==NULL){
+		resultadoMover->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
+		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
 
-			resultadoMover->numero = KERNEL_ERROR;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
-			log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
+		free(resultadoMover);
+		return;
+	}
 
-			free(resultadoMover);
+	registroArchivoProceso->cursor=archivo->tamanio;
 
-	} else {
+	resultadoMover->numero = KERNEL_OK;
+	socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
+	log_info(logger,"El proceso %d movio el cursor dentro del archivo solicitado", archivo->pid);
 
-		t_registroArchivosProc * registroArchivoProceso =
-				list_get(tablaArchivosProceso,archivo->fileDescriptor);
+	free(resultadoMover);
 
-		if(registroArchivoProceso==NULL){
+}
 
-			resultadoMover->numero = KERNEL_ERROR;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
-			log_info(logger,"El proceso %d no tiene abierto el archivo solicitado", archivo->pid);
+void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
-			free(resultadoMover);
+	t_struct_numero * resultadoEscribir = malloc(sizeof(t_struct_numero));
+
+	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
+	registroInfo->syscall++;
+
+	if(archivo->fileDescriptor==1){
+
+		t_registroTablaProcesos* registroProceso = obtenerConsolaPorPID(archivo->pid);
+
+		if(registroProceso->socket!=NULL){
+
+			t_struct_string * textoImprimir = malloc(sizeof(t_struct_string));
+			textoImprimir->string = archivo->informacion;
+
+			t_struct_numero * tamanioImprimir = malloc(sizeof(t_struct_numero));
+			tamanioImprimir->numero = archivo->tamanio;
+
+			socket_enviar(registroProceso->socket,D_STRUCT_IMPR,textoImprimir);
+
+			socket_enviar(registroProceso->socket,D_STRUCT_NUMERO,tamanioImprimir);
+
+			resultadoEscribir->numero = KERNEL_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
+			log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+			free(resultadoEscribir);
+			return;
 
 		} else {
 
-			registroArchivoProceso->cursor=archivo->tamanio;
+			resultadoEscribir->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
+			log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+			free(resultadoEscribir);
+			return;
 
-			resultadoMover->numero = KERNEL_OK;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
-			log_info(logger,"El proceso %d movio el cursor dentro del archivo solicitado", archivo->pid);
+		}
 
-			free(resultadoMover);
+	} else {
+
+		t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
+
+		if(registroArchivoProceso==NULL){
+			resultadoEscribir->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
+			log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+
+			free(resultadoEscribir);
+			return;
+		}
+
+		t_registroArchivosGlobal * registroGlobal = obtenerRegistroTablaGlobal(registroArchivoProceso);
+
+		t_struct_string * path = malloc(sizeof(t_struct_string));
+		path->string = registroGlobal->nombre;
+
+		t_struct_numero * offset = malloc(sizeof(t_struct_numero));
+
+		offset->numero=registroArchivoProceso->cursor;
+
+		//Envio el archivo que tengo que escribir al filesystem
+		socket_enviar(socketFS,D_STRUCT_ARCHIVO_ESC,archivo);
+
+		//Envio el desplazamiento para la escritura dentro del archivo.
+		socket_enviar(socketFS,D_STRUCT_NUMERO,offset);
+
+		//Envio el path del archivo.
+		socket_enviar(socketFS,D_STRUCT_STRING,path);
+
+
+		t_tipoEstructura tipoEstructura;
+		void * structRecibido;
+
+		socket_recibir(socketFS,&tipoEstructura,&structRecibido);
+
+		t_struct_guardar * respuestaGuardar = ((t_struct_guardar*) structRecibido);
+
+		if(respuestaGuardar->confirmacion==FS_ESCRIBIR_OK){
+
+			registroArchivoProceso->cursor+=archivo->tamanio;
+			resultadoEscribir->numero = KERNEL_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
+			log_info(logger,"El archivo %d se pudo escribir", archivo->fileDescriptor);
+
+			free(resultadoEscribir);
+		} else {
+
+			resultadoEscribir->numero = KERNEL_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
+			log_info(logger,"El archivo %d no se pudo borrar", archivo->fileDescriptor);
+
+			free(resultadoEscribir);
+
+		}
+
+	}
+
+}
+
+void leerArchivo(int socketCPU,t_struct_archivo * archivo){
+
+	t_struct_numero * resultadoLeer = malloc(sizeof(t_struct_numero));
+
+	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
+	registroInfo->syscall++;
+
+	t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
+
+	if(registroArchivoProceso==NULL){
+		resultadoLeer->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoLeer);
+		log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+
+		free(resultadoLeer);
+		return;
+	}
+
+	t_registroArchivosGlobal * registroGlobal = obtenerRegistroTablaGlobal(registroArchivoProceso);
+
+	t_struct_string * path = malloc(sizeof(t_struct_string));
+	path->string = registroGlobal->nombre;
+
+	t_struct_numero * offset = malloc(sizeof(t_struct_numero));
+
+	offset->numero=registroArchivoProceso->cursor;
+
+	//Envio el archivo que tengo que escribir al filesystem
+	socket_enviar(socketFS,D_STRUCT_ARCHIVO_LEC,archivo);
+
+	//Envio el desplazamiento para la escritura dentro del archivo.
+	socket_enviar(socketFS,D_STRUCT_NUMERO,offset);
+
+	//Envio el path del archivo.
+	socket_enviar(socketFS,D_STRUCT_STRING,path);
+
+
+	t_tipoEstructura tipoEstructura;
+	void * structRecibido;
+
+	socket_recibir(socketFS,&tipoEstructura,&structRecibido);
+
+	t_struct_obtener * respuestaLeer = ((t_struct_obtener*) structRecibido);
+
+	if(respuestaLeer->confirmacion==FS_LEER_OK){
+
+		registroArchivoProceso->cursor+=archivo->tamanio;
+
+		resultadoLeer->numero = KERNEL_OK;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoLeer);
+		log_info(logger,"El archivo %d se pudo leer", archivo->fileDescriptor);
+
+		free(resultadoLeer);
+
+		t_struct_string * lectura = malloc(sizeof(t_struct_string));
+
+		lectura->string = respuestaLeer->obtenido;
+
+		socket_enviar(socketCPU, D_STRUCT_STRING, lectura);
+
+		free(lectura);
+
+	} else {
+
+		resultadoLeer->numero = KERNEL_ERROR;
+		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoLeer);
+		log_info(logger,"El archivo %d no se pudo borrar", archivo->fileDescriptor);
+
+		free(resultadoLeer);
+
+	}
+
+}
+
+bool correspondeAbortarProcesoDeCPU(int socketCPU){
+
+	t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
+
+	t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
+
+	if(verificarProcesoFinalizar(pcb)) return true;
+
+	return false;
+
+}
+
+int determinarExitCode(t_struct_pcb * pcb){
+
+	int motivoRetorno = pcb->retornoPCB;
+
+	if(motivoRetorno==D_STRUCT_ERROR_MEMORIA) return EC_EXCEP_MEMORIA;
+	if(motivoRetorno==D_STRUCT_ERROR_KERNEL) return EC_DESCONEXION_KERNEL;
+	if(motivoRetorno==D_STRUCT_ERROR_ESCRITURA) return EC_ARCHIVO_LE_PERMISOS;
+	if(motivoRetorno==D_STRUCT_ERROR_LECTURA) return EC_ARCHIVO_ES_PERMISOS;
+	if(motivoRetorno==D_STRUCT_ERROR_HEAP_MAX) return EC_RESERVA_MAYOR_PAGINA;
+	if(motivoRetorno==D_STRUCT_ERROR_STACK_OVERFLOW) return EC_STACK_OVERFLOW;
+	if(motivoRetorno==D_STRUCT_ERROR_HEAP) return EC_EXCEP_MEMORIA;
+	if(motivoRetorno==D_STRUCT_ERROR_HEAP_LIB) return EC_EXCEP_MEMORIA;
+
+	return EC_SIN_DEFINICION;
+
+}
+
+void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
+
+	t_cpu * cpu = obtenerCPUporSocket(socketCPU,desconectarCPU);
+
+	if(cpu->PID!=0 && cpu->PID!=NULL){
+		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
+
+		if(pcb->estado==E_EXEC){
+			//TODO IMPLEMENTAR
+			pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
+			liberarMemoriaProceso(pcb);
+			informarLiberarHeap(pcb);
+			informarFinalizacionConsola(pcb);
+			removerDeCola(cola_exec,cola_exit,E_EXIT,pcb->PID,true,true,true);
+			traerProcesoColaNew();
 		}
 	}
 }
 
-void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
+void ejecutarProximoProceso(t_cpu * cpuEjecutar){
+
+	t_struct_pcb * pcbEjecutar = list_get(cola_ready,0);
+
+	if(pcbEjecutar==NULL){
+		log_info(logger,"No hay procesos en la cola de listos para ejecutar");
+		return;
+	}
+
+	removerDeCola(cola_ready,cola_exec,E_EXEC,pcbEjecutar->PID,false,false,false);
+
+	t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbEjecutar->PID);
+	registro->rafagas++;
+	cpuEjecutar->PID=pcbEjecutar->PID;
+
+	socket_enviar(cpuEjecutar->socket,D_STRUCT_PCB,pcbEjecutar);
+
+}
+
+void ejecutarPlanificacion(int socketCPU){
+
+	if(!kernelPlanificando){
+		log_info(logger,"Se solicita planificar pero el kernel no esta planificando");
+		return;
+	}
+
+	//TODO RECARGAR QUANTUM SLEEP
+//	if (recargarConfig) {
+//			recargarConfig = false;
+//			recargarQuantumSpeed();
+//		}
+
+	if(socketCPU != 0 || socketCPU != NULL){
+
+		if(correspondeAbortarProcesoDeCPU(socketCPU)){
+
+			t_struct_numero * abortar = malloc(sizeof(t_struct_numero));
+			abortar->numero=1;
+
+			socket_enviar(socketCPU,D_STRUCT_ABORTAR_EJECUCION,abortar);
+
+			t_tipoEstructura tipoEstructura;
+			void * structRecibido;
+
+			socket_recibir(socketCPU,&tipoEstructura,&structRecibido);
+
+			t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
+
+			actualizarPCBExec(pcbEjecutando);
+
+			removerDeCola(cola_exec,cola_exit,E_EXIT,pcbEjecutando->PID,true,false,true);
+
+			liberarMemoriaProceso(pcbEjecutando);
+
+			informarFinalizacionConsola(pcbEjecutando);
+
+			informarLiberarHeap(pcbEjecutando);
+
+			traerProcesoColaNew();
+
+			t_cpu* cpu = obtenerCPUporSocket(socketCPU,true);
+			list_add(listaCpuLibres,cpu);
+
+			ejecutarProximoProceso(cpu);
+			return;
+		}
+
+		if(string_equals_ignore_case(configuracion.algoritmo,"FIFO")){
+
+			t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
+			quantumSleep->numero=configuracion.quantumSleep;
+
+			socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
+
+			t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
+
+			t_registroInformacionProceso * registro = recuperarInformacionProceso(cpu->PID);
+			registro->rafagas++;
+
+		} else {
+
+			t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
+
+			if(cpu->quantum==configuracion.quantum){
+
+				t_struct_numero * finQuantum = malloc(sizeof(t_struct_numero));
+				finQuantum->numero=1;
+
+				socket_enviar(socketCPU,D_STRUCT_FIN_QUANTUM,finQuantum);
+
+				t_tipoEstructura tipoEstructura;
+				void * structRecibido;
+
+				socket_recibir(socketCPU,&tipoEstructura,&structRecibido);
+
+				t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
+
+				actualizarPCBExec(pcbEjecutando);
+
+				removerDeCola(cola_exec,cola_ready,E_READY,pcbEjecutando->PID,false,false,false);
+
+				cpu->quantum=1;
+
+				ejecutarProximoProceso(cpu);
+
+			} else {
+
+				t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
+				quantumSleep->numero=configuracion.quantumSleep;
+
+				socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
+
+				t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
+
+				t_registroInformacionProceso * registro = recuperarInformacionProceso(cpu->PID);
+				registro->rafagas++;
+				cpu->quantum++;
+
+			}
+
+		}
+
+	} else {
+
+		if(list_size(listaCpuLibres)==0){
+			log_info(logger,"No hay CPU disponible para la planificacion");
+			return;
+		}
+
+		t_cpu* cpu = list_get(listaCpuLibres,0);
+		obtenerCPUporSocket(cpu->socket,true);
+		list_add(listaCpuOcupadas,cpu);
+
+		if(!string_equals_ignore_case(configuracion.algoritmo,"FIFO")) cpu->quantum++;
+
+		ejecutarProximoProceso(cpu);
+
+	}
+
+}
+
+void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
+
+	t_cpu * cpu = obtenerCPUporSocket(socketCPU,true);
+	list_add(listaCpuLibres,cpu);
+	pcbFinalizado->exitcode=EC_FINALIZO_OK;
+	actualizarPCBExec(pcbFinalizado);
+	liberarMemoriaProceso(pcbFinalizado);
+	informarLiberarHeap(pcbFinalizado);
+	informarFinalizacionConsola(pcbFinalizado);
+	removerDeCola(cola_exec,cola_exit,E_EXIT,pcbFinalizado->PID,true,true,true);
+	traerProcesoColaNew();
+	if(list_size(cola_ready)>0) ejecutarPlanificacion(NULL);
 
 }

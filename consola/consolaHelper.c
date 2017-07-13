@@ -190,7 +190,16 @@ void iniciarPrograma(char* pathArchivo){
 
 		close(socketKernel);
 		pthread_cancel(pthread_self());
-	};
+	} else if (((t_struct_numero *)structRecibido)->numero == KERNEL_MULTIPROG){
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger, "El proceso queda en la cola de new por el grado de multiprogramacion, espero la solicitud");
+		pthread_mutex_unlock(&mutex_log);
+
+		socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
+
+		if(tipoEstructura==D_STRUCT_SOLICITAR_CODIGO) socket_enviar(socketKernel, D_STRUCT_PROG, &programa);
+
+	}
 
 	t_proceso* proceso = malloc(sizeof(t_proceso));
 
@@ -232,7 +241,6 @@ void recibirMensajes(t_proceso* proceso){
 		signal(SIGUSR1, manejarSignal);
 
 		if (socket_recibir(proceso->socketKernel, &tipoEstructura, &structRecibido) != -1) {
-			//TODO manejar impresiones en el kernel
 			switch(tipoEstructura){
 			case D_STRUCT_IMPR:
 				;
@@ -261,9 +269,24 @@ void recibirMensajes(t_proceso* proceso){
 				free(structRecibido);
 
 				break;
-			case D_STRUCT_FIN_PROG:
-				//El programa finalizo correctamente
-				printf("El proceso con PID:%d finalizó correctamente \n",proceso->pid);
+			case D_STRUCT_FIN_PCB: ;
+
+				t_struct_pcb * pcbFinOk = ((t_struct_pcb*) structRecibido);
+
+				if(pcbFinOk->exitcode==EC_FINALIZO_OK) printf("El proceso con PID:%d finalizó OK \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_ARCHIVO_ES_PERMISOS) printf("El proceso con PID:%d finalizó por intentar escribir archivo sin permisos \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_ARCHIVO_INEX) printf("El proceso con PID:%d finalizó por intentar acceder a un archivo inexistente \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_ARCHIVO_LE_PERMISOS) printf("El proceso con PID:%d finalizó por intentar leer archivo sin permisos \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_DESCONEXION_CONSOLA) printf("El proceso con PID:%d finalizó por desconectarse la consola \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_DESCONEXION_CPU) printf("El proceso con PID:%d finalizó por desconectarse la CPU \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_DESCONEXION_KERNEL) printf("El proceso con PID:%d finalizó por desconectarse el kernel \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_EXCEP_MEMORIA) printf("El proceso con PID:%d finalizó por una excepcion de memoria \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_FINALIZADO_CONSOLA) printf("El proceso con PID:%d fue finalizado por consola \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_MAXIMO_PAGINAS) printf("El proceso con PID:%d finalizó por solicitar mas paginas del valor maximo \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_RESERVA_MAYOR_PAGINA) printf("El proceso con PID:%d finalizó por intentar reservar heap mayor al tamano de pagina \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_STACK_OVERFLOW) printf("El proceso con PID:%d finalizó por STACK OVERFLOW \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_SIN_DEFINICION) printf("El proceso con PID:%d finalizó por un error sin definicion \n",proceso->pid);
+
 				free(structRecibido);
 
 				terminarProceso(proceso);

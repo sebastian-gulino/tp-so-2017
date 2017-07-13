@@ -254,15 +254,45 @@ void manejarKernel(int i){
 
 			break;
 
-			case D_STRUCT_GUARDAR:
+			case D_STRUCT_ARCHIVO_ESC:
 
-				guardarDatos(((t_struct_guardar *) structRecibido));
+				t_struct_archivo * archivoEsc = ((t_struct_archivo*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_numero * desplazamiento = ((t_struct_numero*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_string * path = ((t_struct_numero*) structRecibido);
+
+				t_struct_guardar * archivoGuardar = malloc(sizeof(t_struct_guardar));
+				archivoGuardar->path = path->string;
+				archivoGuardar->modo_escritura=archivoEsc->flags.escritura ? 1 : 0;
+				archivoGuardar->offset=desplazamiento->numero;
+				archivoGuardar->size = archivoEsc->tamanio;
+				archivoGuardar->buffer = archivoEsc->informacion;
+
+				guardarDatos(archivoGuardar);
 
 			break;
 
-			case D_STRUCT_OBTENER:
+			case D_STRUCT_ARCHIVO_LEC:
 
-				obtenerDatos(((t_struct_obtener *) structRecibido));
+				t_struct_archivo * archivoLec = ((t_struct_archivo*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_numero * desplazamiento = ((t_struct_numero*) structRecibido);
+
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_string * path = ((t_struct_numero*) structRecibido);
+
+				t_struct_obtener * archivoLeer = malloc(sizeof(t_struct_obtener));
+
+				archivoLeer->path=path->string;
+				archivoLeer->modo_lectura=archivoLec->flags.lectura ? 1 : 0;
+				archivoLeer->size=archivoLec->tamanio;
+				archivoLeer->offset=desplazamiento->numero;
+
+				obtenerDatos(archivoLeer);
 
 			break;
 			}

@@ -198,7 +198,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		log_error(logger, "El archivo del path: %s no tiene permisos de lectura", pathFile);
 
-		toSend->confirmacion = 0;
+		toSend->confirmacion = FS_LEER_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		return;
 	}
@@ -222,7 +222,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 			log_error(logger, "Se esta intentando leer fuera de los datos del archivo del path: %s ", pathFile);
 
-			toSend->confirmacion = -1;
+			toSend->confirmacion = FS_LEER_ERROR;
 			socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 			return;
 		}
@@ -261,7 +261,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 			if(pread(fd, buffer, readSize, archivo->offset)< 0){
 				log_error(logger, "Error de lectura (%s) del archivo en el path: %s ", strerror(errno), pathFile);
 
-				toSend->confirmacion = -2;
+				toSend->confirmacion = FS_LEER_ERROR;
 				socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 							return;
 
@@ -291,7 +291,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		toSend->obtenido = bufferToSend;
 
-		toSend->confirmacion = 1;
+		toSend->confirmacion = FS_LEER_OK;
 		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 		log_info(logger, "Se leyeron %d bytes de datos del archivo en el path: %s", tamanioTotal, pathFile);
 		return;
@@ -300,7 +300,6 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 //Guardado de datos en los bloques de un archivo dado un buffer(los datos), offset y tamaño de escritura
 void guardarDatos(t_struct_guardar * archivo){
-
 
 	t_config * fileData;
 	off_t posicion = 0;
@@ -318,12 +317,12 @@ void guardarDatos(t_struct_guardar * archivo){
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
 		log_info(logger, "El archivo del path: %s no existe", pathFile);
-		toSend->confirmacion = -1;
+		toSend->confirmacion = FS_ESCRIBIR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}	if(archivo->modo_escritura == 0){ //Verifico que el modo escritura este activo
 		log_info(logger, "El archivo del path: %s no tiene permisos de escritura", pathFile);
-		toSend->confirmacion = -2;
+		toSend->confirmacion = FS_ESCRIBIR_ERROR;
 		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 		return;
 	}
@@ -385,7 +384,7 @@ void guardarDatos(t_struct_guardar * archivo){
 						if(bloquesLibres()==0){
 
 							log_error(logger, "No se pueden guardar los datos en el archivo: %s, por falta de bloques", pathFile);
-							toSend->confirmacion = -3;
+							toSend->confirmacion = FS_ESCRIBIR_ERROR;
 							socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 							return;
 
@@ -447,7 +446,7 @@ void guardarDatos(t_struct_guardar * archivo){
 			if(pwrite(fd, block_buffer, writeSize, archivo->offset)<0){
 				log_error(logger, "Error de escritura (%s) del archivo en el path: %s ", strerror(errno), pathFile);
 
-						toSend->confirmacion = -5;
+						toSend->confirmacion = FS_ESCRIBIR_ERROR;
 						socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
 					break;
 			}
@@ -509,12 +508,12 @@ void guardarDatos(t_struct_guardar * archivo){
 			if(archivo->size>0){
 
 				log_error(logger, "No se guardaron %d bytes en el archivo del path: %s.", archivo->size, pathFile);
-				toSend->confirmacion = -4;
+				toSend->confirmacion = FS_ESCRIBIR_ERROR;
 				socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 				return;
 			}
 
-			toSend->confirmacion = 1;
+			toSend->confirmacion = FS_ESCRIBIR_OK;
 			socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
 
 	return;

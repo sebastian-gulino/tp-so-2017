@@ -27,7 +27,7 @@ typedef struct config_t {
 	char * ipFS;
 	int puertoFS;
 	int quantum;
-	char * quantumSleep;
+	int quantumSleep;
 	char * algoritmo;
 	int gradoMultiprog;
 	char * semIDS;
@@ -104,7 +104,7 @@ void manejarNuevaConexion(int listener, int *fdmax);
 
 int obtener_pid();
 
-void removerClientePorCierreDeConexion(int cliente, t_list* lista, fd_set *fdSet);
+void removerClientePorCierreDeConexion(int cliente, fd_set *fdSet);
 
 void enviarConfiguracion(int socketCliente, int valor);
 

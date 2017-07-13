@@ -141,9 +141,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
 
-	int quantumDisponible = pcbEjecutando->quantum;
-
-	while((quantumDisponible > 0 || pcbEjecutando->quantum == 0) && seguirEjecutando ){
+	while(seguirEjecutando){
 
 		char * instruccion = pedirSiguienteInstruccion();
 
@@ -156,8 +154,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_info(logger,"El proceso %d finalizo exitosamente",pcbEjecutando->PID);
 
-				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
-				socket_enviar(socketKernel, D_STRUCT_PCB_FINOK, pcbEjecutando);
+				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
 				free(instruccion);
 				instruccion=NULL;
@@ -172,12 +169,12 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_error(logger, "Hubo stackoverflow, aborto el proceso");
 
-				retornoPCB=D_STRUCT_ERROR_STACK_OVERFLOW;
+				pcbEjecutando->retornoPCB=D_STRUCT_ERROR_STACK_OVERFLOW;
 
 				free(instruccion);
 				instruccion = NULL;
 
-				salirProceso(retornoPCB);
+				salirProceso();
 				return;
 			}
 			if(finPrograma){
@@ -185,7 +182,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 				log_info(logger, "El proceso finalizo exitosamente");
 
 				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
-				socket_enviar(socketKernel, D_STRUCT_PCB_FINOK, pcbEjecutando);
+				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
 				free(instruccion);
 				instruccion = NULL;
@@ -193,30 +190,45 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 				return;
 			}
 
-			quantumDisponible--;
 			pcbEjecutando->programCounter++;
-			pcbEjecutando->rafagas++;
 
-			if(retornoPCB!=0 || signalFinalizarCPU){
-				salirProceso(retornoPCB);
+			if(pcbEjecutando->retornoPCB!=0 || signalFinalizarCPU){
+				salirProceso();
 			}
-
-			usleep(pcbEjecutando->quantum_sleep * 1000);
 
 			free(instruccion);
 			instruccion = NULL;
 
+			socket_enviar(socketKernel,D_STRUCT_FIN_INSTRUCCION,pcbEjecutando);
+
+			t_tipoEstructura tipoEstructura;
+			void * structRecibido;
+
+			socket_recibir(socketMemoria, &tipoEstructura, &structRecibido);
+
+			if(tipoEstructura == D_STRUCT_ABORTAR_EJECUCION){
+
+				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+				salirProceso();
+				return;
+
+			} else if (tipoEstructura == D_STRUCT_FIN_QUANTUM){
+				socket_enviar(socketKernel,D_STRUCT_PCB,pcbEjecutando);
+				salirProceso();
+				return;
+
+			} else if (tipoEstructura == D_STRUCT_CONTINUAR_EJECUCION){
+
+				pcbEjecutando->quantum_sleep = ((t_struct_numero*) structRecibido)->numero;
+				usleep(pcbEjecutando->quantum_sleep * 1000);
+
+			}
+
 		} else {
-			retornoPCB=D_STRUCT_ERROR_INSTRUCCION;
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_INSTRUCCION;
 			return;
 		}
 
-	}
-
-	if (quantumDisponible==0 && pcbEjecutando->quantum!=0){
-		//TODO SERIALIZAR
-		socket_enviar(socketKernel,D_STRUCT_PCB_FIN_QUANTUM,pcbEjecutando);
-		salirProceso();
 	}
 
 }
@@ -292,15 +304,17 @@ void liberarRegistroStack(registroStack* registroStack){
 	}
 }
 
-void salirProceso(int retornoPCB){
+void salirProceso(){
 
 	// Marco la cpu como disponible para un nuevo proceso
 	cpuLibre=true;
 	// Corto la condicion del while para no seguir leyendo instrucciones
 	seguirEjecutando=false;
 
-	if (retornoPCB != 0){
-		socket_enviar(socketKernel, retornoPCB, pcbEjecutando);
+	if (pcbEjecutando->retornoPCB != 0){
+		socket_enviar(socketKernel, D_STRUCT_PCB_FIN_ERROR, pcbEjecutando);
+	} else if (signalFinalizarCPU){
+		socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, pcbEjecutando);
 	}
 
 	//Libero los recursos del pcb
@@ -350,21 +364,12 @@ void inicializarEstructuras(){
 	signalFinalizarCPU = false;
 	finPrograma = false;
 	seguirEjecutando = true;
-	retornoPCB = 0;
 
 
 }
 
 void manejarSignal(){
 	log_info(logger, "Se recibió señal SIGUSR1 para desconectar la CPU");
-
-	// Envio al kernel una notificacion de que me solicitaron finalizar la cpu
-	t_struct_numero* signal = malloc(sizeof(t_struct_numero));
-	signal->numero = SIGUSR1;
-
-	//TODO Manejar desde el kernel la operacion SIGUSR1
-	socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, signal);
-	free(signal);
 
 	if (cpuLibre){
 		desconectarCPU();
@@ -394,10 +399,11 @@ char * pedirSiguienteInstruccion(){
 	int offset = instruccion->offset;
 
 	// Armo la direccion lógica con la instruccion
-	t_posicion_memoria* direccion = malloc(sizeof(t_posicion_memoria));
+	t_struct_sol_lectura* direccion = malloc(sizeof(t_posicion_memoria));
 	direccion->pagina = start / tamanio_pagina;
-	direccion->offsetInstruccion = start % tamanio_pagina;
-	direccion->longitudInstruccion = offset;
+	direccion->offset = start % tamanio_pagina;
+	direccion->contenido = offset;
+	direccion->PID = pcbEjecutando->PID;
 
 	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
 	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
@@ -411,7 +417,7 @@ char * pedirSiguienteInstruccion(){
 		if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 			log_error(logger, "La memoria se desconecto del sistema");
-			retornoPCB=D_STRUCT_ERROR_MEMORIA;
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_MEMORIA;
 			return NULL;
 
 		} else {
@@ -434,7 +440,7 @@ bool validarPedidoMemoria(){
 	if ( socket_recibir(socketMemoria, &tipoEstructura, &structRecibido) == -1){
 
 		log_error(logger, "La memoria se desconecto del sistema");
-		retornoPCB=D_STRUCT_ERROR_MEMORIA;
+		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_MEMORIA;
 		return false;
 
 	} else {

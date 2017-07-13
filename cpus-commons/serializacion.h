@@ -19,6 +19,7 @@
 	t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_lect(t_posicion_memoria * estructuraOrigen, int headerOperacion);
+	t_stream * serializeStruct_solLect(t_struct_sol_lectura * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_graComp(t_struct_var_compartida * estructuraOrigen);
 	t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen, int headerOperacion);
@@ -40,6 +41,7 @@
 	t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length);
 	t_posicion_memoria * deserializeStruct_lect(char* dataPaquete, uint16_t length);
 	t_struct_sol_escritura * deserializeStruct_solEscr(char* dataPaquete, uint16_t length);
+	t_struct_sol_lectura * deserializeStruct_solLect(char* dataPaquete, uint16_t length);
 	t_struct_var_compartida * deserializeStruct_graComp(char * dataPaquete, uint16_t length);
 	t_struct_archivo * deserializeStruct_archivo_esc(char* dataPaquete, uint16_t length);
 	t_struct_sol_heap * deserializeStruct_solHeap(char* dataPaquete, uint16_t length);
