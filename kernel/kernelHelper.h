@@ -96,6 +96,8 @@ void crearThreadAtenderConexiones();
 
 int conectarAMemoria();
 
+void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado);
+
 void manejarConsola(int i);
 
 void manejarCpu(int i);

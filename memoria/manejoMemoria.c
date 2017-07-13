@@ -137,6 +137,30 @@ void manejarCpu(int i){
 		log_info(logger,"El Cpu %d cerró la conexión.",i);
 		removerClientePorCierreDeConexion(i,listaCpus);
 	} else {
+
+		switch(tipoEstructura){
+		case D_STRUCT_LECT_VAR:
+
+		t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
+
+		//TODO DEBE RETORNAR
+		// MEMORIA_OK o MEMORIA_ERROR
+		// SI RETORNA MEMORIA OK ENVIAR TAMBIEN EL VALOR LEIDO
+
+		break;
+
+		case D_STRUCT_SOL_ESCR:
+
+
+		t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
+
+		//TODO DEBE RETORNAR
+		// MEMORIA_OK o MEMORIA_ERROR
+
+		break;
+
+		}
+
 	}
 };
 
@@ -282,7 +306,6 @@ int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
 	return indice;
 }
 
-
 bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
 	int i = 0;
 	int bytesPorFrame = configuracion.marcoSize;
@@ -315,7 +338,6 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		}
 	}
 }
-
 
 t_resultado_busqueda_cache buscarPIDCache(int pid){
 	int i;

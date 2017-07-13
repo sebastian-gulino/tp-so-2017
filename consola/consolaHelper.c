@@ -199,6 +199,7 @@ void iniciarPrograma(char* pathArchivo){
 
 		if(tipoEstructura==D_STRUCT_SOLICITAR_CODIGO) socket_enviar(socketKernel, D_STRUCT_PROG, &programa);
 
+		socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
 	}
 
 	t_proceso* proceso = malloc(sizeof(t_proceso));

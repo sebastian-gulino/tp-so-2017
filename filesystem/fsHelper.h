@@ -65,4 +65,12 @@ void setMetadata();
 
 void setPuntoDeMontaje();
 
+void obtenerDatos(t_struct_obtener * archivo);
+
+void guardarDatos(t_struct_guardar * archivo);
+
+void borrarArchivo(t_struct_borrar * archivo);
+
+void validarArchivo(t_struct_abrir * archivo);
+
 #endif /* FSHELPER_H_ */

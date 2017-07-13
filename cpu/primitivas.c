@@ -116,7 +116,6 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 	log_trace(logger, "Solicitud Lectura -> Página: %i, Offset: %i, Size: %i.",
 			var_direccion->pagina, var_direccion->offset, sizeof(int));
 
-	// TODO manejar esta peticion en memoria en memoria
 	socket_enviar(socketMemoria,D_STRUCT_LECT_VAR,var_direccion);
 
 	free(var_direccion);
@@ -164,7 +163,6 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 	log_trace(logger, "Solicitud Escritura -> Página: %i, Offset: %i, Contenido: %d.",
 			var_escritura->pagina, var_escritura->offset, valor);
 
-	//TODO manejar este tipo de operacion en la memoria para escritura
 	socket_enviar(socketMemoria, D_STRUCT_SOL_ESCR, var_escritura);
 
 	free(var_escritura);
@@ -386,7 +384,7 @@ t_puntero reservar(t_valor_variable espacio) {
 
 	heap->pointer=espacio;
 	heap->pid=pcbEjecutando->PID;
-	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP si esta bien, o un D_STRUCT_NUMERO en caso contrario
+	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP
 	socket_enviar(socketKernel,D_STRUCT_SOL_HEAP,heap);
 
 	t_tipoEstructura tipoEstructura;

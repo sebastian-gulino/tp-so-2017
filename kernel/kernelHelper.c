@@ -193,7 +193,7 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere obtener el valor de una variable compartida
 			t_struct_pcb * pcbFinOk = ((t_struct_pcb*) structRecibido);
-			finalizarProcesoOk(socketCPU, pcbFinOk);
+			finalizarProcesoOK(socketCPU, pcbFinOk);
 
 			break;
 
@@ -280,6 +280,14 @@ void manejarCpu(int socketCPU){
 			// La cpu quiere escribir en un archivo
 			t_struct_archivo * archivoLeer = ((t_struct_archivo*) structRecibido);
 			leerArchivo(socketCPU, archivoLeer);
+
+			break;
+
+		case D_STRUCT_SOL_HEAP: ;
+
+			// La cpu quiere escribir en un archivo
+			t_struct_sol_heap * solicitudHeap = ((t_struct_sol_heap*) structRecibido);
+			reservarHeap(socketCPU, solicitudHeap);
 
 			break;
 
@@ -2003,5 +2011,9 @@ void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 	removerDeCola(cola_exec,cola_exit,E_EXIT,pcbFinalizado->PID,true,true,true);
 	traerProcesoColaNew();
 	if(list_size(cola_ready)>0) ejecutarPlanificacion(NULL);
+
+}
+
+void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 }
