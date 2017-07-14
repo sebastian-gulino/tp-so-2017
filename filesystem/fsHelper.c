@@ -1,28 +1,27 @@
 #include "fsHelper.h"
 
-t_configuracion cargarConfiguracion() {
+cargarConfiguracion() {
 
 	t_config * config;
-	t_configuracion configuracion;
 
-
-	config = config_create("./config.txt");
+	pathConfiguracion = "./config.txt";
+	config = config_create(pathConfiguracion);
 
 	if(config == NULL){
 
-		config = config_create("../config.txt");
-
+		pathConfiguracion = "../config.txt";
+		config = config_create(pathConfiguracion);
 	}
 
-	configuracion.puertoFS = config_get_int_value(config, "PUERTO");
-	log_info(logger,"PUERTO_FS = %d",configuracion.puertoFS);
+	configuracion = malloc(sizeof(t_configuracion));
 
-	configuracion.puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
-	log_info(logger,"PUNTO_MONTAJE = %s",configuracion.puntoMontaje);
+	configuracion->puertoFS = config_get_int_value(config, "PUERTO");
+	log_info(logger,"PUERTO_FS = %d",configuracion->puertoFS);
+
+	configuracion->puntoMontaje = strdup(config_get_string_value(config, "PUNTO_MONTAJE"));
+	log_info(logger,"PUNTO_MONTAJE = %s",configuracion->puntoMontaje);
 
 	config_destroy(config);
-
-	return configuracion;
 
 }
 
@@ -32,17 +31,17 @@ void setPuntoDeMontaje(){
 	char arch_command[260];
 	char bloque_command[260];
 
-	sprintf(pm_command, "mkdir %s", configuracion.puntoMontaje);
-	sprintf(mtdt_command, "mkdir %s/Metadata", configuracion.puntoMontaje);
-	sprintf(arch_command, "mkdir %s/Archivos", configuracion.puntoMontaje);
-	sprintf(bloque_command, "mkdir %s/Bloques", configuracion.puntoMontaje);
+	sprintf(pm_command, "mkdir %s", configuracion->puntoMontaje);
+	sprintf(mtdt_command, "mkdir %s/Metadata", configuracion->puntoMontaje);
+	sprintf(arch_command, "mkdir %s/Archivos", configuracion->puntoMontaje);
+	sprintf(bloque_command, "mkdir %s/Bloques", configuracion->puntoMontaje);
 
 	system(pm_command);
 	system(mtdt_command);
 	system(arch_command);
 	system(bloque_command);
 
-	log_info(logger, "Las carpetas: Metadata, Archivos y Bloques creadas satisfactoriamente en el punto de montaje: %s", configuracion.puntoMontaje);
+	log_info(logger, "Las carpetas: Metadata, Archivos y Bloques creadas satisfactoriamente en el punto de montaje: %s", configuracion->puntoMontaje);
 }
 
 void setMetadata(){
@@ -54,7 +53,7 @@ void setMetadata(){
 	char bloqueCant[300];
 	int cant = 8;
 
-		sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion.puntoMontaje );
+		sprintf(pathMetadata, "%s/Metadata/Metadata.bin", configuracion->puntoMontaje );
 
 		if (fopen(pathMetadata, "r") == NULL){
 
@@ -87,7 +86,7 @@ void setMetadata(){
 }
 void crearServidorMonocliente(){
 
-	int socketServidor = crearServidor(configuracion.puertoFS);
+	int socketServidor = crearServidor(configuracion->puertoFS);
 
 	while(1){
 			//Por defecto acepto el cliente que se está conectando
@@ -126,7 +125,7 @@ void crearBitmap(){
 
 			char pathBitmap[260];
 		char bitmap_command[260];
-		sprintf(pathBitmap, "%s/Metadata/Bitmap.bin", configuracion.puntoMontaje );
+		sprintf(pathBitmap, "%s/Metadata/Bitmap.bin", configuracion->puntoMontaje );
 
 
 
@@ -175,7 +174,7 @@ int asignarBloque(t_config * data){
 	int offset = posicion;
 	bitarray_set_bit(bitarray,posicion);
 
-	sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, offset);
+	sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion->puntoMontaje, offset);
 
 	FILE * file = fopen(pathBloque, "w+");
 

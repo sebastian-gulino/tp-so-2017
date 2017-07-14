@@ -2,48 +2,49 @@
 
 #define CANTIDAD_ELEMENTOS_CACHE 15
 
-t_config * config;
-
-t_configuracion configuracion;
-
 void * memoriaPrincipal;
 
-void cargarConfiguracion(void) {
+void cargarConfiguracion() {
 
-	config = config_create("./config.txt");
+	t_config * config;
+
+	pathConfiguracion = "./config.txt";
+	config = config_create(pathConfiguracion);
 
 	if(config == NULL){
 
-		config = config_create("../config.txt");
-
+		pathConfiguracion = "../config.txt";
+		config = config_create(pathConfiguracion);
 	}
 
 	retardoLecturaMemoria = 100;
 
-	configuracion.marcoSize = config_get_int_value(config, "MARCO_SIZE");
-	configuracion.puerto = config_get_int_value(config, "PUERTO");
-	configuracion.marcos = config_get_int_value(config, "MARCOS");
-	configuracion.marcoSize = config_get_int_value(config, "MARCO_SIZE");
-	configuracion.entradasCache = config_get_int_value(config, "ENTRADAS_CACHE");
-	configuracion.cacheXProc = config_get_int_value(config, "CACHE_X_PROC");
-	configuracion.reemplazoCache = config_get_int_value(config, "REEMPLAZO_CACHE");
-	configuracion.retardoMemoria = config_get_int_value(config, "RETARDO_MEMORIA");
-	configuracion.stackSize = config_get_int_value(config, "STACK_SIZE");
+	configuracion = malloc(sizeof(t_configuracion));
 
-	log_info(logger,"El Puerto es %d\n",configuracion.puerto);
-	log_info(logger,"La cantidad de Marcos es %d\n",configuracion.marcos);
-	log_info(logger,"El tamaño de cada Marco es %d\n",configuracion.marcoSize);
-	log_info(logger,"Las entradas en Cache son %d\n",configuracion.entradasCache);
-	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %d\n",configuracion.cacheXProc);
-	log_info(logger,"El reemplazo de cache es %d\n",configuracion.reemplazoCache);
-	log_info(logger,"El retardo de la Memoria es %d\n",configuracion.retardoMemoria);
-	log_info(logger,"La cantidad de paginas asignada al Stack es %d\n",configuracion.stackSize);
+	configuracion->marcoSize = config_get_int_value(config, "MARCO_SIZE");
+	configuracion->puerto = config_get_int_value(config, "PUERTO");
+	configuracion->marcos = config_get_int_value(config, "MARCOS");
+	configuracion->marcoSize = config_get_int_value(config, "MARCO_SIZE");
+	configuracion->entradasCache = config_get_int_value(config, "ENTRADAS_CACHE");
+	configuracion->cacheXProc = config_get_int_value(config, "CACHE_X_PROC");
+	configuracion->reemplazoCache = config_get_int_value(config, "REEMPLAZO_CACHE");
+	configuracion->retardoMemoria = config_get_int_value(config, "RETARDO_MEMORIA");
+	configuracion->stackSize = config_get_int_value(config, "STACK_SIZE");
+
+	log_info(logger,"El Puerto es %d\n",configuracion->puerto);
+	log_info(logger,"La cantidad de Marcos es %d\n",configuracion->marcos);
+	log_info(logger,"El tamaño de cada Marco es %d\n",configuracion->marcoSize);
+	log_info(logger,"Las entradas en Cache son %d\n",configuracion->entradasCache);
+	log_info(logger,"La cantidad maxima de de entradas de la cache asignables a cada programa es %d\n",configuracion->cacheXProc);
+	log_info(logger,"El reemplazo de cache es %d\n",configuracion->reemplazoCache);
+	log_info(logger,"El retardo de la Memoria es %d\n",configuracion->retardoMemoria);
+	log_info(logger,"La cantidad de paginas asignada al Stack es %d\n",configuracion->stackSize);
 
 	config_destroy(config);
 }
 
 void crearMemoriaPrincipal() {
-	memoriaPrincipal = malloc(configuracion.marcos*configuracion.marcoSize);
+	memoriaPrincipal = malloc(configuracion->marcos*configuracion->marcoSize);
 }
 
 void inicializarListas(){
@@ -60,12 +61,12 @@ void crearThreadAtenderConexiones(){
 void administrarConexiones(){
 
 	//Creo el servidor de memoria que recibirá las nuevas conexiones
-	int socketServidor = crearServidor(configuracion.puerto);
+	int socketServidor = crearServidor(configuracion->puerto);
 
 	pthread_t nueva_solicitud;
 
 	tamanio_pagina = malloc(sizeof(t_struct_numero));
-	tamanio_pagina->numero = configuracion.marcoSize;
+	tamanio_pagina->numero = configuracion->marcoSize;
 
 	while(1){
 		//Por defecto acepto el cliente que se está conectando
@@ -92,7 +93,7 @@ void administrarConexiones(){
 								list_add(listaKernel, (void*) socketCliente);
 
 								tamanio_pagina = malloc(sizeof(t_struct_numero));
-								tamanio_pagina->numero = configuracion.marcoSize;
+								tamanio_pagina->numero = configuracion->marcoSize;
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
@@ -106,7 +107,7 @@ void administrarConexiones(){
 								list_add(listaCpus, (void*) socketCliente);
 
 								tamanio_pagina = malloc(sizeof(t_struct_numero));
-								tamanio_pagina->numero = configuracion.marcoSize;
+								tamanio_pagina->numero = configuracion->marcoSize;
 								socket_enviar(socketCliente, D_STRUCT_NUMERO, tamanio_pagina);
 								free(tamanio_pagina);
 
@@ -128,14 +129,14 @@ void administrarConexiones(){
 	}
 }
 
-void manejarCpu(int i){
+void manejarCpu(int socketCPU){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Cpu %d cerró la conexión.",i);
-		removerClientePorCierreDeConexion(i,listaCpus);
+	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
+		removerClientePorCierreDeConexion(socketCPU,listaCpus);
 	} else {
 
 		switch(tipoEstructura){
@@ -143,9 +144,25 @@ void manejarCpu(int i){
 
 		t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
 
-		//TODO DEBE RETORNAR
-		// MEMORIA_OK o MEMORIA_ERROR
-		// SI RETORNA MEMORIA OK ENVIAR TAMBIEN EL VALOR LEIDO
+		t_resultadoLectura resultadoLecturaVar = leerPagina( direccionLeer->pagina,
+				direccionLeer->PID, direccionLeer->offset, direccionLeer->contenido);
+
+		if(resultadoLecturaVar.resultado){
+
+			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+			rtaLectVar->numero = MEMORIA_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+			rtaLectVar->numero=*(int *)resultadoLecturaVar.contenido;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+		} else {
+
+			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+			rtaLectVar->numero = MEMORIA_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+		}
 
 		break;
 
@@ -154,8 +171,22 @@ void manejarCpu(int i){
 
 		t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
 
-		//TODO DEBE RETORNAR
-		// MEMORIA_OK o MEMORIA_ERROR
+		bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
+				direccionEscribir->offset, sizeof(int), direccionEscribir->contenido);
+
+		if(resultadoEscribir){
+
+			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+			rtaEscribir->numero = MEMORIA_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+
+		} else {
+
+			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+			rtaEscribir->numero = MEMORIA_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+
+		}
 
 		break;
 
@@ -192,17 +223,18 @@ void manejarKernel(int socketKernel){
 				//Le comunico al kernel si se pudo realizar operacion
 				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
 				respuestaAsignacion->numero = sePudoAsignar ? MEMORIA_OK : MEMORIA_ERROR;
-					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
 
-					if(!sePudoAsignar){
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+
+				if(!sePudoAsignar){
 					log_error(logger,"No se pudo crear el segmento solicitado");
-					} else {
+				} else {
 					log_info(logger,"Se creo con exito el segmento solicitado");
-					}
+				}
 
-					free(respuestaAsignacion);
+				free(respuestaAsignacion);
 
-					break;
+				break;
 
 				}
 			}
@@ -230,8 +262,8 @@ void crearEstructurasAdministrativas(){
 	int i;
 
 	tablaInvertida = (t_filaTablaInvertida*)memoriaPrincipal;
-	int limit = configuracion.marcos;
-	int tamanioFrame = configuracion.marcoSize;
+	int limit = configuracion->marcos;
+	int tamanioFrame = configuracion->marcoSize;
 	for(i = 0; i < limit; i++){
 		tablaInvertida[i].pid = FRAME_LIBRE;
 		tablaInvertida[i].frame = i;
@@ -252,7 +284,7 @@ void crearEstructurasAdministrativas(){
 int buscarPaginaMemoria(int pagina, int pid){
 	int i = 0;
 	int indice = -1;
-	int cantidadFrames = configuracion.marcos;
+	int cantidadFrames = configuracion->marcos;
 	while(indice < 0 && i < cantidadFrames){
 		if(tablaInvertida[i].pid == pid && tablaInvertida[i].pagina == pagina){
 			indice = i;
@@ -263,7 +295,7 @@ int buscarPaginaMemoria(int pagina, int pid){
 }
 
 void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
-	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
+	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	memcpy(punteroFrame + offset,contenido,size);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
 }
@@ -281,7 +313,7 @@ bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * conteni
 }
 
 int cantidadFramesLibres(){
-	int limite = configuracion.marcos;
+	int limite = configuracion->marcos;
 	int i = 0;
 	int framesLibres = 0;
 	for(i = 0; i < limite; i++){
@@ -301,7 +333,7 @@ void registrarUsoDeFrame(int pid,int numeroFrame, int paginaProceso){
 int obtenerPrimerFrameLibre(){
 	int i = 0;
 	int primeroLibre = -1;
-	int limite = configuracion.marcos;
+	int limite = configuracion->marcos;
 	while(primeroLibre < 0 && i < limite){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			primeroLibre = i;
@@ -314,7 +346,7 @@ int obtenerPrimerFrameLibre(){
 int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
 	int i = 0;
 	int contador = 0;
-	int limite = configuracion.marcos;
+	int limite = configuracion->marcos;
 	while(contador < cantidadDeFrames && i < limite){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			contador++;
@@ -332,7 +364,7 @@ int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
 
 bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
 	int i = 0;
-	int bytesPorFrame = configuracion.marcoSize;
+	int bytesPorFrame = configuracion->marcoSize;
 	int framesNecesarios = cantidadBytes/bytesPorFrame;
 	if(cantidadBytes%bytesPorFrame != 0){
 		framesNecesarios++;
@@ -378,7 +410,7 @@ int buscarProcesoCache(int pagina, int pid){
 void * leerMemoria(int pagina, int pid){
 	int numeroFrame = buscarPaginaMemoria(pagina,pid);
 	aplicarRetardo();
-	void * posicion = memoriaPrincipal + numeroFrame * configuracion.marcoSize;
+	void * posicion = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	actualizarCache(pid,pagina,posicion);
 	return posicion;
 }
@@ -459,7 +491,7 @@ void borrarProcesoCache(int pid){
 
 void finalizarPrograma(int pid){
 	int i;
-	int limite = configuracion.marcos;
+	int limite = configuracion->marcos;
 	for(i = 0; i < limite; i++){
 		if(tablaInvertida[i].pid == pid){
 			tablaInvertida[i].pid = FRAME_LIBRE;
@@ -471,7 +503,7 @@ void finalizarPrograma(int pid){
 
 void imprimirTablaPaginas(){
 	int i;
-	int limite = configuracion.marcos;
+	int limite = configuracion->marcos;
 	for(i = 0; i < limite; i++){
 		printf("Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
 	}

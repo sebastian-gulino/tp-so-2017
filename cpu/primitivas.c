@@ -384,7 +384,7 @@ t_puntero reservar(t_valor_variable espacio) {
 
 	heap->pointer=espacio;
 	heap->pid=pcbEjecutando->PID;
-	// TODO MANEJAR En el kernel que responda D_STRUCT_RTA_HEAP
+
 	socket_enviar(socketKernel,D_STRUCT_SOL_HEAP,heap);
 
 	t_tipoEstructura tipoEstructura;

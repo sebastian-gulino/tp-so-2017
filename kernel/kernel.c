@@ -6,7 +6,7 @@ int main(int arc, char * argv[]) {
 	crearLog("/KERNEL");
 
 	//Levanta la configuración del proceso kernel
-	configuracion = cargarConfiguracion();
+	cargarConfiguracion();
 
 	//Crea la lista de clientes conectados para cpu y consola
 	inicializarListas();

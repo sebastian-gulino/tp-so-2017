@@ -1,66 +1,124 @@
 #include "kernelHelper.h"
 
-t_configuracion cargarConfiguracion() {
+void cargarConfiguracion() {
 
 	t_config * config;
-	t_configuracion configuracion;
 
-	config = config_create("./config.txt");
+	pathConfiguracion = "./config.txt";
+	config = config_create(pathConfiguracion);
 
 	if(config == NULL){
 
-		config = config_create("../config.txt");
+		pathConfiguracion = "../config.txt";
+		config = config_create(pathConfiguracion);
+	}
 
-	}  //TODO: Encontrar una forma menos villera de hacer esto. Seba dixit.
+	configuracion = malloc(sizeof(t_configuracion));
 
-	configuracion.puertoCpu = config_get_int_value(config, "PUERTO_CPU");
-	log_info(logger,"PUERTO_CPU = %d",configuracion.puertoCpu);
+	configuracion->puertoCpu = config_get_int_value(config, "PUERTO_CPU");
+	log_info(logger,"PUERTO_CPU = %d",configuracion->puertoCpu);
 
-	configuracion.ipMemoria = strdup(config_get_string_value(config, "IP_MEMORIA"));
-	log_info(logger,"IP_MEMORIA = %s",configuracion.ipMemoria);
+	configuracion->ipMemoria = strdup(config_get_string_value(config, "IP_MEMORIA"));
+	log_info(logger,"IP_MEMORIA = %s",configuracion->ipMemoria);
 
-	configuracion.puertoProg = config_get_int_value(config, "PUERTO_PROG");
-	log_info(logger,"PUERTO_PROG = %d",configuracion.puertoProg);
+	configuracion->puertoProg = config_get_int_value(config, "PUERTO_PROG");
+	log_info(logger,"PUERTO_PROG = %d",configuracion->puertoProg);
 
-	configuracion.puertoMemoria = config_get_int_value(config, "PUERTO_MEMORIA");
-	log_info(logger,"PUERTO_MEMORIA = %d",configuracion.puertoMemoria);
+	configuracion->puertoMemoria = config_get_int_value(config, "PUERTO_MEMORIA");
+	log_info(logger,"PUERTO_MEMORIA = %d",configuracion->puertoMemoria);
 
-	configuracion.ipFS = strdup(config_get_string_value(config, "IP_FS"));
-	log_info(logger,"IP_FILESYSTEM = %s",configuracion.ipFS);
+	configuracion->ipFS = strdup(config_get_string_value(config, "IP_FS"));
+	log_info(logger,"IP_FILESYSTEM = %s",configuracion->ipFS);
 
-	configuracion.puertoFS = config_get_int_value(config, "PUERTO_FS");
-	log_info(logger,"PUERTO_FILESYSTEM = %d",configuracion.puertoFS);
+	configuracion->puertoFS = config_get_int_value(config, "PUERTO_FS");
+	log_info(logger,"PUERTO_FILESYSTEM = %d",configuracion->puertoFS);
 
-	configuracion.quantum = config_get_int_value(config, "QUANTUM");
-	log_info(logger,"QUANTUM = %d",configuracion.quantum);
+	configuracion->quantum = config_get_int_value(config, "QUANTUM");
+	log_info(logger,"QUANTUM = %d",configuracion->quantum);
 
-	configuracion.quantumSleep = config_get_int_value(config, "QUANTUM_SLEEP");
-	log_info(logger,"QUANTUM_SLEEP = %d",configuracion.quantumSleep);
+	configuracion->quantumSleep = config_get_int_value(config, "QUANTUM_SLEEP");
+	log_info(logger,"QUANTUM_SLEEP = %d",configuracion->quantumSleep);
 
-	configuracion.algoritmo = strdup(config_get_string_value(config, "ALGORITMO"));
-	log_info(logger,"ALGORITMO = %s",configuracion.algoritmo);
+	configuracion->algoritmo = strdup(config_get_string_value(config, "ALGORITMO"));
+	log_info(logger,"ALGORITMO = %s",configuracion->algoritmo);
 
-	configuracion.gradoMultiprog = config_get_int_value(config, "GRADO_MULTIPROG");
-	log_info(logger,"GRADO_MULTIPROGRAMACION = %d",configuracion.gradoMultiprog);
+	configuracion->gradoMultiprog = config_get_int_value(config, "GRADO_MULTIPROG");
+	log_info(logger,"GRADO_MULTIPROGRAMACION = %d",configuracion->gradoMultiprog);
 
-	configuracion.semIDS = strdup(config_get_string_value(config, "SEM_IDS"));
-	log_info(logger,"SEMAFOROS_IDS = %s",configuracion.semIDS);
+	configuracion->semIDS = config_get_array_value(config, "SEM_IDS");
 
-	configuracion.semINIT = strdup(config_get_string_value(config, "SEM_INIT"));
-	log_info(logger,"SEMAFOROS_INI = %s",configuracion.semINIT);
+	configuracion->semINIT = config_get_array_value(config, "SEM_INIT");
 
-	configuracion.sharedVars = strdup(config_get_string_value(config, "SHARED_VARS"));
-	log_info(logger,"SHARED_VARS = %s",configuracion.sharedVars);
+	configuracion->sharedVars = config_get_array_value(config, "SHARED_VARS");
 
-	configuracion.stackSize = config_get_int_value(config, "STACK_SIZE");
-	log_info(logger,"STACK_SIZE = %d",configuracion.stackSize);
+	configuracion->stackSize = config_get_int_value(config, "STACK_SIZE");
+	log_info(logger,"STACK_SIZE = %d",configuracion->stackSize);
 
-	configuracion.puertoEscucha = config_get_int_value(config,"PUERTO_ESCUCHA");
-	log_info(logger,"PUERTO_ESCUCHA = %d \n",configuracion.puertoEscucha);
+	configuracion->puertoEscucha = config_get_int_value(config,"PUERTO_ESCUCHA");
+	log_info(logger,"PUERTO_ESCUCHA = %d \n",configuracion->puertoEscucha);
+
+	cargarVariablesCompartidas();
+	cargarSemaforos();
 
 	config_destroy(config);
 
-	return configuracion;
+}
+
+void cargarVariablesCompartidas(){
+
+
+	listaVarCompartidas = list_create();
+
+	int indice = 0;
+	t_struct_var_compartida * varCompartida;
+
+	while (configuracion->sharedVars[indice] != NULL){
+		varCompartida = malloc(sizeof(t_struct_var_compartida));
+
+		varCompartida->nombre = (t_nombre_compartida*) configuracion->sharedVars[indice];
+		varCompartida->valor=0;
+
+		list_add(listaVarCompartidas, varCompartida);
+		indice ++;
+	}
+
+	log_info(logger,"Se cargaron %d variables compartidas",indice);
+}
+
+void cargarSemaforos(){
+
+	listaSemaforos = list_create();
+
+	int indice = 0;
+	t_struct_semaforo * semaforo;
+
+	while (configuracion->semIDS[indice] != NULL){
+		semaforo = malloc(sizeof(t_struct_semaforo)+1);
+
+		char* nombreSemaforo = configuracion->semIDS[indice];
+		string_append(&nombreSemaforo, "\0");
+
+		semaforo->nombre = &(configuracion->semIDS[indice]);
+		semaforo->valor=atoi(configuracion->semINIT[indice]);
+
+		list_add(listaSemaforos,semaforo);
+		indice++;
+	}
+
+	log_info(logger,"Se cargaron %d semaforos",indice);
+}
+
+void actualizarQuantumSleep() {
+
+	t_config* config = config_create(pathConfiguracion);
+
+	configuracion->quantumSleep = 0;
+	configuracion->quantumSleep = config_get_int_value(config, "QUANTUM_SLEEP");
+
+	log_info(logger,"El nuevo valor de quantum sleep es %d",configuracion->quantumSleep);
+
+	config_destroy(config);
+
 }
 
 void inicializarListas(){
@@ -78,6 +136,7 @@ void inicializarListas(){
 
 	maximoPID = 1;
 	kernelPlanificando = true;
+	quantumSleepActualizado = false;
 
 	// Listas planificacion
 	cola_new = list_create();
@@ -85,6 +144,8 @@ void inicializarListas(){
 	cola_ready = list_create();
 	cola_block = list_create();
 	cola_exec = list_create();
+
+	sizeInotify =  (1024 * sizeof(struct inotify_event) + 40);
 }
 
 void manejarNuevaConexion(int listener, int *fdmax){
@@ -123,9 +184,9 @@ void manejarNuevaConexion(int listener, int *fdmax){
 
 			list_add(listaCpuLibres, nuevaCPU);
 
-			enviarConfiguracion(socketCliente,configuracion.stackSize);
+			enviarConfiguracion(socketCliente,configuracion->stackSize);
 
-			enviarConfiguracion(socketCliente,configuracion.quantum);
+			enviarConfiguracion(socketCliente,configuracion->quantum);
 
 			log_info(logger,"El CPU %d se conectó.",socketCliente);
 
@@ -344,14 +405,30 @@ void manejarConsola(int socketConsola){
 
 void administrarConexiones (){
 
-	int socketServidor = crearServidor(configuracion.puertoEscucha);
+	int fdEntrada = 0;
+
+	int inotifyDescriptor = inotify_init();
+	if (inotifyDescriptor < 0) {
+		perror("inotify_init");
+	}
+
+	watchInotify = inotify_add_watch(inotifyDescriptor,pathConfiguracion,IN_MODIFY);
+
+	int socketServidor = crearServidor(configuracion->puertoEscucha);
 
 	fd_set read_fds;
+	fd_set inotify;
+	fd_set STDIN;
 
 	//Elimino el contenido de los conjuntos de descriptores
 	FD_ZERO(&master_cpu);
 	FD_ZERO(&master_consola);
+	FD_ZERO(&inotify);
+	FD_ZERO(&STDIN);
 	FD_ZERO(&read_fds);
+
+	FD_SET(inotifyDescriptor,&inotify);
+	FD_SET(fdEntrada,&STDIN);
 
 	// Declaro como descriptor de fichero mayor al socket que escucha
 	int fdmax = socketServidor;
@@ -362,6 +439,8 @@ void administrarConexiones (){
 		read_fds = combinar_master_fd(&master_cpu, &master_consola, fdmax); // se copia el master al temporal
 		// Añado el descriptor del socket escucha al conjunto
 		FD_SET(socketServidor, &read_fds);
+		FD_SET(inotifyDescriptor,&read_fds);
+		FD_SET(fdEntrada,&read_fds);
 
 		if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
 			perror("select");
@@ -381,6 +460,10 @@ void administrarConexiones (){
 					manejarConsola(i);
 				}
 
+				if(FD_ISSET(i, &inotify)){
+					modificacionArchConf(i);
+				}
+
 				if(i==socketServidor){
 					manejarNuevaConexion(i, &fdmax);
 				}
@@ -396,7 +479,7 @@ void administrarConexiones (){
 int conectarAMemoria (){
 
 	//Genera el socket cliente y lo conecta a la memoria
-	int socketCliente = crearCliente(configuracion.ipMemoria,configuracion.puertoMemoria);
+	int socketCliente = crearCliente(configuracion->ipMemoria,configuracion->puertoMemoria);
 	log_info(logger,"Kernel conectado con la memoria");
 
 	//Se realiza el handshake con la memoria
@@ -426,7 +509,7 @@ int conectarAMemoria (){
 int conectarAFS(){
 
 	//Genera el socket cliente y lo conecta a la memoria
-	int socketCliente = crearCliente(configuracion.ipFS,configuracion.puertoFS);
+	int socketCliente = crearCliente(configuracion->ipFS,configuracion->puertoFS);
 
 	//Se realiza el handshake con la memoria
 	t_struct_numero* es_kernel = malloc(sizeof(t_struct_numero));
@@ -456,6 +539,32 @@ int obtener_pid(){
 	int pid = maximoPID++;
 
 	return pid;
+}
+
+void modificacionArchConf(int fdInotify) {
+	char buffer[sizeInotify];
+	int length_inotify = read(fdInotify, buffer, sizeInotify);
+	int offset=0;
+
+	if (length_inotify < 0) {
+		log_error(logger,"Error al leer el archivo de Configuracion");
+	}
+	while (length_inotify > offset) {
+
+		struct inotify_event *event = (struct inotify_event *) &buffer[offset];
+
+		t_config * config = config_create(pathConfiguracion);
+
+			if (event->mask & IN_MODIFY) {
+				if (config && config_has_property(config, "QUANTUM_SLEEP")) {
+					actualizarQuantumSleep();
+				}
+			}
+			offset += sizeInotify + event->len;
+
+		free(config);
+
+	}
 }
 
 t_struct_pcb* crearPCB(int PID){
@@ -523,7 +632,7 @@ int solicitarSegmentoStack(int pid){
 	// Pido a la memoria un segmento para el stack
 	t_struct_malloc* seg_stack = malloc(sizeof(t_struct_malloc));
 	seg_stack->PID = pid;
-	seg_stack->tamano_segmento = tamanio_pagina * configuracion.stackSize;
+	seg_stack->tamano_segmento = tamanio_pagina * configuracion->stackSize;
 
 	// Envío la solicitud de memoria con el tamaño de stack definido por conf
 	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_stack);
@@ -655,7 +764,7 @@ int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 		pcb->paginaActualStack=cantidadPaginasCodigo;
 		pcb->primerPaginaStack=pcb->paginaActualStack;
 		pcb->stackPointer=cantidadPaginasCodigo;
-		pcb->paginasStack=configuracion.stackSize;
+		pcb->paginasStack=configuracion->stackSize;
 		pcb->paginasCodigo=cantidadPaginasCodigo;
 
 		return 1;
@@ -672,7 +781,7 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 	t_struct_pcb * pcb = NULL;
 	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
 
-	if(cantidadTotalPID<configuracion.gradoMultiprog){
+	if(cantidadTotalPID<configuracion->gradoMultiprog){
 
 		pcb = crearPCB(obtener_pid());
 
@@ -703,12 +812,12 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 			t_metadata_program* datosPrograma = metadata_desde_literal(programa);
 
-			pcb->quantum_sleep=configuracion.quantumSleep;
+			pcb->quantum_sleep=configuracion->quantumSleep;
 			pcb->programCounter=datosPrograma->instruccion_inicio;
 			pcb->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
 			pcb->cantidadInstrucciones=datosPrograma->instrucciones_size;
 
-			memcpy(pcb->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+			memcpy(&pcb->indiceEtiquetas,&datosPrograma->etiquetas,datosPrograma->etiquetas_size);
 
 			int i;
 			for (i = 0;	i < datosPrograma->instrucciones_size;i++) {
@@ -1208,7 +1317,7 @@ void traerProcesoColaNew(){
 
 		t_metadata_program* datosPrograma = metadata_desde_literal(programa);
 
-		pcbNew->quantum_sleep=configuracion.quantumSleep;
+		pcbNew->quantum_sleep=configuracion->quantumSleep;
 		pcbNew->programCounter=datosPrograma->instruccion_inicio;
 		pcbNew->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
 
@@ -1293,7 +1402,6 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				log_info(logger,"El semaforo se bloquea, verifico si corresponde matar el proceso o pasarlo a block");
 
 				t_struct_pcb * pcbBloqueado = ((t_struct_pcb*) structRecibido);
-				//TODO actualizar exit code con mensaje por semaforo bloqueado
 
 				if(verificarProcesoFinalizar(pcbBloqueado)){
 
@@ -1844,7 +1952,6 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
 
 		if(pcb->estado==E_EXEC){
-			//TODO IMPLEMENTAR
 			pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
 			liberarMemoriaProceso(pcb);
 			informarLiberarHeap(pcb);
@@ -1881,12 +1988,6 @@ void ejecutarPlanificacion(int socketCPU){
 		return;
 	}
 
-	//TODO RECARGAR QUANTUM SLEEP
-//	if (recargarConfig) {
-//			recargarConfig = false;
-//			recargarQuantumSpeed();
-//		}
-
 	if(socketCPU != 0 || socketCPU != NULL){
 
 		if(correspondeAbortarProcesoDeCPU(socketCPU)){
@@ -1922,10 +2023,10 @@ void ejecutarPlanificacion(int socketCPU){
 			return;
 		}
 
-		if(string_equals_ignore_case(configuracion.algoritmo,"FIFO")){
+		if(string_equals_ignore_case(configuracion->algoritmo,"FIFO")){
 
 			t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
-			quantumSleep->numero=configuracion.quantumSleep;
+			quantumSleep->numero=configuracion->quantumSleep;
 
 			socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
 
@@ -1938,7 +2039,7 @@ void ejecutarPlanificacion(int socketCPU){
 
 			t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
 
-			if(cpu->quantum==configuracion.quantum){
+			if(cpu->quantum==configuracion->quantum){
 
 				t_struct_numero * finQuantum = malloc(sizeof(t_struct_numero));
 				finQuantum->numero=1;
@@ -1963,7 +2064,7 @@ void ejecutarPlanificacion(int socketCPU){
 			} else {
 
 				t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
-				quantumSleep->numero=configuracion.quantumSleep;
+				quantumSleep->numero=configuracion->quantumSleep;
 
 				socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
 
@@ -1988,7 +2089,7 @@ void ejecutarPlanificacion(int socketCPU){
 		obtenerCPUporSocket(cpu->socket,true);
 		list_add(listaCpuOcupadas,cpu);
 
-		if(!string_equals_ignore_case(configuracion.algoritmo,"FIFO")) cpu->quantum++;
+		if(!string_equals_ignore_case(configuracion->algoritmo,"FIFO")) cpu->quantum++;
 
 		ejecutarProximoProceso(cpu);
 

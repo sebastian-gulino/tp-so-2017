@@ -1,39 +1,40 @@
 #include "cpuHelper.h"
 
-t_configuracion cargarConfiguracion() {
+cargarConfiguracion(){
 
 	t_config * config;
-	t_configuracion configuracion;
 
-	config = config_create("./config.txt");
+	pathConfiguracion = "./config.txt";
+	config = config_create(pathConfiguracion);
 
 	if(config == NULL){
 
-		config = config_create("../config.txt");
-
+		pathConfiguracion = "../config.txt";
+		config = config_create(pathConfiguracion);
 	}
 
-	configuracion.ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
-	log_info(logger,"IP_KERNEL = %s",configuracion.ipKernel);
+	configuracion = malloc(sizeof(t_configuracion));
 
-	configuracion.puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
-	log_info(logger,"PUERTO_KERNEL = %d",configuracion.puertoKernel);
+	configuracion->ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
+	log_info(logger,"IP_KERNEL = %s",configuracion->ipKernel);
 
-	configuracion.ipMemoria = strdup(config_get_string_value(config, "IP_MEMORIA"));
-	log_info(logger,"IP_MEMORIA = %s",configuracion.ipMemoria);
+	configuracion->puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
+	log_info(logger,"PUERTO_KERNEL = %d",configuracion->puertoKernel);
 
-	configuracion.puertoMemoria = config_get_int_value(config, "PUERTO_MEMORIA");
-	log_info(logger,"PUERTO_MEMORIA = %d",configuracion.puertoMemoria);
+	configuracion->ipMemoria = strdup(config_get_string_value(config, "IP_MEMORIA"));
+	log_info(logger,"IP_MEMORIA = %s",configuracion->ipMemoria);
+
+	configuracion->puertoMemoria = config_get_int_value(config, "PUERTO_MEMORIA");
+	log_info(logger,"PUERTO_MEMORIA = %d",configuracion->puertoMemoria);
 
 	config_destroy(config);
 
-	return configuracion;
 }
 
 int conectarAKernel (){
 
 	//Genera el socket cliente y lo conecta al kernel
-	int socketCliente = crearCliente(configuracion.ipKernel,configuracion.puertoKernel);
+	int socketCliente = crearCliente(configuracion->ipKernel,configuracion->puertoKernel);
 
 	log_info(logger,"Socket cliente con kernel %d",socketCliente);
 
@@ -75,7 +76,8 @@ int conectarAKernel (){
 int conectarAMemoria (){
 
 	//Genera el socket cliente y lo conecta a la memoria
-	int socketCliente = crearCliente(configuracion.ipMemoria,configuracion.puertoMemoria);
+	int socketCliente = crearCliente(configuracion->ipMemoria,configuracion->puertoMemoria);
+	log_info(logger,"Socket cliente con la memoria %d",socketCliente);
 
 	//Se realiza el handshake con la memoria
 	t_struct_numero* es_cpu = malloc(sizeof(t_struct_numero));
@@ -181,7 +183,6 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_info(logger, "El proceso finalizo exitosamente");
 
-				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
 				free(instruccion);
@@ -407,7 +408,7 @@ char * pedirSiguienteInstruccion(){
 
 	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
 	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
-	free(direccion);
+	//free(direccion);
 
 	if(validarPedidoMemoria()){
 
@@ -447,7 +448,7 @@ bool validarPedidoMemoria(){
 
 		int estadoPedido = ((t_struct_numero*) structRecibido)->numero;
 
-		free(structRecibido);
+		//free(structRecibido);
 
 		//Pedido rechazado por la memoria
 		if(estadoPedido == MEMORIA_ERROR){

@@ -33,7 +33,7 @@ int main(int arc, char * argv[]) {
 	crearLog("/CPU");
 
 	// Levanta la configuración del proceso CPU
-	configuracion = cargarConfiguracion();
+	cargarConfiguracion();
 
 	inicializarEstructuras();
 

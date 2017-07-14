@@ -48,9 +48,9 @@ pthread_t threadCommandHandler;
 
 t_struct_numero confirmation_send;
 
-t_configuracion configuracion;
-
-t_configuracion cargarConfiguracion();
+t_configuracion * configuracion;
+char * pathConfiguracion;
+void cargarConfiguracion();
 
 int conectarAKernel();
 

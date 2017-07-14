@@ -1,34 +1,33 @@
 #include "consolaHelper.h"
 
 
-t_configuracion cargarConfiguracion() {
+cargarConfiguracion(){
 
 	t_config * config;
-	t_configuracion configuracion;
-
-	config = config_create("./config.txt");
+	pathConfiguracion = "./config.txt";
+	config = config_create(pathConfiguracion);
 
 	if(config == NULL){
 
-		config = config_create("../config.txt");
-
+		pathConfiguracion = "../config.txt";
+		config = config_create(pathConfiguracion);
 	}
 
-	configuracion.ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
-	log_info(logger,"IP_KERNEL = %s",configuracion.ipKernel);
+	configuracion = malloc(sizeof(t_configuracion));
 
-	configuracion.puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
-	log_info(logger,"PUERTO_KERNEL = %d \n",configuracion.puertoKernel);
+	configuracion->ipKernel = strdup(config_get_string_value(config, "IP_KERNEL"));
+	log_info(logger,"IP_KERNEL = %s",configuracion->ipKernel);
+
+	configuracion->puertoKernel = config_get_int_value(config, "PUERTO_KERNEL");
+	log_info(logger,"PUERTO_KERNEL = %d \n",configuracion->puertoKernel);
 
 	config_destroy(config);
-
-	return configuracion;
 }
 
 int conectarAKernel (){
 
 	//Genera el socket cliente y lo conecta al kernel
-	int socketCliente = crearCliente(configuracion.ipKernel,configuracion.puertoKernel);
+	int socketCliente = crearCliente(configuracion->ipKernel,configuracion->puertoKernel);
 
 	//Se realiza el handshake con el kernel
 	t_struct_numero* es_consola = malloc(sizeof(t_struct_numero));
@@ -157,7 +156,7 @@ void iniciarPrograma(char* pathArchivo){
 	programa->PID = 1 ;
 	memcpy(programa->buffer,codigo,tamanio_archivo);
 
-	int resultado = socket_enviar(socketKernel, D_STRUCT_PROG, &programa);
+	int resultado = socket_enviar(socketKernel, D_STRUCT_PROG, programa);
 
 	if(resultado == -1) {
 
