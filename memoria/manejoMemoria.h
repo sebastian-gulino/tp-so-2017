@@ -21,6 +21,7 @@ t_list* listaCpus;
 t_list* listaKernel;
 
 pthread_t threadAtenderConexiones;
+pthread_t threadCommandHandler;
 
 typedef struct config_t {
 
