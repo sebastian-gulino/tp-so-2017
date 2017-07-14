@@ -55,7 +55,10 @@ t_filaTablaInvertida* tablaInvertida;
 
 int retardoLecturaMemoria;
 
+t_configuracion * configuracion;
+char * pathConfiguracion;
 void cargarConfiguracion();
+
 
 void inicializarListas();
 

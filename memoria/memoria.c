@@ -38,17 +38,20 @@ int main(void) {
 
 //	imprimirCache();
 
-	vaciarCache();
+//
 
 //	imprimirTablaPaginas();
 
 //	asignarPaginasProceso(666,1);
 
-	liberarMemoriaPrincipal();
 
-//	crearThreadAtenderConexiones();
-//
-//	pthread_join(threadAtenderConexiones, NULL);
+
+	crearThreadAtenderConexiones();
+
+	pthread_join(threadAtenderConexiones, NULL);
+
+	liberarMemoriaPrincipal();
+	vaciarCache();
 
 	return 0;
 

@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <parser/metadata_program.h>
 #include <parser/parser.h>
+#include <sys/inotify.h>
 
 typedef struct config_t {
 
@@ -30,16 +31,16 @@ typedef struct config_t {
 	int quantumSleep;
 	char * algoritmo;
 	int gradoMultiprog;
-	char * semIDS;
-	char * semINIT;
-	char * sharedVars;
+	char** semIDS;
+	char** semINIT;
+	char** sharedVars;
 	int stackSize;
 	int puertoEscucha;
 
 } t_configuracion;
 
 // Estructura que almacenará la configuracion del kernel
-t_configuracion configuracion;
+t_configuracion * configuracion;
 
 // Variable que almacenará el tamaño de cada pagina de memoria
 int32_t tamanio_pagina;
@@ -49,7 +50,9 @@ int maximoPID, cantidadTotalPID;
 // FD del socket de comunicacion con memoria y filesystem
 int socketMemoria, socketFS;
 
-bool kernelPlanificando;
+bool kernelPlanificando, quantumSleepActualizado;
+
+int socketInotify;
 
 t_list *listaConsolas;
 t_list *listaCpuLibres;
@@ -76,6 +79,7 @@ t_list* listaSemaforos;
 t_list* listaVarCompartidas;
 
 int bloqueEspecial;
+char * pathConfiguracion;
 
 pthread_t threadAtenderConexiones;
 
@@ -92,7 +96,7 @@ void administrarConexiones();
 
 void inicializarListas();
 
-t_configuracion cargarConfiguracion();
+void cargarConfiguracion();
 
 void crearThreadAtenderConexiones();
 

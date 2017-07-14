@@ -42,14 +42,17 @@ typedef struct mtdt_t{
 t_bitarray * bitarray;
 void * bmap;
 int socketCliente;
-t_configuracion configuracion;
+
 t_metadata metadata;
 
 pthread_t threadAtenderKernel;
 
 struct stat mystat;
 int block_counter;
-t_configuracion cargarConfiguracion();
+
+t_configuracion * configuracion;
+char * pathConfiguracion;
+void cargarConfiguracion();
 
 void crearServidorMonocliente();
 

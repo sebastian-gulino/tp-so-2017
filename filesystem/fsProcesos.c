@@ -7,7 +7,7 @@ void  validarArchivo(t_struct_abrir * archivo){
 	char pathFile[260];
 	t_struct_abrir * toSend = malloc(sizeof(t_struct_abrir));
 	toSend = archivo;
-	sprintf(pathFile, "%s/Archivos%s", configuracion.puntoMontaje, archivo->path); //Se usa sprintf para obtener el path
+	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path); //Se usa sprintf para obtener el path
 																					//completo en el punto de montaje especificado
 
 	FILE * file = fopen(pathFile, "r"); //Se abre el archivo, de esta manera verificamos que exista.
@@ -55,7 +55,7 @@ int crearArchivo(char * path){
 
 	char pathFile[260];
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, path);//Se usa sprintf para obtener el path
+	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, path);//Se usa sprintf para obtener el path
 																			//completo en el punto de montaje especificado
 
 	char inexPaths[20][260];
@@ -114,7 +114,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 	t_struct_borrar * toSend = malloc(sizeof(t_struct_borrar));
 	toSend = archivo;
 
-		sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
+		sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
 
 		if(fopen(pathFile, "r")==NULL){ //Se verifica que el archivo a borrarse exista.
 
@@ -140,7 +140,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			int bloque = atoi(charBloque); //Ya que el config me da un char* necesito pasarlo a int para proximos manejos del bloque
 
-			sprintf(blockPath, "%s/Bloques/%zu.bin", configuracion.puntoMontaje, bloque); //Se obtiene el path absoluto del bloque
+			sprintf(blockPath, "%s/Bloques/%zu.bin", configuracion->puntoMontaje, bloque); //Se obtiene el path absoluto del bloque
 
 			remove(blockPath); //Se elimina el bloque
 
@@ -192,7 +192,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 	toSend = archivo;
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
+	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
 
 	if(archivo->modo_lectura==0){ //Verifico que el archivo este en modo lectura
 
@@ -244,7 +244,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 			int bloque = atoi(charBloque);
 
-			sprintf(blockPath, "%s/Bloques/%d.bin", configuracion.puntoMontaje, bloque); //Path absoluto del bloque
+			sprintf(blockPath, "%s/Bloques/%d.bin", configuracion->puntoMontaje, bloque); //Path absoluto del bloque
 
 			file = fopen(blockPath, "r"); //Abro el bloque solo para lectura
 
@@ -313,7 +313,7 @@ void guardarDatos(t_struct_guardar * archivo){
 	t_struct_guardar * toSend = malloc(sizeof(t_struct_guardar));
 	toSend = archivo;
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion.puntoMontaje, archivo->path);
+	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
 		log_info(logger, "El archivo del path: %s no existe", pathFile);
@@ -416,7 +416,7 @@ void guardarDatos(t_struct_guardar * archivo){
 
 			int bloque = posicion;
 
-			sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion.puntoMontaje, bloque); //Path absoluto del bloque
+			sprintf(pathBloque, "%s/Bloques/%d.bin", configuracion->puntoMontaje, bloque); //Path absoluto del bloque
 
 			file = fopen(pathBloque, "r+"); //Abro el bloque en lectura y escritura
 

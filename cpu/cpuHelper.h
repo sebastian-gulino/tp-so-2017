@@ -26,15 +26,11 @@ typedef struct config_t {
 
 } t_configuracion;
 
-t_configuracion configuracion;
-
-t_configuracion cargarConfiguracion();
-
+t_configuracion * configuracion;
+char * pathConfiguracion;
+void cargarConfiguracion();
 
 bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma, seguirEjecutando;
-
-#define WAIT 1
-#define IO 2
 
 // Estructura que almacenara el pcb del proceso que la CPU esta ejecutando
 t_struct_pcb* pcbEjecutando;

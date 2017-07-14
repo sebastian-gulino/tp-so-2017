@@ -10,7 +10,7 @@ int main(int arc, char * argv[]) {
 	crearLog("/CONSOLA");
 
 	//Levanta la configuración del proceso consola
-	configuracion = cargarConfiguracion();
+	cargarConfiguracion();
 
 	inicializarEstructuras();
 
