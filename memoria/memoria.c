@@ -21,19 +21,19 @@ int main(void) {
 
 	crearCache();
 
-	reservarFramesProceso(111,2048,1);
-
-	imprimirTablaPaginas();
-
-	bool escritura = escribirPagina(2,111,100,20,"esta es una prueba\n");
-
-	printf("%d\n",escritura);
-
-	t_resultadoLectura resultado =  leerPagina(2, 111, 100, 20);
-
-	printf("%s\n",resultado.contenido);
-
-	printf("%d\n",resultado.resultado);
+//	reservarFramesProceso(111,2048,1);
+//
+//	imprimirTablaPaginas();
+//
+//	bool escritura = escribirPagina(2,111,100,20,"esta es una prueba\n");
+//
+//	printf("%d\n",escritura);
+//
+//	t_resultadoLectura resultado =  leerPagina(2, 111, 100, 20);
+//
+//	printf("%s\n",resultado.contenido);
+//
+//	printf("%d\n",resultado.resultado);
 
 
 //	imprimirCache();

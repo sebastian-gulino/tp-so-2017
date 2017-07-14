@@ -129,14 +129,14 @@ void administrarConexiones(){
 	}
 }
 
-void manejarCpu(int i){
+void manejarCpu(int socketCPU){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if (socket_recibir(i,&tipoEstructura,&structRecibido) == -1) {
-		log_info(logger,"El Cpu %d cerró la conexión.",i);
-		removerClientePorCierreDeConexion(i,listaCpus);
+	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
+		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
+		removerClientePorCierreDeConexion(socketCPU,listaCpus);
 	} else {
 
 		switch(tipoEstructura){
@@ -144,9 +144,25 @@ void manejarCpu(int i){
 
 		t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
 
-		//TODO DEBE RETORNAR
-		// MEMORIA_OK o MEMORIA_ERROR
-		// SI RETORNA MEMORIA OK ENVIAR TAMBIEN EL VALOR LEIDO
+		t_resultadoLectura resultadoLecturaVar = leerPagina( direccionLeer->pagina,
+				direccionLeer->PID, direccionLeer->offset, direccionLeer->contenido);
+
+		if(resultadoLecturaVar.resultado){
+
+			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+			rtaLectVar->numero = MEMORIA_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+			rtaLectVar->numero=*(int *)resultadoLecturaVar.contenido;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+		} else {
+
+			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+			rtaLectVar->numero = MEMORIA_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+
+		}
 
 		break;
 
@@ -155,8 +171,22 @@ void manejarCpu(int i){
 
 		t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
 
-		//TODO DEBE RETORNAR
-		// MEMORIA_OK o MEMORIA_ERROR
+		bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
+				direccionEscribir->offset, sizeof(int), direccionEscribir->contenido);
+
+		if(resultadoEscribir){
+
+			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+			rtaEscribir->numero = MEMORIA_OK;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+
+		} else {
+
+			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+			rtaEscribir->numero = MEMORIA_ERROR;
+			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+
+		}
 
 		break;
 
@@ -193,17 +223,18 @@ void manejarKernel(int socketKernel){
 				//Le comunico al kernel si se pudo realizar operacion
 				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
 				respuestaAsignacion->numero = sePudoAsignar ? MEMORIA_OK : MEMORIA_ERROR;
-					socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
 
-					if(!sePudoAsignar){
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
+
+				if(!sePudoAsignar){
 					log_error(logger,"No se pudo crear el segmento solicitado");
-					} else {
+				} else {
 					log_info(logger,"Se creo con exito el segmento solicitado");
-					}
+				}
 
-					free(respuestaAsignacion);
+				free(respuestaAsignacion);
 
-					break;
+				break;
 
 				}
 			}
