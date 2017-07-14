@@ -128,8 +128,6 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	cantBytesRecibidos = recv(socketEmisor, bufferHeader, sizeof(t_header), MSG_WAITALL);	//ReciBo por partes, primero el header.
 	if(cantBytesRecibidos == -1){
 		free(bufferHeader);
-		//TODO ver como manejar esto al seguir buscando novedades llena el log
-		//log_error(logger,"Error al recibir datos\n");
 		return 0;
 	}
 
@@ -158,8 +156,6 @@ int socket_recibir(int socketEmisor, t_tipoEstructura * tipoEstructura, void** e
 	cantBytesRecibidos = recv(socketEmisor, buffer, header.length, MSG_WAITALL);	//Recibo el resto del mensaje con el tamaño justo de buffer.
 	if(cantBytesRecibidos == -1){
 		free(buffer);
-		//TODO ver como manejar esto al seguir buscando novedades llena el log
-		//log_error(logger,"Error al recibir datos");
 		return 0;
 	}
 

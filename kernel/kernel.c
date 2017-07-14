@@ -11,7 +11,6 @@ int main(int arc, char * argv[]) {
 	//Crea la lista de clientes conectados para cpu y consola
 	inicializarListas();
 
-	actualizarQuantumSleep();
 	//Conecta el Kernel a la memoria del sistema
 	socketMemoria = conectarAMemoria();
 

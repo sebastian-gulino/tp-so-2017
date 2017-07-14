@@ -144,6 +144,8 @@ void inicializarListas(){
 	cola_ready = list_create();
 	cola_block = list_create();
 	cola_exec = list_create();
+
+	sizeInotify =  (1024 * sizeof(struct inotify_event) + 40);
 }
 
 void manejarNuevaConexion(int listener, int *fdmax){
@@ -403,24 +405,30 @@ void manejarConsola(int socketConsola){
 
 void administrarConexiones (){
 
-	char* STDIN = string_new();
-	string_append(&STDIN, "0");
-
+	int fdEntrada = 0;
 
 	int inotifyDescriptor = inotify_init();
 	if (inotifyDescriptor < 0) {
 		perror("inotify_init");
 	}
 
+	watchInotify = inotify_add_watch(inotifyDescriptor,pathConfiguracion,IN_MODIFY);
 
 	int socketServidor = crearServidor(configuracion->puertoEscucha);
 
 	fd_set read_fds;
+	fd_set inotify;
+	fd_set STDIN;
 
 	//Elimino el contenido de los conjuntos de descriptores
 	FD_ZERO(&master_cpu);
 	FD_ZERO(&master_consola);
+	FD_ZERO(&inotify);
+	FD_ZERO(&STDIN);
 	FD_ZERO(&read_fds);
+
+	FD_SET(inotifyDescriptor,&inotify);
+	FD_SET(fdEntrada,&STDIN);
 
 	// Declaro como descriptor de fichero mayor al socket que escucha
 	int fdmax = socketServidor;
@@ -431,6 +439,8 @@ void administrarConexiones (){
 		read_fds = combinar_master_fd(&master_cpu, &master_consola, fdmax); // se copia el master al temporal
 		// Añado el descriptor del socket escucha al conjunto
 		FD_SET(socketServidor, &read_fds);
+		FD_SET(inotifyDescriptor,&read_fds);
+		FD_SET(fdEntrada,&read_fds);
 
 		if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
 			perror("select");
@@ -448,6 +458,10 @@ void administrarConexiones (){
 
 				if(FD_ISSET(i, &master_consola)){
 					manejarConsola(i);
+				}
+
+				if(FD_ISSET(i, &inotify)){
+					modificacionArchConf(i);
 				}
 
 				if(i==socketServidor){
@@ -525,6 +539,32 @@ int obtener_pid(){
 	int pid = maximoPID++;
 
 	return pid;
+}
+
+void modificacionArchConf(int fdInotify) {
+	char buffer[sizeInotify];
+	int length_inotify = read(fdInotify, buffer, sizeInotify);
+	int offset=0;
+
+	if (length_inotify < 0) {
+		log_error(logger,"Error al leer el archivo de Configuracion");
+	}
+	while (length_inotify > offset) {
+
+		struct inotify_event *event = (struct inotify_event *) &buffer[offset];
+
+		t_config * config = config_create(pathConfiguracion);
+
+			if (event->mask & IN_MODIFY) {
+				if (config && config_has_property(config, "QUANTUM_SLEEP")) {
+					actualizarQuantumSleep();
+				}
+			}
+			offset += sizeInotify + event->len;
+
+		free(config);
+
+	}
 }
 
 t_struct_pcb* crearPCB(int PID){
@@ -1362,7 +1402,6 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				log_info(logger,"El semaforo se bloquea, verifico si corresponde matar el proceso o pasarlo a block");
 
 				t_struct_pcb * pcbBloqueado = ((t_struct_pcb*) structRecibido);
-				//TODO actualizar exit code con mensaje por semaforo bloqueado
 
 				if(verificarProcesoFinalizar(pcbBloqueado)){
 
@@ -1913,7 +1952,6 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
 
 		if(pcb->estado==E_EXEC){
-			//TODO IMPLEMENTAR
 			pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
 			liberarMemoriaProceso(pcb);
 			informarLiberarHeap(pcb);
@@ -1949,12 +1987,6 @@ void ejecutarPlanificacion(int socketCPU){
 		log_info(logger,"Se solicita planificar pero el kernel no esta planificando");
 		return;
 	}
-
-	//TODO RECARGAR QUANTUM SLEEP
-//	if (recargarConfig) {
-//			recargarConfig = false;
-//			recargarQuantumSpeed();
-//		}
 
 	if(socketCPU != 0 || socketCPU != NULL){
 

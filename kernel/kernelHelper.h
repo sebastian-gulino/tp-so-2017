@@ -53,6 +53,8 @@ int socketMemoria, socketFS;
 bool kernelPlanificando, quantumSleepActualizado;
 
 int socketInotify;
+int watchInotify;
+int sizeInotify;
 
 t_list *listaConsolas;
 t_list *listaCpuLibres;

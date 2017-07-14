@@ -183,7 +183,6 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				log_info(logger, "El proceso finalizo exitosamente");
 
-				// TODO manejar operacion desde el kernel cuando proceso finaliza ok, cola de exit & more
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
 				free(instruccion);
