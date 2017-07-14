@@ -6,6 +6,9 @@ void * memoriaPrincipal;
 
 void cargarConfiguracion() {
 
+	consolaConectada = 1;
+	pthread_mutex_init(&mutex_log, NULL);
+
 	t_config * config;
 
 	pathConfiguracion = "./config.txt";
@@ -457,6 +460,7 @@ void aplicarRetardo(){
 
 void establecerRetardoMemoria(int cantidad){
 	retardoLecturaMemoria = cantidad;
+	log_info(logger,"Se cambio el retardo en milisegundos a d%.", retardoLecturaMemoria);
 }
 
 int obtenerLRUElementoCache(){
@@ -515,6 +519,220 @@ void imprimirCache(){
 	for(i = 0; i < limite; i++){
 		printf("PID: %d  #Pagina: %d \n",cache[i].pid,cache[i].pagina);
 	}
+}
+
+int calcularFramesOcupados(int pid){
+	int i;
+	int limite = configuracion->marcos;
+	int contador = 0;
+	for(i = 0; i < limite; i++){
+		if(tablaInvertida[i].pid == pid){
+			contador++;
+		}
+	}
+	return contador;
+}
+
+t_list * obtenerProcesosActivos(){
+	int i;
+	int limite = configuracion->marcos;
+	t_list * procesosActivos = list_create();
+	for(i = 0; i < limite; i++){
+
+		bool contiene_pid(int nuevoPid){
+			return (nuevoPid == tablaInvertida[i].pid);
+		}
+		if(tablaInvertida[i].pid!=-1 && tablaInvertida[i].pid!=0 && !list_find(procesosActivos,(void*)contiene_pid)){
+			list_add(procesosActivos,tablaInvertida[i].pid);
+		}
+	}
+	return procesosActivos;
+}
+
+void dumpMemoria(){
+	FILE *f = fopen("dump.txt","w");
+
+	fprintf(f,"Cache\n");
+	fprintf(f,"\n");
+	int i;
+	int limite = CANTIDAD_ELEMENTOS_CACHE;
+	for(i = 0; i < limite; i++){
+		fprintf(f,"PID: %d  #Pagina: %d \n",cache[i].pid,cache[i].pagina);
+	}
+
+	fprintf(f,"\n");
+	fprintf(f,"Tabla de Páginas\n");
+	fprintf(f,"\n");
+	limite = configuracion->marcos;
+	for(i = 0; i < limite; i++){
+		fprintf(f,"Frame: %d  PID: %d  #Pagina: %d\n",tablaInvertida[i].frame,tablaInvertida[i].pid,tablaInvertida[i].pagina);
+	}
+
+	fprintf(f,"\n");
+	fprintf(f,"Procesos Activos\n");
+	fprintf(f,"\n");
+	t_list * procesosActivos = obtenerProcesosActivos();
+	for(i = 0; i < list_size(procesosActivos); i++){
+		fprintf(f,"PID: %d\n",list_get(procesosActivos,i));
+	}
+
+	fclose(f);
+
+}
+
+void manejoConsola(){
+
+	printf("Comandos disponibles:\n");
+	printf("retardo: Cambia el retardo para leer de memoria.\n");
+	printf("dump: Generar reporte con detalles de cache, estructuras y contenido.\n");
+	printf("size:Memory o PID con el process id imprime datos relacionados al tamaño.\n");
+	printf("flush: Limpiar la cache.\n");
+	printf("exit: Cerrar la consola.\n");
+	printf("\n");
+
+	while(consolaConectada){
+
+		puts("Ingrese algún comando no mayor a 50 caracteres");
+		char * value = malloc(50);
+		scanf("%s", value);
+
+		switch(commandParser(value)){
+			case 1:;
+				puts("Ingrese el nuevo retardo en milisegundos...");
+				char * path = malloc(200);
+				scanf("%s", path);
+
+				pthread_t hiloPrograma;
+
+				establecerRetardoMemoria(atoi(path));
+
+				free(path);
+
+				break;
+			case 2:
+				pthread_mutex_lock(&mutex_log);
+				log_info(logger,"Se hizo dump de toda la memoria.");
+				pthread_mutex_unlock(&mutex_log);
+
+				printf("\n");
+				printf("Cache:\n");
+				printf("\n");
+				imprimirCache();
+
+				printf("\n");
+				printf("Tabla de Páginas:\n");
+				printf("\n");
+				imprimirTablaPaginas();
+
+				printf("\n");
+				printf("Procesos Activos:\n");
+				printf("\n");
+				t_list *  procesosActivos = obtenerProcesosActivos();
+				int i = 0;
+				for(i = 0; i < list_size(procesosActivos); i++){
+					printf("PID: %d\n",list_get(procesosActivos,i));
+				}
+
+				dumpMemoria();
+
+				break;
+			case 3:
+
+				puts("Ingrese opción MEMORY o PID...");
+				char * otro = malloc(200);
+				scanf("%s", otro);
+
+				switch(commandParser(otro)){
+					case 6:
+						pthread_mutex_lock(&mutex_log);
+						log_info(logger,"Se consulto la cantidad de frames de memoria.");
+						pthread_mutex_unlock(&mutex_log);
+
+						//consultar Memoria
+						printf("Cantidad de Frames: %d.\n", configuracion->marcos);
+						printf("Cantidad de Frames Ocupados: %d.\n", configuracion->marcos - cantidadFramesLibres());
+						printf("Cantidad de Frames Libres: %d.\n", cantidadFramesLibres());
+
+						break;
+					case 7:
+						puts("Ingrese PID");
+						char * pid = malloc(200);
+						scanf("%s", pid);
+
+						pthread_mutex_lock(&mutex_log);
+						log_info(logger,"Se contulto el espacio ocupado por le proceso con PID: %s.",pid);
+						pthread_mutex_unlock(&mutex_log);
+
+						//consultar PID
+						int total = calcularFramesOcupados(atoi(pid));
+						printf("Cantidad de Frames Ocupados por el Proceso: %d.\n", total);
+						printf("Cantidad de Bytes Ocupados por el Proceso: %d.\n", total * configuracion->marcoSize);
+
+						free(pid);
+						break;
+					default:
+						printf("Comando invalido...\n");
+						break;
+				}
+
+				free(otro);
+
+				break;
+			case 4:
+
+				printf("Se vacia la Cache...\n");
+
+				pthread_mutex_lock(&mutex_log);
+
+				log_info(logger,"Se vacia la cache.");
+
+				pthread_mutex_unlock(&mutex_log);
+
+				vaciarCache();
+				crearCache();
+
+				break;
+
+			case 5:
+
+				pthread_mutex_lock(&mutex_log);
+
+				log_info(logger,"Se envió la instrucción para desconectar la consola.");
+
+				pthread_mutex_unlock(&mutex_log);
+
+				consolaConectada=0;
+				break;
+			default:
+				printf("Comando invalido...\n");
+				break;
+			}
+		free(value);
+	}
+}
+
+int commandParser(char* command){
+
+	string_to_upper(command);
+
+	if(strcmp(command, "RETARDO") == 0){
+		return 1;
+	} else if (strcmp(command, "DUMP") == 0){
+		return 2;
+	} else if(strcmp(command, "SIZE") == 0){
+		return 3;
+	} else if (strcmp(command, "FLUSH") == 0){
+		return 4;
+	} else if (strcmp(command, "EXIT") == 0){
+		return 5;
+	} else if (strcmp(command, "MEMORY") == 0){
+		return 6;
+	} else if (strcmp(command, "PID") == 0){
+		return 7;
+	} else {
+		return 8;
+	}
+
 }
 
 

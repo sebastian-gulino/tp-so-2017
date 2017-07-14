@@ -44,7 +44,9 @@ int main(void) {
 
 //	asignarPaginasProceso(666,1);
 
+	pthread_create(&threadCommandHandler, NULL, (void*)&manejoConsola,NULL);
 
+	pthread_join(threadCommandHandler, NULL);
 
 	crearThreadAtenderConexiones();
 

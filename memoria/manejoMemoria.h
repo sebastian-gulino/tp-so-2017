@@ -22,6 +22,8 @@ t_list* listaKernel;
 
 pthread_t threadAtenderConexiones;
 pthread_t threadCommandHandler;
+int consolaConectada;
+pthread_mutex_t mutex_log;
 
 typedef struct config_t {
 
@@ -104,5 +106,7 @@ int obtenerPrimerosNFramesLibre(int cantidad);
 t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio);
 
 bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido);
+
+void manejoConsola();
 
 #endif /* MANEJOMEMORIA_H_ */
