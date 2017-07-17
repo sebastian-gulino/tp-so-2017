@@ -7,6 +7,7 @@ void * memoriaPrincipal;
 void cargarConfiguracion() {
 
 	consolaConectada = 1;
+
 	pthread_mutex_init(&mutex_log, NULL);
 
 	t_config * config;
@@ -34,6 +35,8 @@ void cargarConfiguracion() {
 	configuracion->retardoMemoria = config_get_int_value(config, "RETARDO_MEMORIA");
 	configuracion->stackSize = config_get_int_value(config, "STACK_SIZE");
 
+	pthread_mutex_lock(&mutex_log);
+
 	log_info(logger,"El Puerto es %d\n",configuracion->puerto);
 	log_info(logger,"La cantidad de Marcos es %d\n",configuracion->marcos);
 	log_info(logger,"El tamaño de cada Marco es %d\n",configuracion->marcoSize);
@@ -42,6 +45,8 @@ void cargarConfiguracion() {
 	log_info(logger,"El reemplazo de cache es %d\n",configuracion->reemplazoCache);
 	log_info(logger,"El retardo de la Memoria es %d\n",configuracion->retardoMemoria);
 	log_info(logger,"La cantidad de paginas asignada al Stack es %d\n",configuracion->stackSize);
+
+	pthread_mutex_unlock(&mutex_log);
 
 	config_destroy(config);
 }
@@ -91,7 +96,9 @@ void administrarConexiones(){
 				switch(((t_struct_numero*) structRecibido)->numero){
 							case ES_KERNEL:
 
+								pthread_mutex_lock(&mutex_log);
 								log_info(logger,"Se conecto el Kernel");
+								pthread_mutex_unlock(&mutex_log);
 
 								list_add(listaKernel, (void*) socketCliente);
 
@@ -105,7 +112,9 @@ void administrarConexiones(){
 								break;
 							case ES_CPU:
 
+								pthread_mutex_lock(&mutex_log);
 								log_info(logger,"Se conecto una CPU");
+								pthread_mutex_unlock(&mutex_log);
 
 								list_add(listaCpus, (void*) socketCliente);
 
@@ -120,8 +129,9 @@ void administrarConexiones(){
 
 							default:
 
+								pthread_mutex_lock(&mutex_log);
 								log_error(logger,"No se pudo hacer el handshake");
-
+								pthread_mutex_unlock(&mutex_log);
 								//Ciero el FD del cliente que había aceptado
 								close(socketCliente);
 				}
@@ -138,7 +148,9 @@ void manejarCpu(int socketCPU){
 	void * structRecibido;
 
 	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
+		pthread_mutex_lock(&mutex_log);
 		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
+		pthread_mutex_unlock(&mutex_log);
 		removerClientePorCierreDeConexion(socketCPU,listaCpus);
 	} else {
 
@@ -215,9 +227,11 @@ void manejarKernel(int socketKernel){
 			switch(tipoEstructura){
 			case D_STRUCT_MALC:
 
+				pthread_mutex_lock(&mutex_log);
 				log_info(logger,"Se solicita crear segmento para el PID %i",
 						((t_struct_malloc* )structRecibido)->PID);
 
+				pthread_mutex_unlock(&mutex_log);
 				int PID = ((t_struct_malloc* )structRecibido)->PID;
 				int tamanioSegmento = ((t_struct_malloc* )structRecibido)->tamano_segmento;
 
@@ -229,11 +243,13 @@ void manejarKernel(int socketKernel){
 
 				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaAsignacion);
 
+				pthread_mutex_lock(&mutex_log);
 				if(!sePudoAsignar){
 					log_error(logger,"No se pudo crear el segmento solicitado");
 				} else {
 					log_info(logger,"Se creo con exito el segmento solicitado");
 				}
+				pthread_mutex_unlock(&mutex_log);
 
 				free(respuestaAsignacion);
 
@@ -280,8 +296,10 @@ void crearEstructurasAdministrativas(){
 	for(i = 0; i < framesTablaInvertida; i++){
 		tablaInvertida[i].pid = FRAME_ESTRUCTURA_ADMINISTRATIVA;
 	}
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger, "Estructuras Administrativas creadas exitosamente.\n");
 	log_info(logger, "Las estructuras administrativas ocupan %d marcos de memoria.\n", framesTablaInvertida);
+	pthread_mutex_unlock(&mutex_log);
 }
 
 int buscarPaginaMemoria(int pagina, int pid){
@@ -300,7 +318,9 @@ int buscarPaginaMemoria(int pagina, int pid){
 void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
 	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	memcpy(punteroFrame + offset,contenido,size);
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
+	pthread_mutex_unlock(&mutex_log);
 }
 
 bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido){
@@ -324,7 +344,9 @@ int cantidadFramesLibres(){
 			framesLibres++;
 		}
 	}
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Quedan %d frames libres.", framesLibres);
+	pthread_mutex_unlock(&mutex_log);
 	return framesLibres;
 }
 
@@ -380,7 +402,9 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 			}
 			return true;
 		} else {
+			pthread_mutex_lock(&mutex_log);
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispone de los %d frames libres contiguos necesarios.\n",pid,framesNecesarios);
+			pthread_mutex_unlock(&mutex_log);
 			return false;
 		}
 	} else {
@@ -392,7 +416,9 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 			}
 			return true;
 		} else {
+			pthread_mutex_lock(&mutex_log);
 			log_info(logger,"No se reservaron paginas para el proceso %d por que no se dispones de %d frames libres.\n",pid,framesNecesarios);
+			pthread_mutex_unlock(&mutex_log);
 			return false;
 		}
 	}
@@ -426,15 +452,19 @@ t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio){
 	resultado.resultado = false;
 	resultado.contenido = malloc(tamanio);
 	if(indiceCache > -1){
-		printf("Se lee cache\n");
 		lectura = cache[indiceCache].contenido;
 		resultado.resultado = true;
 		memcpy(resultado.contenido,lectura + offset,tamanio);
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger,"Se leyo la pagina %d del proceso %d, de la Cache.",pagina,pid);
+		pthread_mutex_unlock(&mutex_log);
 	} else {
-		printf("Se lee memoria\n");
 		lectura = leerMemoria(pagina,pid);
 		resultado.resultado = true;
 		memcpy(resultado.contenido,lectura + offset,tamanio);
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger,"Se leyo la pagina %d del proceso %d, de la Memoria.",pagina,pid);
+		pthread_mutex_unlock(&mutex_log);
 	}
 	return resultado;
 }
@@ -455,12 +485,16 @@ void vaciarCache(){
 
 void aplicarRetardo(){
 	usleep(retardoLecturaMemoria);
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Durmiendo %d milisegundos...zzzzzzz",retardoLecturaMemoria);
+	pthread_mutex_unlock(&mutex_log);
 }
 
 void establecerRetardoMemoria(int cantidad){
 	retardoLecturaMemoria = cantidad;
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Se cambio el retardo en milisegundos a d%.", retardoLecturaMemoria);
+	pthread_mutex_unlock(&mutex_log);
 }
 
 int obtenerLRUElementoCache(){
@@ -502,7 +536,9 @@ void finalizarPrograma(int pid){
 		}
 	}
 	borrarProcesoCache(pid);
+	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Se desasignaron todos los frames asignados al proceso %d",pid);
+	pthread_mutex_unlock(&mutex_log);
 }
 
 void imprimirTablaPaginas(){
