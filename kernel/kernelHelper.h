@@ -91,7 +91,7 @@ fd_set master_cpu;
 
 t_struct_pcb pcb;
 t_limites_instrucciones limitesInstrucciones;
-t_list * indiceCodigo;
+
 t_list * indiceStack;
 
 void administrarConexiones();
@@ -118,7 +118,7 @@ void removerClientePorCierreDeConexion(int cliente, fd_set *fdSet);
 
 void enviarConfiguracion(int socketCliente, int valor);
 
-t_struct_pcb* crearPCB(int PID);
+t_struct_pcb* crearPCB(int PID, t_struct_pcb * pcb);
 
 int solicitarSegmentoCodigo(int pid, int tam_programa);
 

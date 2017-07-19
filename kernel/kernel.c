@@ -17,6 +17,8 @@ int main(int arc, char * argv[]) {
 	//Conecta el Kernel al filesystem
 	socketFS = conectarAFS();
 
+	iniciarConsolaKernel();
+
 	crearThreadAtenderConexiones();
 
 	pthread_join(threadAtenderConexiones, NULL);

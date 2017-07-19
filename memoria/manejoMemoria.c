@@ -136,10 +136,13 @@ void manejarCpu(int socketCPU){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
+	bool seguimo = true;
+	while(seguimo){
 
 	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
 		removerClientePorCierreDeConexion(socketCPU,listaCpus);
+		seguimo=false;
 	} else {
 
 		switch(tipoEstructura){
@@ -196,11 +199,14 @@ void manejarCpu(int socketCPU){
 		}
 
 	}
+	}
 };
 
 void manejarKernel(int socketKernel){
 
-	while(1) {
+	bool seguimo = true;
+
+	while(seguimo) {
 
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
@@ -209,7 +215,7 @@ void manejarKernel(int socketKernel){
 
 			log_info(logger,"El Kernel %d cerró la conexión.",socketKernel);
 			removerClientePorCierreDeConexion(socketKernel,listaKernel);
-
+			seguimo = false;
 		} else {
 
 			switch(tipoEstructura){
@@ -239,8 +245,31 @@ void manejarKernel(int socketKernel){
 
 				break;
 
+			case D_STRUCT_ESCRITURA_CODIGO: ;
+
+				t_struct_sol_escritura * solicitudEscritura = malloc(sizeof(t_struct_sol_escritura));
+
+				solicitudEscritura = (t_struct_sol_escritura* )structRecibido;
+
+				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
+
+				t_struct_programa * codigoPrograma = malloc(sizeof(t_struct_programa));
+
+				codigoPrograma = (t_struct_programa* )structRecibido;
+
+				bool sePudoEscribir = escribirPagina(solicitudEscritura->pagina,solicitudEscritura->PID,solicitudEscritura->offset,solicitudEscritura->contenido, codigoPrograma->buffer);
+
+				if(!sePudoEscribir){
+					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", solicitudEscritura->PID);
+				} else {
+					log_info(logger, "Se escribio correctamente el codigo del proceso PID %d en memoria", solicitudEscritura->PID);
 				}
+
+				free(solicitudEscritura);
+				free(codigoPrograma);
+
 			}
+		}
 	}
 }
 

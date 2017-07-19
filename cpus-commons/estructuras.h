@@ -17,7 +17,8 @@
 typedef uint8_t t_tipoEstructura;
 
 typedef struct IndiceCodigo {
-	t_list * limitesInstrucciones;
+	uint32_t inicio;
+	uint32_t longitud;
 } t_indice_codigo;
 
 typedef struct LimitesInstrucciones {
@@ -32,17 +33,11 @@ typedef struct PosicionMemoria {
 } t_posicion_memoria;
 
 typedef struct Stack {
-	unsigned char posicion;
 	t_list *argumentos;
 	t_list *variables;
-	unsigned char retPos;
-	t_posicion_memoria posicionVariableRetorno;
+	uint32_t retPos;
+	t_posicion_memoria * retVar;
 } t_stack;
-
-typedef struct Argumento {
-	char identificador[2]; // digito del 0 al 9 anteponiendo el signo $
-	t_posicion_memoria posicionMemoria;
-} t_argumento;
 
 typedef struct Variable {
 	char identificador; // nombre de la variable
@@ -50,9 +45,7 @@ typedef struct Variable {
 } t_variable;
 
 typedef struct {
-	int cantidad_args;
 	t_list* args;
-	int cantidad_vars;
 	t_list* vars;
 	int retPos;
 	t_posicion_memoria retVar;
@@ -67,6 +60,12 @@ typedef struct Stream {
 	int length;
 	char* data;
 } t_stream;
+
+typedef struct {
+	uint32_t tamanioStack;
+	void * stack;
+} t_tamanio_stack;
+
 
 typedef struct Cabecera {
 	uint32_t id;		/* ID de operacion */
@@ -289,6 +288,7 @@ enum {
 	EC_DESCONEXION_CPU=10,
 	EC_DESCONEXION_KERNEL=11,
 	EC_STACK_OVERFLOW=12,
+	EC_FINALIZADO_CONSOLA_KERNEL=13,
 	EC_SIN_DEFINICION=-20
 } exitCodeValidos;
 

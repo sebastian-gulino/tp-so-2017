@@ -29,6 +29,8 @@
 	t_stream * serializeStruct_abrir(t_struct_abrir * estructuraOrigen);
 	t_stream * serializeStruct_obtener(t_struct_obtener * estructuraOrigen);
 	t_stream * serializeStruct_guardar(t_struct_guardar * estructuraOrigen);
+	char *serializer_indiceStack(t_list* self, uint32_t * length);
+	char *serializer_indiceCodigo(t_list* self, uint32_t * length);
 
 	t_header desempaquetarHeader(char * header);
 	void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length);
@@ -50,5 +52,7 @@
 	t_struct_abrir * deserializeStruct_abrir(char * dataPaquete, uint16_t length);
 	t_struct_obtener * deserializeStruct_obtener(char * dataPaquete, uint16_t length);
 	t_struct_guardar * deserializeStruct_guardar(char * dataPaquete, uint16_t length);
+	t_list *deserializer_indiceStack(char * stackSerializado);
+	t_list *deserializer_indiceCodigo(char * codigoSerializado);
 
 #endif /* SERIALIZACION_H_ */

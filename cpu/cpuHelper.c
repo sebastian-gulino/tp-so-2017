@@ -391,21 +391,20 @@ void desconectarCPU(){
 
 char * pedirSiguienteInstruccion(){
 
-	t_intructions * indice = pcbEjecutando->indiceCodigo;
-	indice = indice + pcbEjecutando->programCounter;
-
-	t_intructions * instruccion = indice;
+	t_intructions * instruccion = list_get(pcbEjecutando->indiceCodigo,pcbEjecutando->programCounter);
 
 	int start = instruccion->start;
 	int offset = instruccion->offset;
 
 	// Armo la direccion lógica con la instruccion
-	t_struct_sol_lectura* direccion = malloc(sizeof(t_posicion_memoria));
+	t_struct_sol_lectura* direccion = malloc(sizeof(t_struct_sol_lectura));
 	direccion->pagina = start / tamanio_pagina;
 	direccion->offset = start % tamanio_pagina;
 	direccion->contenido = offset;
 	direccion->PID = pcbEjecutando->PID;
 
+	log_info(logger,"Se envia una instruccion PID %d Pagina %d Offset %d Contenido %d a memoria",
+			direccion->PID, direccion->pagina, direccion->offset, direccion->contenido);
 	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
 	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
 	//free(direccion);

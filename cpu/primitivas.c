@@ -755,9 +755,7 @@ bool esArgumento(t_nombre_variable identificador_variable){
 
 registroStack* reg_stack_create(){
 	registroStack* reg = malloc(sizeof(registroStack));
-	reg->cantidad_args = 0;
 	reg->args = list_create();
-	reg->cantidad_vars = 0;
 	reg->vars = list_create();
 	reg->retPos = 0;
 	reg->retVar.offsetInstruccion = 0;

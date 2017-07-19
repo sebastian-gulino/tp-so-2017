@@ -226,7 +226,7 @@ void manejarCpu(int socketCPU){
 
 	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
-		matarProcesoEnEjecucion(socketCPU, true);
+//		matarProcesoEnEjecucion(socketCPU, true);
 		removerClientePorCierreDeConexion(socketCPU,&master_cpu);
 
 	} else {
@@ -464,6 +464,10 @@ void administrarConexiones (){
 					modificacionArchConf(i);
 				}
 
+				if(FD_ISSET(i, &STDIN)){
+					mensajeConsolaKernel(i);
+				}
+
 				if(i==socketServidor){
 					manejarNuevaConexion(i, &fdmax);
 				}
@@ -567,9 +571,7 @@ void modificacionArchConf(int fdInotify) {
 	}
 }
 
-t_struct_pcb* crearPCB(int PID){
-
-	t_struct_pcb * pcb = malloc(sizeof(t_struct_pcb));
+t_struct_pcb* crearPCB(int PID, t_struct_pcb* pcb){
 
 	pcb->PID=PID;
 	pcb->programCounter=0;
@@ -579,8 +581,16 @@ t_struct_pcb* crearPCB(int PID){
 	pcb->indiceCodigo = list_create();
 	pcb->exitcode=99;
 	pcb->cantRegistrosStack=0;
+	pcb->retornoPCB=0;
 
-	registroStack * registro_stack = reg_stack_create();
+	registroStack* registro_stack = malloc(sizeof(registroStack));
+	registro_stack->args = list_create();
+	registro_stack->vars = list_create();
+	registro_stack->retPos = 0;
+	registro_stack->retVar.offsetInstruccion = 0;
+	registro_stack->retVar.pagina = 0;
+	registro_stack->retVar.longitudInstruccion = 0;
+
 	list_add(pcb->indiceStack,registro_stack);
 
 	pcb->cantRegistrosStack++;
@@ -588,6 +598,8 @@ t_struct_pcb* crearPCB(int PID){
 	crearArchivosPorProceso(pcb->PID);
 
 	crearInformacionProcesoInicial(pcb->PID);
+
+	log_info(logger, "Pudo crearse correctamente el PCB para el proceso PID: %d",PID);
 
 	return pcb;
 
@@ -716,9 +728,7 @@ void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb
 
 registroStack* reg_stack_create(){
 	registroStack* reg = malloc(sizeof(registroStack));
-	reg->cantidad_args = 0;
 	reg->args = list_create();
-	reg->cantidad_vars = 0;
 	reg->vars = list_create();
 	reg->retPos = 0;
 	reg->retVar.offsetInstruccion = 0;
@@ -746,6 +756,7 @@ void agregarColaListos(t_struct_pcb* pcb){
 		pcb->estado=E_READY;
 		list_add(cola_ready, pcb);
 		cantidadTotalPID++;
+		log_info(logger, "Se agrega el PID: %d a la cola de listos, cantidad total de procesos en sistema %d",pcb->PID,cantidadTotalPID);
 	} else {
 		log_info(logger, "Se recibe un PCB para ingresar a ready pero no se esta planificando");
 		return;
@@ -767,6 +778,8 @@ int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 		pcb->paginasStack=configuracion->stackSize;
 		pcb->paginasCodigo=cantidadPaginasCodigo;
 
+		log_info(logger, "Se pudieron reservar paginas para codigo y stack del proceso PID: %d",pcb->PID);
+
 		return 1;
 
 	}
@@ -778,12 +791,13 @@ int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 
 void inicializarProceso(int socketConsola, char * programa, int tamanio_programa){
 
-	t_struct_pcb * pcb = NULL;
+	log_info(logger, "Se recibio un proceso de la consola %d",socketConsola);
+	t_struct_pcb * pcb = malloc(sizeof(t_struct_pcb));
 	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
 
 	if(cantidadTotalPID<configuracion->gradoMultiprog){
 
-		pcb = crearPCB(obtener_pid());
+		pcb = crearPCB(obtener_pid(),pcb);
 
 		agregarColaListos(pcb);
 
@@ -817,7 +831,10 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 			pcb->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
 			pcb->cantidadInstrucciones=datosPrograma->instrucciones_size;
 
-			memcpy(&pcb->indiceEtiquetas,&datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+			char * etiquetas = malloc(datosPrograma->etiquetas_size);
+
+			memcpy(etiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+			pcb->indiceEtiquetas=etiquetas;
 
 			int i;
 			for (i = 0;	i < datosPrograma->instrucciones_size;i++) {
@@ -833,13 +850,13 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 			}
 
 			metadata_destruir(datosPrograma);
-
+			log_info(logger, "Se cargo correctamente la metadata para el proceso PID: %d",pcb->PID);
 		}
 
 	} else {
 
 		// El grado de multiprogramacion no me permite admitir el proceso aun..
-		pcb = crearPCB(obtener_pid());
+		pcb = crearPCB(obtener_pid(), pcb);
 
 		list_add(cola_new,pcb);
 
@@ -1988,7 +2005,11 @@ void ejecutarPlanificacion(int socketCPU){
 		return;
 	}
 
+	log_info(logger,"Se ejecuta la logica de planificacion");
+
 	if(socketCPU != 0 || socketCPU != NULL){
+
+		log_info(logger, "Se comienza a planificar para la cpu %d",socketCPU);
 
 		if(correspondeAbortarProcesoDeCPU(socketCPU)){
 
@@ -2088,6 +2109,8 @@ void ejecutarPlanificacion(int socketCPU){
 		t_cpu* cpu = list_get(listaCpuLibres,0);
 		obtenerCPUporSocket(cpu->socket,true);
 		list_add(listaCpuOcupadas,cpu);
+
+		log_info(logger, "La cpu disponible para ejecutar la proxima rafaga es %d",cpu->socket);
 
 		if(!string_equals_ignore_case(configuracion->algoritmo,"FIFO")) cpu->quantum++;
 
@@ -2753,4 +2776,277 @@ void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 		return;
 	}
 
+}
+
+void iniciarConsolaKernel(){
+
+	printf("Esta es la consola del Kernel por favor, ingrese la operación que desea realizar: \n");
+	printf("PROCESOS - Lista los procesos de acuerdo al estado indicado en el siguiente paso \n");
+	printf("INFOPROCESO - Permite obtener información de un proceso en particular \n");
+	printf("ARCHIVOS - Permite visualizar el contenido actual de la tabla global de archivos \n");
+	printf("GRADO - Modificar el grado de multiprogramacion del sistema \n");
+	printf("FINALIZAR - Permite finalizar un proceso en particular \n");
+	printf("PLANIFIACION - Permite detener o reanudar la planificacion del kernel \n");
+	printf("\n");
+
+}
+
+void mensajeConsolaKernel(){
+	char * operacion = malloc(50);
+	fgets(operacion, 50, stdin);
+	
+	switch(commandParser(operacion)){
+			case 1:;
+				puts("Ingrese uno de los siguientes estados que desee visualizar \n");
+				puts("NEW - READY - EXEC - BLOCK - EXIT - TODOS \n");
+
+				char * estado = malloc(20);
+				scanf("%s", estado);
+
+				string_to_upper(estado);
+
+				imprimirProcesos(estado);
+
+				free(estado);
+
+				break;
+			case 2:
+				puts("Ingrese el Process ID del que desea obtener informacion");
+				int pid;
+				scanf("%i",&pid);
+
+				puts("Ingrese una de las siguientes opciones sobre la cual quiera obtener informacion \n");
+				puts("SYSCALL - RAFAGAS - ARCHIVOS - HEAP \n");
+
+				char * info = malloc(20);
+				scanf("%s", info);
+
+				recuperarInformacion(pid,info);
+
+				break;
+			case 3:
+				imprimirTablaGlobalArchivos();
+
+				break;
+			case 4:
+				puts("Ingrese el nuevo valor del grado de multiprogramación");
+				int grado;
+				scanf("%i",&grado);
+
+				finalizarProcesoConsola(pid);
+
+				break;
+			case 5:
+
+				puts("Ingrese el Process ID del que desea obtener informacion");
+				int pidFinalizar;
+				scanf("%i",&pidFinalizar);
+
+				finalizarProcesoConsola(pidFinalizar);
+
+				break;
+			case 6: ;
+				kernelPlanificando = !kernelPlanificando;
+
+				if(kernelPlanificando){
+					printf("Se restauro la planificacion del kernel");
+				} else {
+					printf("Se detuvo la planificacion del kernel");
+				}
+
+				break;
+			default:
+				printf("Comando invalido...\n");
+				break;
+			}
+		free(operacion);
+}
+
+int commandParser(char* operacion){
+
+	string_to_upper(operacion);
+
+	if(strcmp(operacion, "PROCESOS") == 0){
+		return 1;
+	} else if (strcmp(operacion, "INFOPROCESO") == 0){
+		return 2;
+	} else if(strcmp(operacion, "ARCHIVOS") == 0){
+		return 3;
+	} else if (strcmp(operacion, "GRADO") == 0){
+		return 4;
+	} else if (strcmp(operacion, "FINALIZAR") == 0){
+		return 5;
+	} else if (strcmp(operacion, "PLANIFICACION") == 0){
+		return 6;
+	}else{
+		return 7;
+	}
+
+}
+
+void imprimirProcesos(char* estado){
+	if(strcmp(estado, "NEW") == 0){
+		listarProcesosEnCola(cola_new, estado);
+	} else if (strcmp(estado, "READY") == 0){
+		listarProcesosEnCola(cola_ready, estado);
+	} else if(strcmp(estado, "EXEC") == 0){
+		listarProcesosEnCola(cola_exec, estado);
+	} else if (strcmp(estado, "BLOCK") == 0){
+		listarProcesosEnCola(cola_block, estado);
+	} else if (strcmp(estado, "EXIT") == 0){
+		listarProcesosEnCola(cola_exit, estado);
+	} else if (strcmp(estado, "TODOS") == 0){
+		listarProcesosEnCola(cola_new, "NEW");
+		listarProcesosEnCola(cola_ready, "READY");
+		listarProcesosEnCola(cola_exec, "EXEC");
+		listarProcesosEnCola(cola_block, "BLOCK");
+		listarProcesosEnCola(cola_exit, "EXIT");
+	} else {
+		printf("La cola ingresada es incorrecta, por favor vuelva ingresar PROCESOS para solicitar nuevamente \n");
+	}
+}
+
+void listarProcesosEnCola(t_list * cola, char * estado){
+	
+	if(list_size(cola)==0){
+		printf("La cola de %s solicitada no tiene procesos \n", estado);
+	}
+
+	int indice;
+
+	for(indice=0; indice<list_size(cola); indice++){
+		t_struct_pcb * pcbRecuperado = list_get(cola, indice);
+		printf("Proceso PID: %d se encuentra en Estado: %s \n", pcbRecuperado->PID, estado);
+		fflush(stdout);		
+	}
+
+}
+
+void recuperarInformacion(int pid, char * info){
+	if(strcmp(info, "SYSCALL") == 0){
+		imprimirSyscallProceso(pid);
+	} else if (strcmp(info, "RAFAGAS") == 0){
+		imprimirRafagasProceso(pid);
+	} else if(strcmp(info, "ARCHIVOS") == 0){
+		imprimirArchivosProceso(pid);
+	} else if (strcmp(info, "HEAP") == 0){
+		imprimirHeapProceso(pid);
+	} else {
+		printf("La opcion ingresada es incorrecta ingrese INFOPROCESO para solicitar nuevamente \n");
+	}
+}
+
+void imprimirSyscallProceso(int pid){
+	int indice;
+
+	for (indice=0; indice < list_size(listaInformacionProcesos); indice++) {
+		t_registroInformacionProceso * registro = list_get(listaInformacionProcesos, indice);
+		if (registro->pid == pid) {
+			printf("El proceso ejecuto %d syscalls. \n", registro->syscall);
+			return;
+		}
+	}
+	printf("El pid ingresado es inexistente \n");
+}
+
+void imprimirRafagasProceso(int pid){
+	int indice;
+
+	for (indice=0; indice < list_size(listaInformacionProcesos); indice++) {
+		t_registroInformacionProceso * registro = list_get(listaInformacionProcesos, indice);
+		if (registro->pid == pid) {
+			printf("El proceso ejecuto %d rafagas. \n", registro->rafagas);
+			return;
+		}
+	}
+	printf("El pid ingresado es inexistente \n");
+}
+
+void imprimirArchivosProceso(int pid){
+	
+	t_list* archivosProceso = dictionary_get(tablaArchivosGlobal, string_itoa(pid));
+
+	if(list_size(archivosProceso)==0){
+		printf("El pid ingresado no existe");
+		return;
+	}
+
+	int indice;
+	bool tieneArchivos = false;
+
+	for (indice=3; indice < list_size(archivosProceso); indice++) {
+		t_registroArchivosProc * registro = list_get(archivosProceso, indice);
+		printf("-------Archivo del proceso FD: %d------- \n",indice);
+		printf("FD de la tabla global: %d, Cursor posicionado en: %d \n",registro->fd_TablaGlobal, registro->cursor);
+		if(registro->flags.lectura) printf("Abierto en modo lectura \n");
+		if(registro->flags.escritura) printf("Abierto en modo escritura \n");
+		if(registro->flags.creacion) printf("Abierto en modo creacion \n");
+
+		tieneArchivos=true;
+	}
+	if(!tieneArchivos){
+		printf("El pid ingresado no tiene archivos abiertos \n");
+	}
+}
+
+void imprimirHeapProceso(int pid){
+	int indice;
+	int paginasHeap = 0;
+	for (indice=0; indice < list_size(tablaHeap); indice++){
+		t_registroTablaHeap * registro = list_get(tablaHeap,indice);
+		if (registro->PID == pid) {
+			paginasHeap++;
+		}
+	}
+
+	printf("El proceso tiene asignadas %d paginas de heap", paginasHeap);
+
+	for (indice=0; indice < list_size(listaInformacionProcesos); indice++) {
+		t_registroInformacionProceso * registro = list_get(listaInformacionProcesos, indice);
+		if (registro->pid == pid) {
+			printf("El proceso solicito %d operaciones Alloc por un total de %d bytes \n",
+			 registro->cantidad_solicitar_heap, registro->total_heap_solicitado);
+			printf("El proceso solicito %d operaciones Liberar por un total de %d bytes \n",
+			 registro->cantidad_liberar_heap, registro->total_heap_liberado);
+			return;
+		}
+	}
+}
+
+void imprimirTablaGlobalArchivos(){
+	int indice;
+	t_registroArchivosGlobal * registro;
+
+	for(indice=0; indice < list_size(tablaArchivosGlobal); indice++){
+		registro = list_get(tablaArchivosGlobal,indice);
+		printf("Archivo con path: %s abierto %d veces \n",registro->nombre, registro->cantidadAbierto);
+	}
+
+	if(registro==NULL) printf("No hay archivos abiertos en el sistema");
+
+}
+
+void finalizarProcesoConsola(int pid){
+
+	t_struct_pcb * pcbRecuperado = obtenerPCBActivo(pid);
+
+	if(pcbRecuperado==NULL){
+		printf("El proceso no existe");
+		return;
+	}
+
+	pcbRecuperado->exitcode = EC_FINALIZADO_CONSOLA_KERNEL;
+
+	if(pcbRecuperado->estado==E_EXEC){
+		printf("El proceso esta ejecutando, se marca para finalizar luego de la rafaga actual");
+		int * pidFinalizar = malloc(sizeof(t_registroTablaProcesos));
+		pidFinalizar=pid;
+		list_add(listaProcesosFinalizar,pidFinalizar);
+	} else {
+		printf("El proceso no esta ejecutando, se finaliza");
+		pasarColaExit(pcbRecuperado);
+		liberarMemoriaProceso(pcbRecuperado);
+		informarLiberarHeap(pcbRecuperado);
+		informarFinalizacionConsola(pcbRecuperado);
+	}
 }

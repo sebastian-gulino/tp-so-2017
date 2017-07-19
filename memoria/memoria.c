@@ -46,8 +46,6 @@ int main(void) {
 
 	pthread_create(&threadCommandHandler, NULL, (void*)&manejoConsola,NULL);
 
-	pthread_join(threadCommandHandler, NULL);
-
 	crearThreadAtenderConexiones();
 
 	pthread_join(threadAtenderConexiones, NULL);
