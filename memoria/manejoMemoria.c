@@ -273,7 +273,8 @@ void manejarKernel(int socketKernel){
 
 				codigoPrograma = (t_struct_programa* )structRecibido;
 
-				bool sePudoEscribir = escribirPagina(solicitudEscritura->pagina,solicitudEscritura->PID,solicitudEscritura->offset,solicitudEscritura->contenido, codigoPrograma->buffer);
+				bool sePudoEscribir = escribirPagina(solicitudEscritura->pagina,solicitudEscritura->PID,
+						solicitudEscritura->offset,solicitudEscritura->contenido, codigoPrograma->buffer);
 
 				if(!sePudoEscribir){
 					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", solicitudEscritura->PID);
