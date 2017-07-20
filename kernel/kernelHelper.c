@@ -696,7 +696,6 @@ void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb
 		escrituraCodigo->pagina=indice;
 		escrituraCodigo->contenido=tamanio_pagina;
 
-		//TODO handlear estas solicitudes desde la memoria
 		socket_enviar(socketMemoria,D_STRUCT_ESCRITURA_CODIGO,escrituraCodigo);
 
 		tamanioEnvio = cantCodigoPendiente>tamanio_pagina ? tamanio_pagina : cantCodigoPendiente;
@@ -2793,7 +2792,7 @@ void iniciarConsolaKernel(){
 
 void mensajeConsolaKernel(){
 	char * operacion = malloc(50);
-	fgets(operacion, 50, stdin);
+	scanf("%s", operacion);
 	
 	switch(commandParser(operacion)){
 			case 1:;

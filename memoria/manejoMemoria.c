@@ -160,53 +160,79 @@ void manejarCpu(int socketCPU){
 		switch(tipoEstructura){
 		case D_STRUCT_LECT_VAR: ;
 
-		t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
+			t_struct_sol_lectura * direccionLeer = ((t_struct_sol_lectura* )structRecibido);
 
-		t_resultadoLectura resultadoLecturaVar = leerPagina( direccionLeer->pagina,
-				direccionLeer->PID, direccionLeer->offset, direccionLeer->contenido);
+			t_resultadoLectura resultadoLecturaVar = leerPagina( direccionLeer->pagina,
+					direccionLeer->PID, direccionLeer->offset, direccionLeer->contenido);
 
-		if(resultadoLecturaVar.resultado){
+			if(resultadoLecturaVar.resultado){
 
-			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
-			rtaLectVar->numero = MEMORIA_OK;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+				t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+				rtaLectVar->numero = MEMORIA_OK;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
 
-			rtaLectVar->numero=*(int *)resultadoLecturaVar.contenido;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+				rtaLectVar->numero=*(int *)resultadoLecturaVar.contenido;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
 
-		} else {
+			} else {
 
-			t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
-			rtaLectVar->numero = MEMORIA_ERROR;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
+				t_struct_numero * rtaLectVar = malloc(sizeof(t_struct_numero));
+				rtaLectVar->numero = MEMORIA_ERROR;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectVar);
 
-		}
+			}
 
-		break;
+			break;
 
 		case D_STRUCT_SOL_ESCR: ;
 
+			t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
 
-		t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
+			bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
+					direccionEscribir->offset, sizeof(int), direccionEscribir->contenido);
 
-		bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
-				direccionEscribir->offset, sizeof(int), direccionEscribir->contenido);
+			if(resultadoEscribir){
 
-		if(resultadoEscribir){
+				t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+				rtaEscribir->numero = MEMORIA_OK;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
 
-			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
-			rtaEscribir->numero = MEMORIA_OK;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+			} else {
 
-		} else {
+				t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
+				rtaEscribir->numero = MEMORIA_ERROR;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
 
-			t_struct_numero * rtaEscribir = malloc(sizeof(t_struct_numero));
-			rtaEscribir->numero = MEMORIA_ERROR;
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaEscribir);
+			}
 
-		}
+			break;
 
-		break;
+		case D_STRUCT_LECT: ;
+
+			t_struct_sol_lectura * direccionLeerInst = ((t_struct_sol_lectura* )structRecibido);
+
+			t_resultadoLectura resultadoLecturaInst = leerPagina( direccionLeerInst->pagina,
+					direccionLeerInst->PID, direccionLeerInst->offset, direccionLeerInst->contenido);
+
+			if(resultadoLecturaInst.resultado){
+
+				t_struct_numero * rtaLectInst = malloc(sizeof(t_struct_numero));
+				rtaLectInst->numero = MEMORIA_OK;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectInst);
+
+				t_struct_string * rtaInstruc = malloc(sizeof(t_struct_string));
+				rtaInstruc->string=(char *)resultadoLecturaInst.contenido;
+				socket_enviar(socketCPU,D_STRUCT_STRING,rtaInstruc);
+
+			} else {
+
+				t_struct_numero * rtaLectInst = malloc(sizeof(t_struct_numero));
+				rtaLectInst->numero = MEMORIA_ERROR;
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,rtaLectInst);
+
+			}
+
+			break;
 
 		}
 
@@ -428,7 +454,7 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		int primerFrameLibre = obtenerPrimerosNFramesLibre(framesNecesarios);
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
-				registrarUsoDeFrame(pid,primerFrameLibre+i,i+1);
+				registrarUsoDeFrame(pid,primerFrameLibre+i,i);
 			}
 			return true;
 		} else {
@@ -442,7 +468,7 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		if(framesNecesarios <= framesLibres){
 			for(i = 0; i < framesNecesarios;i++){
 				int numeroFrame = obtenerPrimerFrameLibre();
-				registrarUsoDeFrame(pid,numeroFrame,i+1);
+				registrarUsoDeFrame(pid,numeroFrame,i);
 			}
 			return true;
 		} else {

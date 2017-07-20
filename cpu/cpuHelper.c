@@ -403,7 +403,7 @@ char * pedirSiguienteInstruccion(){
 	direccion->contenido = offset;
 	direccion->PID = pcbEjecutando->PID;
 
-	log_info(logger,"Se envia una instruccion PID %d Pagina %d Offset %d Contenido %d a memoria",
+	log_info(logger,"Se solicita una instruccion PID %d Pagina %d Offset %d Contenido %d a memoria",
 			direccion->PID, direccion->pagina, direccion->offset, direccion->contenido);
 	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
 	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
