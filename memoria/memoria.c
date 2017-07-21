@@ -21,9 +21,13 @@ int main(void) {
 
 	crearCache();
 
-//	reservarFramesProceso(111,2048,1);
-//
-//	imprimirTablaPaginas();
+	reservarFramesProceso(111,2048,1);
+
+	reservarFramesProceso(112,4096,0);
+
+	reservarFramesProceso(100,1024,0);
+
+	imprimirTablaPaginas();
 //
 //	bool escritura = escribirPagina(2,111,100,20,"esta es una prueba\n");
 //
@@ -44,14 +48,14 @@ int main(void) {
 
 //	asignarPaginasProceso(666,1);
 
-	pthread_create(&threadCommandHandler, NULL, (void*)&manejoConsola,NULL);
-
-	crearThreadAtenderConexiones();
-
-	pthread_join(threadAtenderConexiones, NULL);
-
-	liberarMemoriaPrincipal();
-	vaciarCache();
+//	pthread_create(&threadCommandHandler, NULL, (void*)&manejoConsola,NULL);
+//
+//	crearThreadAtenderConexiones();
+//
+//	pthread_join(threadAtenderConexiones, NULL);
+//
+//	liberarMemoriaPrincipal();
+//	vaciarCache();
 
 	return 0;
 

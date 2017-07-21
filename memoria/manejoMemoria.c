@@ -358,15 +358,16 @@ void crearEstructurasAdministrativas(){
 	pthread_mutex_unlock(&mutex_log);
 }
 
-int buscarPaginaMemoria(int pagina, int pid){
-	int i = 0;
+int buscarEnTabla(int pagina, int pid){
+	int i = aplicarFuncionHash(pid, pagina);
 	int indice = -1;
 	int cantidadFrames = configuracion->marcos;
-	while(indice < 0 && i < cantidadFrames){
+	while(indice < 0){
 		if(tablaInvertida[i].pid == pid && tablaInvertida[i].pagina == pagina){
 			indice = i;
+		} else {
+			i = aplicarManejoColisiones(i);
 		}
-		i++;
 	}
 	return indice;
 }
@@ -380,7 +381,7 @@ void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
 }
 
 bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido){
-	int numeroFrame = buscarPaginaMemoria(pagina,pid);
+	int numeroFrame = buscarEnTabla(pagina,pid);
 	bool resultado;
 	if(numeroFrame > -1){
 		escribirEnMemoria(numeroFrame,contenido,tamanio,offset);
@@ -411,30 +412,33 @@ void registrarUsoDeFrame(int pid,int numeroFrame, int paginaProceso){
 	tablaInvertida[numeroFrame].pagina = paginaProceso;
 }
 
-int obtenerPrimerFrameLibre(){
-	int i = 0;
+int obtenerPrimerFrameLibre(int pid, int pagina){
+	int i;
 	int primeroLibre = -1;
 	int limite = configuracion->marcos;
-	while(primeroLibre < 0 && i < limite){
+	i = aplicarFuncionHash(pid, pagina);
+	while(primeroLibre < 0){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			primeroLibre = i;
+		} else {
+			i = aplicarManejoColisiones(i);
 		}
-		i++;
 	}
 	return primeroLibre;
 }
 
-int obtenerPrimerosNFramesLibre(int cantidadDeFrames){
-	int i = 0;
+int obtenerPrimerosNFramesLibres(int pid, int cantidadDeFrames){
+	int i;
 	int contador = 0;
-	int limite = configuracion->marcos;
-	while(contador < cantidadDeFrames && i < limite){
+	i = aplicarFuncionHash(pid, 0);
+	while(contador < cantidadDeFrames){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			contador++;
+			i++;
 		} else {
+			i = aplicarManejoColisiones(i);
 			contador = 0;
 		}
-		i++;
 	}
 	int indice = -1;
 	if(contador == cantidadDeFrames){
@@ -451,7 +455,7 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		framesNecesarios++;
 	}
 	if(bytesContiguos > 0){
-		int primerFrameLibre = obtenerPrimerosNFramesLibre(framesNecesarios);
+		int primerFrameLibre = obtenerPrimerosNFramesLibres(pid,framesNecesarios);
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
 				registrarUsoDeFrame(pid,primerFrameLibre+i,i);
@@ -467,7 +471,7 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		int framesLibres = cantidadFramesLibres();
 		if(framesNecesarios <= framesLibres){
 			for(i = 0; i < framesNecesarios;i++){
-				int numeroFrame = obtenerPrimerFrameLibre();
+				int numeroFrame = obtenerPrimerFrameLibre(pid,i);
 				registrarUsoDeFrame(pid,numeroFrame,i);
 			}
 			return true;
@@ -493,7 +497,7 @@ int buscarProcesoCache(int pagina, int pid){
 
 
 void * leerMemoria(int pagina, int pid){
-	int numeroFrame = buscarPaginaMemoria(pagina,pid);
+	int numeroFrame = buscarEnTabla(pagina,pid);
 	aplicarRetardo();
 	void * posicion = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	actualizarCache(pid,pagina,posicion);
@@ -825,6 +829,18 @@ int commandParser(char* command){
 		return 8;
 	}
 
+}
+
+int aplicarFuncionHash(int pid, int pagina){
+	return (pagina + pid) % configuracion->marcos;
+}
+
+int aplicarManejoColisiones(int frame){
+	if(frame < (configuracion->marcos - 1)){
+		return frame + 1;
+	} else {
+		return 0;
+	}
 }
 
 

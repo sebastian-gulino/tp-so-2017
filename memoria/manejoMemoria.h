@@ -101,7 +101,7 @@ void imprimirTablaPaginas();
 
 void imprimirCache();
 
-int obtenerPrimerosNFramesLibre(int cantidad);
+int obtenerPrimerosNFramesLibres(int pid, int cantidad);
 
 t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio);
 
