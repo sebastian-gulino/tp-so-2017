@@ -23,18 +23,6 @@ char * crearDataConHeader(uint8_t tipoEstructura, int length){
 	return data;
 }
 
-int getStartInstruccion(t_intructions instruccion){ return instruccion.start; }
-
-int getOffsetInstruccion (t_intructions instruccion){ return instruccion.offset; }
-
-t_intructions cargarIndiceCodigo(t_puntero_instruccion comienzo_instruccion, t_size longitud_instruccion){
-
-	t_intructions instruccion = { .start = comienzo_instruccion, .offset = longitud_instruccion };
-
-	return instruccion;
-}
-
-
 t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 	t_stream * paquete=NULL;
 
@@ -286,7 +274,7 @@ int calcularTamanioIndiceStack(t_struct_pcb * pcb){
 	void calcularTamanoRegistro(registroStack * registro){
 		int tamanioFijo = (3 * sizeof(uint32_t)) + sizeof(t_posicion_memoria);
 
-		int tamanioVariable = (registro->args->elements_count * sizeof(t_variable)) + (registro->vars->elements_count * sizeof(t_variable));
+		int tamanioVariable = (registro->args->elements_count * sizeof(t_posicion_memoria)) + (registro->vars->elements_count * sizeof(t_variable));
 
 		int tamanioRegistro = tamanioFijo + tamanioVariable;
 
@@ -296,7 +284,7 @@ int calcularTamanioIndiceStack(t_struct_pcb * pcb){
 
 	list_iterate(pcb->indiceStack, (void*) calcularTamanoRegistro);
 
-	return tamanio + sizeof(uint32_t);
+	return tamanio;
 
 }
 
@@ -304,15 +292,13 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
-//	uint32_t tamanioStack;
+	uint32_t tamanioStack = calcularTamanioIndiceStack(estructuraOrigen);
 	uint32_t tamanioCodigo = sizeof(t_intructions) * (estructuraOrigen->cantidadInstrucciones);
 
-	//char * codigoSerializado = serializer_indiceCodigo(estructuraOrigen->indiceCodigo,&tamanioCodigo);
-//	char * stackSerializado = serializer_indiceStack(estructuraOrigen->indiceStack,&tamanioStack);
+	//	char * stackSerializado = serializer_indiceStack(estructuraOrigen->indiceStack,&tamanioStack);
 
 	paquete->length = sizeof(t_header) + sizeof(t_struct_pcb) + estructuraOrigen->tamanioIndiceEtiquetas
-			+ tamanioCodigo;
-//			+ tamanioStack;
+			+ tamanioCodigo	+ tamanioStack;
 
 	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
@@ -368,10 +354,6 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 	memcpy(data + tamTot , &estructuraOrigen->stackPointer, tamDato = sizeof(int));
 	tamTot += tamDato;
 
-//	memcpy(data + tamTot , &stackSerializado, tamDato = tamanioStack);
-//	tamTot += tamDato;
-
-
 	int contadorInstrucciones = 0;
 
 	while (contadorInstrucciones < estructuraOrigen->cantidadInstrucciones){
@@ -387,7 +369,71 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 		contadorInstrucciones++;
 	}
 
-//	free(stackSerializado);
+	int contadorStack = 0;
+	int contadorArgs;
+	int contadorVars;
+
+	while (contadorStack < estructuraOrigen->cantRegistrosStack) {
+
+		registroStack * registro = list_get(estructuraOrigen->indiceStack, contadorStack);
+
+		uint32_t cantArgs = list_size(registro->args);
+
+		memcpy(data + tamTot, &cantArgs, tamDato = sizeof(uint32_t));
+		tamTot += tamDato;
+
+		for(contadorArgs=0; contadorArgs < cantArgs; contadorArgs++){
+			t_posicion_memoria * argumento = list_get(registro->args, contadorArgs);
+
+			memcpy(data + tamTot, &argumento->pagina, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+			memcpy(data + tamTot, &argumento->offsetInstruccion, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+			memcpy(data + tamTot, &argumento->longitudInstruccion, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+		}
+
+		uint32_t cantVars = list_size(registro->vars);
+
+		memcpy(data + tamTot, &cantVars, tamDato = sizeof(uint32_t));
+		tamTot += tamDato;
+
+		for(contadorVars=0; contadorVars < cantVars; contadorVars++){
+			t_variable * variable = list_get(registro->vars, contadorVars);
+
+			memcpy(data + tamTot, &variable->identificador, tamDato= sizeof(char));
+			tamTot+=tamDato;
+
+			memcpy(data + tamTot, &variable->posicionMemoria.pagina, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+			memcpy(data + tamTot, &variable->posicionMemoria.offsetInstruccion, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+			memcpy(data + tamTot, &variable->posicionMemoria.longitudInstruccion, tamDato= sizeof(uint32_t));
+			tamTot+=tamDato;
+
+		}
+
+		memcpy(data + tamTot , &registro->retPos, tamDato = sizeof(int));
+		tamTot += tamDato;
+
+		memcpy(data + tamTot, &registro->retVar.pagina, tamDato= sizeof(uint32_t));
+		tamTot+=tamDato;
+
+		memcpy(data + tamTot, &registro->retVar.offsetInstruccion, tamDato= sizeof(uint32_t));
+		tamTot+=tamDato;
+
+		memcpy(data + tamTot, &registro->retVar.longitudInstruccion, tamDato= sizeof(uint32_t));
+		tamTot+=tamDato;
+
+		contadorStack++;
+
+	}
+//	free(stackSerializado); 
 
 	paquete->data = data;
 
@@ -1043,6 +1089,84 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 		contadorInstrucciones++;
 	}
 
+	int contadorStack = 0;
+	int contadorArgs;
+	int contadorVars;
+
+	estructuraDestino->indiceStack = list_create();
+
+	while(contadorStack < estructuraDestino->cantRegistrosStack){
+
+		registroStack * registro = malloc(sizeof(registroStack));
+
+		registro->args = list_create();
+
+		int cantArgs = 0;
+
+		memcpy(&cantArgs, dataPaquete + tamanoTotal, tamanoDato = sizeof(int));
+		tamanoTotal += tamanoDato;
+
+		for (contadorArgs=0; contadorArgs < cantArgs; contadorArgs++){
+
+			t_posicion_memoria * argumento = malloc(sizeof(t_posicion_memoria));
+
+			memcpy(&argumento->pagina, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			memcpy(&argumento->offsetInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			memcpy(&argumento->longitudInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			list_add(registro->args,argumento);
+
+		}
+
+		registro->vars = list_create();
+
+		int cantVars = 0;
+
+		memcpy(&cantVars, dataPaquete + tamanoTotal, tamanoDato = sizeof(int));
+		tamanoTotal += tamanoDato;
+
+		for (contadorVars=0; contadorVars < cantVars; contadorVars++){
+
+			t_variable * variable = malloc(sizeof(t_variable));
+
+			memcpy(&variable->identificador, dataPaquete + tamanoTotal, tamanoDato = sizeof(char));
+			tamanoTotal += tamanoDato;
+
+			memcpy(&variable->posicionMemoria.pagina, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			memcpy(&variable->posicionMemoria.offsetInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			memcpy(&variable->posicionMemoria.longitudInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+			tamanoTotal += tamanoDato;
+
+			list_add(registro->vars, variable);
+
+		}
+
+		memcpy(&registro->retPos, dataPaquete + tamanoTotal, tamanoDato = sizeof(int));
+		tamanoTotal += tamanoDato;
+
+		memcpy(&registro->retVar.pagina, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+		tamanoTotal += tamanoDato;
+
+		memcpy(&registro->retVar.offsetInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+		tamanoTotal += tamanoDato;
+
+		memcpy(&registro->retVar.longitudInstruccion, dataPaquete + tamanoTotal, tamanoDato = sizeof(uint32_t));
+		tamanoTotal += tamanoDato;
+
+		list_add(estructuraDestino->indiceStack,registro);
+		contadorStack++;
+	}
+
+
 //	// Deserializacion indice stack
 // 	uint32_t tamanioStack;
 // 	memcpy(&tamanioStack, dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
@@ -1545,54 +1669,3 @@ t_list *deserializer_indiceStack(char * serialized){
 	return stack;
 }
 
-char *serializer_indiceCodigo(t_list* self, uint32_t * length){
-
-	char *serialized=malloc((list_size(self) * (2 * sizeof(uint32_t))) + sizeof(uint32_t)) ;
-	uint32_t itemsEnLista = list_size(self);
-	int offset=0, tmp_size=0,i;
-
-	//Guardo 4bytes con la cantidad de elementos que tiene la lista
-	memcpy(serialized,&itemsEnLista,tmp_size=sizeof(uint32_t));
-	offset=tmp_size;
-
-	//Guardo cada elemento de la lista
-	t_indice_codigo* linea;
-	for(i=0;i < itemsEnLista; i++){
-		linea=list_get(self, i);
-		memcpy(serialized + offset, &linea->inicio,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(serialized + offset, &linea->longitud,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-	}
-
-	*length=offset;
-
-	return serialized;
-}
-
-t_list *deserializer_indiceCodigo(char * serialized){
-
-	t_list* self = list_create();
-
-	int offset=0,tmp_size=0,i;
-
-	//Obtengo la cantidad de elementos con los 4bytes
-	uint32_t cantidadElementos;
-	memcpy(&cantidadElementos,serialized,tmp_size=sizeof(uint32_t));
-	offset=tmp_size;
-
-	//Recorro el dato serializado, voy obteniendo la linea y agregandola a la lista
-	for (i=0;i < cantidadElementos ; i++)
-	{
-		t_indice_codigo* linea = malloc(sizeof(t_indice_codigo));
-		memcpy(&linea->inicio,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(&linea->longitud,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		list_add(self,linea);
-
-
-	}
-
-	return self;
-}

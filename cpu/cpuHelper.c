@@ -121,13 +121,6 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 				pcbEjecutando = (t_struct_pcb*) structRecibido;
 
-				// TODO manejar desde la memoria
-				// Envio a memoria el process id del proceso que voy a ejecutar
-				t_struct_numero* pid = malloc(sizeof(t_struct_numero));
-				pid->numero = pcbEjecutando->PID;
-				socket_enviar(socketMemoria, D_STRUCT_PID, pid);
-				free(pid);
-
 				seguirEjecutando=true;
 				cpuLibre=false;
 
@@ -205,7 +198,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 			t_tipoEstructura tipoEstructura;
 			void * structRecibido;
 
-			socket_recibir(socketMemoria, &tipoEstructura, &structRecibido);
+			socket_recibir(socketKernel, &tipoEstructura, &structRecibido);
 
 			if(tipoEstructura == D_STRUCT_ABORTAR_EJECUCION){
 
@@ -236,33 +229,16 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 void liberarPCB(){
 
-	//Hago los free de memoria correspondientes para liberar lo contenido en el pcb
-	if(pcbEjecutando->indiceCodigo != NULL){
-		free(pcbEjecutando->indiceCodigo);
-		pcbEjecutando->indiceCodigo = NULL;
+	void liberarMemoria(void* liberar){
+		free(liberar);
 	}
 
-	if(pcbEjecutando->indiceEtiquetas != NULL){
+	list_destroy_and_destroy_elements(pcbEjecutando->indiceCodigo,liberarMemoria);
+
+	list_destroy_and_destroy_elements(pcbEjecutando->indiceStack,liberarMemoria);
+
+	if(pcbEjecutando->tamanioIndiceEtiquetas > 0){
 		free(pcbEjecutando->indiceEtiquetas);
-		pcbEjecutando->indiceEtiquetas = NULL;
-	}
-
-	if(pcbEjecutando->indiceStack != NULL){
-		int tamanioStack = list_size(pcbEjecutando->indiceStack);
-		int indice;
-		if(tamanioStack > 0){
-			for (indice=0; indice<tamanioStack; indice++){
-
-				registroStack* registro = (registroStack*) list_remove(pcbEjecutando->indiceStack, indice);
-
-				if(registro != NULL){
-					liberarRegistroStack(registro);
-				}
-			}
-		}
-		free(pcbEjecutando->indiceStack);
-		pcbEjecutando->indiceStack=NULL;
-
 	}
 
 	if(pcbEjecutando!=NULL){
@@ -313,8 +289,10 @@ void salirProceso(){
 	seguirEjecutando=false;
 
 	if (pcbEjecutando->retornoPCB != 0){
+		log_info(logger,"El proceso finalizara por el motivo de retorno pcb %d",pcbEjecutando->retornoPCB);
 		socket_enviar(socketKernel, D_STRUCT_PCB_FIN_ERROR, pcbEjecutando);
 	} else if (signalFinalizarCPU){
+		log_info(logger,"El proceso finalizara por haberse realizado el signal SIGUSR1 en cpu");
 		socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, pcbEjecutando);
 	}
 
@@ -341,10 +319,10 @@ void liberarRecursosCPU(){
 
 void prepararInstruccion(char * instruccion){
 
-	char * auxiliar = instruccion;
+	char *auxiliar = instruccion;
 	int indice = 0;
 	while (*instruccion != '\0') {
-		if (!iscntrl(*instruccion)) {
+		if (*instruccion != '\t' && *instruccion != '\n' && !iscntrl(*instruccion)) {
 			if (indice == 0 && isdigit((int )*instruccion)) {
 				++instruccion;
 			} else {

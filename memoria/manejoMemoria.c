@@ -189,7 +189,7 @@ void manejarCpu(int socketCPU){
 			t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
 
 			bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
-					direccionEscribir->offset, sizeof(int), direccionEscribir->contenido);
+					direccionEscribir->offset, sizeof(int), &direccionEscribir->contenido);
 
 			if(resultadoEscribir){
 

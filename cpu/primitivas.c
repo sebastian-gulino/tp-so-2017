@@ -3,6 +3,7 @@
 //FUNCIONES
 t_puntero definirVariable(t_nombre_variable variable) {
 
+	log_info(logger,"Se ingresa a la primitiva Definir Variable para la variable: %c",variable);
 	// Defino una nueva posición en el stack para la variable:
 	int var_pagina = pcbEjecutando->primerPaginaStack;
 	int var_offset = pcbEjecutando->stackPointer;
@@ -19,7 +20,7 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		return -1;
 	}else{
 		// Selecciono registro actual del índice de stack:
-		registroStack* regStack = list_get(pcbEjecutando->indiceStack, pcbEjecutando->indiceStack->elements_count -1);
+		registroStack* regStack = list_get(pcbEjecutando->indiceStack, pcbEjecutando->cantRegistrosStack -1);
 
 		// Si no hay registros, creo uno nuevo
 		if(regStack == NULL){
@@ -29,7 +30,7 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		}
 
 		if(!esArgumento(variable)){ // agrego nueva variable
-			t_variable* new_var = malloc(sizeof(variable));
+			t_variable* new_var = malloc(sizeof(t_variable));
 			new_var->identificador = variable;
 			new_var->posicionMemoria.pagina = var_pagina;
 			new_var->posicionMemoria.offsetInstruccion = var_offset;
@@ -59,6 +60,8 @@ t_puntero definirVariable(t_nombre_variable variable) {
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable idVariable) {
+
+	log_info(logger,"Se ingresa a la primitiva Obtener Posicion Variable con la variable: %c", idVariable);
 
 	/// Obtengo el registro del stack correspondiente al contexto de ejecución actual:
 	registroStack* regStack = list_get(pcbEjecutando->indiceStack, pcbEjecutando->indiceStack->elements_count -1);
@@ -105,6 +108,8 @@ t_puntero obtenerPosicionVariable(t_nombre_variable idVariable) {
 }
 
 t_valor_variable dereferenciar(t_puntero total_heap_offset) {
+
+	log_info(logger,"Se ingresa a la primitiva Dereferenciar con el puntero: %d", total_heap_offset);
 
 	t_struct_sol_lectura * var_direccion = malloc(sizeof(t_posicion_memoria));
 
@@ -153,6 +158,8 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 
 void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 
+	log_info(logger,"Se ingresa a la primitiva Asignar para el puntero %d con el valor %d", total_heap_offset,valor);
+
 	t_struct_sol_escritura* var_escritura = malloc(sizeof(t_struct_sol_escritura));
 
 	var_escritura->pagina = total_heap_offset / tamanio_pagina;
@@ -176,7 +183,7 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 
 t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) {
 
-	log_trace(logger, "Obteniendo valor de Variable Compartida: '%s'.", variableCompartida);
+	log_info(logger, "Se ingresa a la primitiva Obtener valor variable compartida para la variable: '%s'.", variableCompartida);
 
 	t_struct_string* obtenerVarCompartida = malloc(sizeof(t_struct_string));
 
@@ -211,7 +218,7 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, t_valor_variable valor) {
 
-	log_trace(logger, "Asignando el valor '%d' a Variable Compartida '%s'.", valor, variableCompartida);
+	log_info(logger, "Se ingresa a la primitiva Asignar valor compartida para  '%d' a Variable Compartida '%s'.", valor, variableCompartida);
 	t_struct_var_compartida * varCompartida = malloc(strlen(variableCompartida)+ 5);
 
 	varCompartida->valor = valor;
@@ -247,7 +254,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 
 void irAlLabel(t_nombre_etiqueta etiqueta) {
 
-	log_trace(logger, "Yendo a la etiqueta: '%s'.", etiqueta);
+	log_info(logger, "Se ingresa a la primitiva Ir a Label con la etiqueta: '%s'.", etiqueta);
 
 	t_puntero_instruccion posicion_etiqueta = metadata_buscar_etiqueta(etiqueta, pcbEjecutando->indiceEtiquetas, pcbEjecutando->tamanioIndiceEtiquetas);
 
@@ -258,7 +265,7 @@ void irAlLabel(t_nombre_etiqueta etiqueta) {
 
 void llamarSinRetorno(t_nombre_etiqueta etiqueta) {
 
-	log_trace(logger, "Llamada sin retorno.");
+	log_info(logger, "Se ingresa a la primitiva Llamar sin Retorno con la etiqueta: %s ",etiqueta);
     registroStack* nuevoRegistro = reg_stack_create();
     // Guardo el valor actual del program counter
     nuevoRegistro->retPos = pcbEjecutando->programCounter;
@@ -268,7 +275,8 @@ void llamarSinRetorno(t_nombre_etiqueta etiqueta) {
 }
 
 void llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar) {
-	log_trace(logger, "Llamada con retorno. Preservando contexto de ejecución actual.");
+	log_info(logger, "Se ingresa a la primitiva Llamar con Retorno con la etiqueta: %s ",etiqueta);
+	log_info(logger, "Preservando contexto de ejecución actual.");
 
 	// Calculo la dirección de retorno y la guardo:
 	registroStack * nuevoRegistro = reg_stack_create();
@@ -284,7 +292,7 @@ void llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar) {
 }
 
 void finalizar(void)  {
-
+	log_info(logger, "Se ingresa a la primitiva Finalizar");
 	restaurarContextoDeEjecucion();
 
 	if(list_is_empty(pcbEjecutando->indiceStack)){
@@ -298,7 +306,7 @@ void finalizar(void)  {
 
 void retornar(t_valor_variable retorno) {
 
-	log_trace(logger, "Llamada a función 'retornar'.");
+	log_info(logger, "Se ingresa a la primitiva Retornar con el valor de variable %d ",retorno);
 	// Tomo contexto actual:
 	registroStack* registroActual = list_get(pcbEjecutando->indiceStack, pcbEjecutando->indiceStack->elements_count -1);
 
