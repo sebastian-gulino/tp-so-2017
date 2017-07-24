@@ -10,24 +10,24 @@
 
 int main(int arc, char * argv[]){
 
-		//Genera archivo log para poder escribir el trace de toda la ejecución
-		crearLog("/FILESYSTEM");
+	//Genera archivo log para poder escribir el trace de toda la ejecución
+	crearLog("/FILESYSTEM");
 
-		//Levanta la configuración del proceso filesystem
-		cargarConfiguracion();
+	//Levanta la configuración del proceso filesystem
+	cargarConfiguracion();
 
-		setPuntoDeMontaje();
+	setPuntoDeMontaje();
 
-		setMetadata();
+	setMetadata();
 
-		crearBitmap();
+	crearBitmap();
 
-		crearServidorMonocliente();
+	crearServidorMonocliente();
 
 
-		pthread_join(threadAtenderKernel, NULL);
+	pthread_join(threadAtenderKernel, NULL);
 
-		return 0;
+	return 0;
 
 }
 

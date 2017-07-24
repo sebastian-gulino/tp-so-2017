@@ -4,18 +4,13 @@
 t_puntero definirVariable(t_nombre_variable variable) {
 
 	log_info(logger,"Se ingresa a la primitiva Definir Variable para la variable: %c",variable);
-	// Defino una nueva posición en el stack para la variable:
-	int var_pagina = pcbEjecutando->primerPaginaStack;
-	int var_offset = pcbEjecutando->stackPointer;
 
-	while(var_offset > tamanio_pagina){
-		(var_pagina)++;
-		var_offset -= tamanio_pagina;
-	}
 	// Verifico si se desborda la pila en memoria:
-	if(pcbEjecutando->stackPointer + 4 > (tamanio_pagina*tamanio_stack)){
-			log_trace(logger, "Stack Overflow al definir variable '%c'.", variable);
-			stackOverflow = true;
+	if(pcbEjecutando->stackPointer + 4 > tamanio_pagina &&
+			pcbEjecutando->paginaActualStack - pcbEjecutando->primerPaginaStack == tamanio_stack-1){
+
+		log_info(logger, "Stack Overflow al definir variable '%c'.", variable);
+		stackOverflow = true;
 
 		return -1;
 	}else{
@@ -29,33 +24,54 @@ t_puntero definirVariable(t_nombre_variable variable) {
 			list_add(pcbEjecutando->indiceStack, regStack);
 		}
 
+
+		t_puntero punteroRetorno;
+
 		if(!esArgumento(variable)){ // agrego nueva variable
+
 			t_variable* new_var = malloc(sizeof(t_variable));
+
+			if(pcbEjecutando->stackPointer + 4 > tamanio_pagina){
+				pcbEjecutando->paginaActualStack++;
+				new_var->posicionMemoria.offsetInstruccion=0;
+				pcbEjecutando->stackPointer=4;
+			}else{
+				new_var->posicionMemoria.offsetInstruccion=pcbEjecutando->stackPointer;
+				pcbEjecutando->stackPointer+=4;
+			}
+
 			new_var->identificador = variable;
-			new_var->posicionMemoria.pagina = var_pagina;
-			new_var->posicionMemoria.offsetInstruccion = var_offset;
+			new_var->posicionMemoria.pagina = pcbEjecutando->paginaActualStack;
 			new_var->posicionMemoria.longitudInstruccion = sizeof(int);
 
 			list_add(regStack->vars, new_var);
+			log_info(logger, "Se define variable en Dirección lógica: %i, %i, %i.",
+					new_var->posicionMemoria.pagina, new_var->posicionMemoria.offsetInstruccion, sizeof(int));
+			punteroRetorno = new_var->posicionMemoria.pagina * tamanio_pagina + new_var->posicionMemoria.offsetInstruccion;
 		}
 		else{ // agrego nuevo argumento
-			t_variable* new_arg = malloc(sizeof(variable));
-			new_arg->identificador = variable;
-			new_arg->posicionMemoria.pagina = var_pagina;
-			new_arg->posicionMemoria.offsetInstruccion = var_offset;
-			new_arg->posicionMemoria.longitudInstruccion = sizeof(int);
+			t_posicion_memoria* new_arg = malloc(sizeof(variable));
+
+			if(pcbEjecutando->stackPointer + 4 > tamanio_pagina){
+				pcbEjecutando->paginaActualStack++;
+				pcbEjecutando->stackPointer=4;
+				new_arg->offsetInstruccion=0;
+			}else{
+				pcbEjecutando->stackPointer+=4;
+				new_arg->offsetInstruccion=pcbEjecutando->stackPointer;
+			}
+
+			new_arg->pagina = pcbEjecutando->paginaActualStack;
+			new_arg->longitudInstruccion = sizeof(int);
 
 			list_add(regStack->args, new_arg);
+
+			log_info(logger, "Se define argumento en Dirección lógica: %i, %i, %i.",new_arg->pagina, new_arg->offsetInstruccion, sizeof(int));
+			punteroRetorno = new_arg->pagina * tamanio_pagina + new_arg->offsetInstruccion;
 		}
 
-		log_trace(logger, "'%c' -> Dirección lógica definida: %i, %i, %i.", variable, var_pagina, var_offset, sizeof(int));
 
-		// Actualizo parámetros del PCB:
-		int total_heap_offset = (pcbEjecutando->paginasCodigo * tamanio_pagina) + pcbEjecutando->stackPointer;
-		pcbEjecutando->stackPointer += sizeof(int);
-		pcbEjecutando->paginaActualStack = (total_heap_offset + sizeof(int)) / tamanio_pagina;
-
-		return total_heap_offset;
+		return punteroRetorno;
 	}
 }
 
@@ -89,18 +105,14 @@ t_puntero obtenerPosicionVariable(t_nombre_variable idVariable) {
 	else{
 		if(regStack->args->elements_count > 0){
 
+			int nroArg = idVariable - '0';
+			t_posicion_memoria* argumento = list_get(regStack->args, nroArg);
 			// Obtengo el argumento buscado:
-			int j;
-			for(j = 0; j<regStack->args->elements_count; j++){
 
-				t_variable* argumento = list_get(regStack->args, j);
-				if(argumento->identificador == idVariable){
+			int arg_offset_absoluto = (argumento->pagina * tamanio_pagina) + argumento->offsetInstruccion;
 
-					int arg_offset_absoluto = (argumento->posicionMemoria.pagina * tamanio_pagina) + argumento->posicionMemoria.offsetInstruccion;
+			return arg_offset_absoluto;
 
-					return arg_offset_absoluto;
-				}
-			}
 		}
 		log_error(logger, "No hay argumentos en el registro actual de stack.");
 		return -1;
@@ -111,21 +123,20 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 
 	log_info(logger,"Se ingresa a la primitiva Dereferenciar con el puntero: %d", total_heap_offset);
 
-	t_struct_sol_lectura * var_direccion = malloc(sizeof(t_posicion_memoria));
+	t_struct_sol_lectura * var_direccion = malloc(sizeof(t_struct_sol_lectura));
 
 	var_direccion->pagina = total_heap_offset / tamanio_pagina;
 	var_direccion->offset = total_heap_offset % tamanio_pagina;
 	var_direccion->contenido = sizeof(int);
 	var_direccion->PID = pcbEjecutando->PID;
 
-	log_trace(logger, "Solicitud Lectura -> Página: %i, Offset: %i, Size: %i.",
+	log_info(logger, "Solicitud Lectura -> Página: %i, Offset: %i, Size: %i.",
 			var_direccion->pagina, var_direccion->offset, sizeof(int));
 
 	socket_enviar(socketMemoria,D_STRUCT_LECT_VAR,var_direccion);
 
 	free(var_direccion);
 	var_direccion = NULL;
-
 
 	if(!validarPedidoMemoria()){
 		log_error(logger, "La variable no pudo dereferenciarse.");
@@ -156,14 +167,14 @@ t_valor_variable dereferenciar(t_puntero total_heap_offset) {
 	}
 }
 
-void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
+void asignar(t_puntero direccion, t_valor_variable valor) {
 
-	log_info(logger,"Se ingresa a la primitiva Asignar para el puntero %d con el valor %d", total_heap_offset,valor);
+	log_info(logger,"Se ingresa a la primitiva Asignar para el puntero %d con el valor %d", direccion,valor);
 
 	t_struct_sol_escritura* var_escritura = malloc(sizeof(t_struct_sol_escritura));
 
-	var_escritura->pagina = total_heap_offset / tamanio_pagina;
-	var_escritura->offset = total_heap_offset % tamanio_pagina;
+	var_escritura->pagina = direccion / tamanio_pagina;
+	var_escritura->offset = direccion % tamanio_pagina;
 	var_escritura->contenido = valor;
 	var_escritura->PID = pcbEjecutando->PID;
 
@@ -183,12 +194,14 @@ void asignar(t_puntero total_heap_offset, t_valor_variable valor) {
 
 t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) {
 
-	log_info(logger, "Se ingresa a la primitiva Obtener valor variable compartida para la variable: '%s'.", variableCompartida);
+	char * variableLimpia = prepararInstruccion(variableCompartida);
+
+	log_info(logger, "Se ingresa a la primitiva Obtener valor variable compartida para la variable: '%s'.", variableLimpia);
 
 	t_struct_string* obtenerVarCompartida = malloc(sizeof(t_struct_string));
 
 	strcpy(obtenerVarCompartida->string,"!\0");
-	strcat(obtenerVarCompartida->string,variableCompartida);
+	strcat(obtenerVarCompartida->string,variableLimpia);
 
 	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
@@ -197,6 +210,7 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
+		free(variableLimpia);
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 		return NULL;
@@ -206,11 +220,11 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 		// El kernel ante una solicitud de variable compartida debe retornarme el valor entero correspondiente.
 		t_valor_variable valor = ((t_struct_numero*) structRecibido)->numero;
 
-		log_trace(logger, "Variable Compartida: '%s' -> Valor: '%d'.", variableCompartida, valor);
+		log_trace(logger, "Variable Compartida: '%s' -> Valor: '%d'.", variableLimpia, valor);
 
 		free(structRecibido);
 		structRecibido = NULL;
-
+		free(variableLimpia);
 		return valor;
 	}
 
@@ -218,13 +232,15 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, t_valor_variable valor) {
 
-	log_info(logger, "Se ingresa a la primitiva Asignar valor compartida para  '%d' a Variable Compartida '%s'.", valor, variableCompartida);
+	char * variableLimpia = prepararInstruccion(variableCompartida);
+
+	log_info(logger, "Se ingresa a la primitiva Asignar valor compartida para  '%d' a Variable Compartida '%s'.", valor, variableLimpia);
 	t_struct_var_compartida * varCompartida = malloc(strlen(variableCompartida)+ 5);
 
 	varCompartida->valor = valor;
 
 	strcpy(varCompartida->nombre,"!\0");
-	strcat(varCompartida->nombre,variableCompartida);
+	strcat(varCompartida->nombre,variableLimpia);
 
 	socket_enviar(socketKernel,D_STRUCT_GRABAR_COMPARTIDA,varCompartida);
 
@@ -233,6 +249,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 
 	if ( socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1){
 
+		free(variableLimpia);
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 		return -1;
@@ -246,7 +263,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 
 		free(structRecibido);
 		structRecibido = NULL;
-
+		free(variableLimpia);
 		return valor;
 	}
 
@@ -254,19 +271,29 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 
 void irAlLabel(t_nombre_etiqueta etiqueta) {
 
-	log_info(logger, "Se ingresa a la primitiva Ir a Label con la etiqueta: '%s'.", etiqueta);
+	char * etiquetaLimpia = prepararInstruccion(etiqueta);
 
-	t_puntero_instruccion posicion_etiqueta = metadata_buscar_etiqueta(etiqueta, pcbEjecutando->indiceEtiquetas, pcbEjecutando->tamanioIndiceEtiquetas);
+	log_info(logger, "Se ingresa a la primitiva Ir a Label con la etiqueta: '%s'.", etiquetaLimpia);
 
-	if(posicion_etiqueta == -1) log_error(logger, "La etiqueta '%s' no se encuentra en el índice.", etiqueta);
+	t_puntero_instruccion posicion_etiqueta = metadata_buscar_etiqueta(etiquetaLimpia,
+			pcbEjecutando->indiceEtiquetas, pcbEjecutando->tamanioIndiceEtiquetas);
+
+	if(posicion_etiqueta == -1) log_error(logger, "La etiqueta '%s' no se encuentra en el índice.", etiquetaLimpia);
+
+	free(etiquetaLimpia);
 
 	pcbEjecutando->programCounter = posicion_etiqueta - 1;
+
 }
 
 void llamarSinRetorno(t_nombre_etiqueta etiqueta) {
 
-	log_info(logger, "Se ingresa a la primitiva Llamar sin Retorno con la etiqueta: %s ",etiqueta);
+	char * etiquetaLimpia = prepararInstruccion(etiqueta);
+
+	log_info(logger, "Se ingresa a la primitiva Llamar sin Retorno con la etiqueta: %s ",etiquetaLimpia);
+
     registroStack* nuevoRegistro = reg_stack_create();
+
     // Guardo el valor actual del program counter
     nuevoRegistro->retPos = pcbEjecutando->programCounter;
     list_add(pcbEjecutando->indiceStack, nuevoRegistro);
@@ -275,7 +302,10 @@ void llamarSinRetorno(t_nombre_etiqueta etiqueta) {
 }
 
 void llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar) {
-	log_info(logger, "Se ingresa a la primitiva Llamar con Retorno con la etiqueta: %s ",etiqueta);
+
+	char * etiquetaLimpia = prepararInstruccion(etiqueta);
+
+	log_info(logger, "Se ingresa a la primitiva Llamar con Retorno con la etiqueta: %s ",etiquetaLimpia);
 	log_info(logger, "Preservando contexto de ejecución actual.");
 
 	// Calculo la dirección de retorno y la guardo:
@@ -321,9 +351,12 @@ void retornar(t_valor_variable retorno) {
 void s_wait(t_nombre_semaforo semaforo) {
 
 	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
-	waitSemaforo->string=semaforo;
 
-	socket_enviar(socketKernel,D_STRUCT_WAIT,semaforo);
+	char * semaforoLimpio = prepararInstruccion(semaforo);
+
+	waitSemaforo->string=semaforoLimpio;
+
+	socket_enviar(socketKernel,D_STRUCT_WAIT,waitSemaforo);
 	free(waitSemaforo);
 
 	t_tipoEstructura tipoEstructura;
@@ -333,6 +366,7 @@ void s_wait(t_nombre_semaforo semaforo) {
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
+		free(semaforoLimpio);
 
 	} else {
 
@@ -341,24 +375,27 @@ void s_wait(t_nombre_semaforo semaforo) {
 
 		if(bloqueado==1){
 			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_WAIT;
-			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforo);
+			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforoLimpio);
 		} else if (bloqueado==0) {
-			log_trace(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", pcbEjecutando->PID, semaforo);
+			log_trace(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", semaforoLimpio);
 		} else  {
 			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_SEM;
 		}
 
 		free(structRecibido);
 		structRecibido = NULL;
+		free(semaforoLimpio);
 	}
 }
 
 void s_signal(t_nombre_semaforo semaforo) {
 
-	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
-	signalSemaforo->string=semaforo;
+	char * semaforoLimpio = prepararInstruccion(semaforo);
 
-	socket_enviar(socketKernel,D_STRUCT_SIGNAL,semaforo);
+	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
+	signalSemaforo->string=semaforoLimpio;
+
+	socket_enviar(socketKernel,D_STRUCT_SIGNAL,signalSemaforo);
 	free(signalSemaforo);
 
 	t_tipoEstructura tipoEstructura;
@@ -368,6 +405,7 @@ void s_signal(t_nombre_semaforo semaforo) {
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
+		free(semaforoLimpio);
 
 	} else {
 
@@ -375,18 +413,21 @@ void s_signal(t_nombre_semaforo semaforo) {
 
 		if(resultado==KERNEL_ERROR){
 			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_SEM;
-			log_trace(logger, "No se pudo realizar SIGNAL del semáforo: '%s'", semaforo);
+			log_trace(logger, "No se pudo realizar SIGNAL del semáforo: '%s'", semaforoLimpio);
 		} else {
-			log_trace(logger, "SIGNAL del semáforo: '%s' realizado exitosamente", semaforo);
+			log_trace(logger, "SIGNAL del semáforo: '%s' realizado exitosamente", semaforoLimpio);
 		}
 
 		free(structRecibido);
 		structRecibido = NULL;
+		free(semaforoLimpio);
 	}
 
 }
 
 t_puntero reservar(t_valor_variable espacio) {
+
+	log_info(logger,"Se ingreso a la primitiva reservar con el valor %d",espacio);
 
 	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
 
@@ -459,6 +500,8 @@ t_puntero reservar(t_valor_variable espacio) {
 
 void liberar(t_puntero puntero) {
 
+	log_info(logger,"Se ingreso a la primitiva liberar con el valor %d",puntero);
+
 	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
 
 	heap->pointer=puntero;
@@ -494,10 +537,12 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
+	char * direccionLimpia = prepararInstruccion(direccion);
+
 	archivo->fileDescriptor=0;
-	archivo->tamanio=strlen(direccion)+1;
-	archivo->informacion=malloc(strlen(direccion)+1);
-	archivo->informacion=direccion;
+	archivo->tamanio=strlen(direccionLimpia)+1;
+	archivo->informacion=malloc(strlen(direccionLimpia)+1);
+	archivo->informacion=direccionLimpia;
 	archivo->pid=pcbEjecutando->PID;
 	archivo->flags.creacion=flags.creacion;
 	archivo->flags.escritura=flags.escritura;
@@ -515,6 +560,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
+		free(direccionLimpia);
 		return -1;
 
 	} else {
@@ -528,7 +574,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 			free(structRecibido);
 			structRecibido = NULL;
-
+			free(direccionLimpia);
 			return -1;
 		}
 
@@ -536,7 +582,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 		free(structRecibido);
 		structRecibido = NULL;
-
+		free(direccionLimpia);
 		return archivo;
 
 	}

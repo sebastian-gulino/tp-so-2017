@@ -1,6 +1,6 @@
 Cache
 
-PID: 0  #Pagina: 0 
+PID: 1  #Pagina: 0 
 PID: 0  #Pagina: 0 
 PID: 0  #Pagina: 0 
 PID: 0  #Pagina: 0 
@@ -42,9 +42,9 @@ Frame: 20  PID: -1  #Pagina: 0
 Frame: 21  PID: -1  #Pagina: 0
 Frame: 22  PID: -1  #Pagina: 0
 Frame: 23  PID: -1  #Pagina: 0
-Frame: 24  PID: 0  #Pagina: 0
-Frame: 25  PID: 0  #Pagina: 0
-Frame: 26  PID: 0  #Pagina: 0
+Frame: 24  PID: 1  #Pagina: 0
+Frame: 25  PID: 1  #Pagina: 1
+Frame: 26  PID: 1  #Pagina: 2
 Frame: 27  PID: 0  #Pagina: 0
 Frame: 28  PID: 0  #Pagina: 0
 Frame: 29  PID: 0  #Pagina: 0
@@ -521,3 +521,4 @@ Frame: 499  PID: 0  #Pagina: 0
 
 Procesos Activos
 
+PID: 1

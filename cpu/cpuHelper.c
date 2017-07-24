@@ -142,23 +142,23 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 		if (instruccion != NULL){
 
-			prepararInstruccion(instruccion);
+			char * instruccionLimpia = prepararInstruccion(instruccion);
 
 			if (pcbEjecutando->programCounter >= pcbEjecutando->cantidadInstrucciones-1
-					&& string_starts_with(instruccion,"end")){
+					&& string_starts_with(instruccionLimpia,"end")){
 
 				log_info(logger,"El proceso %d finalizo exitosamente",pcbEjecutando->PID);
 
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
-				free(instruccion);
-				instruccion=NULL;
+				free(instruccionLimpia);
+				instruccionLimpia=NULL;
 
 				salirProceso(0);
 				return;
 			}
 
-			analizadorLinea(instruccion,&funcionesAnsisop,&funciones_kernel);
+			analizadorLinea(instruccionLimpia,&funcionesAnsisop,&funciones_kernel);
 
 			if (stackOverflow){
 
@@ -166,8 +166,8 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				pcbEjecutando->retornoPCB=D_STRUCT_ERROR_STACK_OVERFLOW;
 
-				free(instruccion);
-				instruccion = NULL;
+				free(instruccionLimpia);
+				instruccionLimpia = NULL;
 
 				salirProceso();
 				return;
@@ -178,8 +178,8 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
 
-				free(instruccion);
-				instruccion = NULL;
+				free(instruccionLimpia);
+				instruccionLimpia = NULL;
 				salirProceso(0);
 				return;
 			}
@@ -190,8 +190,8 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 				salirProceso();
 			}
 
-			free(instruccion);
-			instruccion = NULL;
+			free(instruccionLimpia);
+			instruccionLimpia = NULL;
 
 			socket_enviar(socketKernel,D_STRUCT_FIN_INSTRUCCION,pcbEjecutando);
 
@@ -317,23 +317,27 @@ void liberarRecursosCPU(){
 	}
 }
 
-void prepararInstruccion(char * instruccion){
+char * prepararInstruccion(char * instruccion){
 
-	char *auxiliar = instruccion;
-	int indice = 0;
-	while (*instruccion != '\0') {
-		if (*instruccion != '\t' && *instruccion != '\n' && !iscntrl(*instruccion)) {
-			if (indice == 0 && isdigit((int )*instruccion)) {
-				++instruccion;
-			} else {
-				*auxiliar++ = *instruccion++;
-				indice++;
-			}
-		} else {
-			++instruccion;
-		}
+	char* instruccionLimpia = string_new();
+	int size  = 0;
+
+	while (instruccion[size] != '\0' && instruccion[size] != '\n') {
+
+		char* caracter = malloc(sizeof(char) * 2);
+		caracter[0] = instruccion[size];
+		caracter[1] = '\0';
+
+		string_append(&instruccionLimpia, caracter);
+
+		free(caracter);
+		size++;
+
 	}
-	*auxiliar = '\0';
+
+	instruccionLimpia[size] = '\0';
+
+	return instruccionLimpia;
 }
 
 void inicializarEstructuras(){
@@ -383,7 +387,7 @@ char * pedirSiguienteInstruccion(){
 
 	log_info(logger,"Se solicita una instruccion PID %d Pagina %d Offset %d Contenido %d a memoria",
 			direccion->PID, direccion->pagina, direccion->offset, direccion->contenido);
-	//TODO en memoria ante estos pedidos me va a tener que devolver un numero para indicar si es valido y luego la instruccion si corresponde
+
 	socket_enviar(socketMemoria, D_STRUCT_LECT, direccion);
 	//free(direccion);
 

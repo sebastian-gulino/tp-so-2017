@@ -90,6 +90,12 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_LECT_VAR:
 				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_LECT_VAR);
 				break;
+			case D_STRUCT_ESCRIBIR_HEAP:
+				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_ESCRIBIR_HEAP);
+				break;
+			case D_STRUCT_LIBERAR_HEAP:
+				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_LIBERAR_HEAP);
+				break;
 			case D_STRUCT_ABORT:
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_ABORT);
 				break;
@@ -104,6 +110,9 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				break;
 			case D_STRUCT_ESCRITURA_CODIGO:
 				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_ESCRITURA_CODIGO);
+				break;
+			case D_STRUCT_COMPACTAR_HEAP:
+				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_COMPACTAR_HEAP);
 				break;
 			case D_STRUCT_PCB_FIN_OK:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_PCB_FIN_OK);
@@ -162,6 +171,10 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_GUARDAR:
 				paquete = serializeStruct_guardar((t_struct_guardar *) estructuraOrigen);
 				break;
+			case D_STRUCT_METADATA_HEAP:
+				paquete = serializeStruct_metadataHeap((t_struct_metadataHeap *) estructuraOrigen, D_STRUCT_METADATA_HEAP);
+				break;
+
 		}
 
 	return paquete;
@@ -294,8 +307,6 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 
 	uint32_t tamanioStack = calcularTamanioIndiceStack(estructuraOrigen);
 	uint32_t tamanioCodigo = sizeof(t_intructions) * (estructuraOrigen->cantidadInstrucciones);
-
-	//	char * stackSerializado = serializer_indiceStack(estructuraOrigen->indiceStack,&tamanioStack);
 
 	paquete->length = sizeof(t_header) + sizeof(t_struct_pcb) + estructuraOrigen->tamanioIndiceEtiquetas
 			+ tamanioCodigo	+ tamanioStack;
@@ -433,7 +444,6 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 		contadorStack++;
 
 	}
-//	free(stackSerializado); 
 
 	paquete->data = data;
 
@@ -523,6 +533,30 @@ t_stream * serializeStruct_solLect(t_struct_sol_lectura * estructuraOrigen, int 
 	tamanoTotal+=tamanoDato;
 
 	memcpy(data + tamanoTotal, &estructuraOrigen->PID, tamanoDato= sizeof(uint32_t));
+
+	tamanoTotal+=tamanoDato;
+
+	paquete->data = data;
+
+	return paquete;
+
+}
+
+t_stream * serializeStruct_metadataHeap(t_struct_metadataHeap * estructuraOrigen, int headerOperacion){
+
+	t_stream* paquete = malloc(sizeof(t_stream));
+
+	paquete->length = sizeof(t_header) + sizeof(bool) + sizeof(uint32_t);
+
+	char* data = crearDataConHeader(headerOperacion, paquete->length);
+
+	int tamanoTotal = sizeof(t_header), tamanoDato = 0;
+
+	memcpy(data + tamanoTotal, &estructuraOrigen->isFree, tamanoDato= sizeof(bool));
+
+	tamanoTotal+=tamanoDato;
+
+	memcpy(data + tamanoTotal, &estructuraOrigen->size, tamanoDato= sizeof(uint32_t));
 
 	tamanoTotal+=tamanoDato;
 
@@ -854,6 +888,12 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 			case D_STRUCT_LECT_VAR:
 				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
+			case D_STRUCT_ESCRIBIR_HEAP:
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				break;
+			case D_STRUCT_LIBERAR_HEAP:
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				break;
 			case D_STRUCT_ABORT:
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
@@ -925,6 +965,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				break;
 			case D_STRUCT_GUARDAR:
 				estructuraDestino = deserializeStruct_guardar(dataPaquete, length);
+				break;
+			case D_STRUCT_METADATA_HEAP:
+				estructuraDestino = deserializeStruct_metadataHeap(dataPaquete, length);
 				break;
 	}
 
@@ -1039,9 +1082,12 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 	tamanoTotal+= tamanoDato;
 
 	if(estructuraDestino->tamanioIndiceEtiquetas>0){
-	estructuraDestino->indiceEtiquetas = malloc(estructuraDestino->tamanioIndiceEtiquetas);
 
-	memcpy(estructuraDestino->indiceEtiquetas,dataPaquete+tamanoTotal,tamanoDato= estructuraDestino->tamanioIndiceEtiquetas);
+	char * etiquetas = malloc(estructuraDestino->tamanioIndiceEtiquetas);
+
+	memcpy(etiquetas,dataPaquete+tamanoTotal,tamanoDato= estructuraDestino->tamanioIndiceEtiquetas);
+
+	estructuraDestino->indiceEtiquetas = etiquetas;
 
 	tamanoTotal+= tamanoDato;
 
@@ -1166,22 +1212,6 @@ t_struct_pcb * deserializeStruct_pcb(char* dataPaquete, uint16_t length){
 		contadorStack++;
 	}
 
-
-//	// Deserializacion indice stack
-// 	uint32_t tamanioStack;
-// 	memcpy(&tamanioStack, dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
-//
-// 	char * bufferIndiceStack = malloc(tamanioStack);
-// 	memcpy(bufferIndiceStack, dataPaquete+tamanoTotal, tamanioStack);
-// 	tamanoTotal += tamanioStack;
-//
-// 	t_list * indiceStack = deserializer_indiceStack(bufferIndiceStack);
-// 	estructuraDestino->indiceStack = indiceStack;
-//
-// 	free(bufferIndiceStack);
-
-
-
 	return estructuraDestino;
 }
 
@@ -1247,6 +1277,22 @@ t_struct_sol_lectura * deserializeStruct_solLect(char* dataPaquete, uint16_t len
 	tamanoTotal+= tamanoDato;
 
 	memcpy(&estructuraDestino->PID,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+
+	tamanoTotal+= tamanoDato;
+
+	return estructuraDestino;
+}
+
+t_struct_metadataHeap * deserializeStruct_metadataHeap(char* dataPaquete, uint16_t length){
+	t_struct_metadataHeap* estructuraDestino = malloc(sizeof(t_struct_metadataHeap));
+
+	int tamanoDato = 0, tamanoTotal = 0;
+
+	memcpy(&estructuraDestino->isFree,dataPaquete+tamanoTotal,tamanoDato=sizeof(bool));
+
+	tamanoTotal+= tamanoDato;
+
+	memcpy(&estructuraDestino->size,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
 
 	tamanoTotal+= tamanoDato;
 
@@ -1471,201 +1517,3 @@ t_struct_guardar * deserializeStruct_guardar(char * dataPaquete, uint16_t length
 
 	return estructuraDestino;
 }
-
-
-char *serializer_indiceStack(t_list* self, uint32_t * length){
-
-	int i;
-	uint32_t tamanioTotalBuffer= sizeof(uint32_t);
-
-	t_list * tamanioStackStack = list_create();
-	uint32_t tamanioStackParticular;
-	for(i=0; i < list_size(self);i++){
-		registroStack * registro = list_get(self,i);
-		tamanioStackParticular=0;
-
-		int cantidadArgumentos=list_size(registro->args);
-		tamanioTotalBuffer += cantidadArgumentos * sizeof(t_posicion_memoria);
-		tamanioStackParticular += cantidadArgumentos * sizeof(t_posicion_memoria);
-
-		int cantidadVariables = list_size(registro->vars);
-		tamanioTotalBuffer += cantidadVariables * sizeof(t_variable);
-		tamanioStackParticular += cantidadVariables * sizeof(t_variable);
-
-		tamanioTotalBuffer += sizeof(uint32_t);
-		tamanioStackParticular += sizeof(uint32_t);
-
-		tamanioTotalBuffer += sizeof(t_posicion_memoria); //Tamanio de retVar
-		tamanioStackParticular += sizeof(t_posicion_memoria);
-
-		tamanioTotalBuffer += sizeof(uint32_t) * 3; //agrego 3 ints para indicar la cantidad de elemento de las 2 listas y los bytes de t_stack
-
-		t_tamanio_stack * auxiliar = malloc(sizeof(uint32_t) + tamanioStackParticular);
-		auxiliar->stack = registro;
-		auxiliar->tamanioStack = tamanioStackParticular;
-		list_add(tamanioStackStack, auxiliar);
-	}
-
-	char * serialized = malloc(tamanioTotalBuffer + sizeof(uint32_t));
-	int tmp_size=0,offset=0;
-
-	memcpy(serialized,&tamanioTotalBuffer,tmp_size=sizeof(uint32_t));
-	offset+=tmp_size;
-
-	uint32_t cantidadItemEnStack = list_size(self);
-
-	memcpy(serialized + offset,&cantidadItemEnStack,tmp_size=sizeof(uint32_t));
-	offset+=tmp_size;
-
-	//Guardo cada elemento/lista del stack
-
-	for(i=0;i < list_size(tamanioStackStack); i++){
-		t_tamanio_stack * linea = list_get(tamanioStackStack,i);
-
-		memcpy(serialized + offset, &linea->tamanioStack,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-
-		t_stack * stack=linea->stack;
-
-		uint32_t cantidadArgumentos= list_size(stack->argumentos);
-		memcpy(serialized + offset, &cantidadArgumentos,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-
-		int j;
-		for(j = 0; j < cantidadArgumentos; j++){
-			t_posicion_memoria * argumento = list_get(stack->argumentos,j);
-			memcpy(serialized + offset, &argumento->pagina,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(serialized + offset, &argumento->offsetInstruccion,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(serialized + offset, &argumento->longitudInstruccion,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			free(argumento);
-		}
-
-		uint32_t cantidadVariables = list_size(stack->variables);
-		memcpy(serialized + offset, &cantidadVariables,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-
-		for(j = 0; j < cantidadVariables; j++){
-			t_variable * variable = list_get(stack->variables,j);
-			memcpy(serialized + offset, &variable->identificador,tmp_size=sizeof(char));
-			offset+=tmp_size;
-			memcpy(serialized + offset, &variable->posicionMemoria.pagina,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(serialized + offset, &variable->posicionMemoria.offsetInstruccion,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(serialized + offset, &variable->posicionMemoria.longitudInstruccion,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			free(variable);
-		}
-
-		memcpy(serialized + offset, &stack->retPos,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-
-		t_posicion_memoria * retVarStack = stack->retVar;
-		if(retVarStack == NULL){
-			retVarStack = malloc(sizeof(t_posicion_memoria));
-			retVarStack->offsetInstruccion = 0;
-			retVarStack->pagina = 0;
-			retVarStack->longitudInstruccion = 0;
-		}
-		memcpy(serialized + offset, &retVarStack->pagina,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(serialized + offset, &retVarStack->offsetInstruccion,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(serialized + offset, &retVarStack->longitudInstruccion,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		free(retVarStack);
-	}
-
-	for(i=0;i<list_size(tamanioStackStack);i++){
-		t_tamanio_stack * tamanioStack= list_get(tamanioStackStack,i);
-		t_stack * stack = tamanioStack->stack;
-		list_remove(tamanioStackStack,i);
-		i--;
-		free(stack);
-		free(tamanioStack);
-	}
-	free(tamanioStackStack);
-
-	*length=tamanioTotalBuffer + sizeof(uint32_t);
-
-	return serialized;
-}
-
-t_list *deserializer_indiceStack(char * serialized){
-
-	t_list * stack = list_create();
-	int offset = 0, tmp_size=0;
-
-	uint32_t cantidadElementosEnStack;
-	memcpy(&cantidadElementosEnStack,serialized,tmp_size=sizeof(uint32_t));
-	offset=tmp_size;
-
-	int i;
-	for(i=0;i<cantidadElementosEnStack;i++){
-		uint32_t tamanioItemStack;
-		memcpy(&tamanioItemStack,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-
-		t_stack * stack_item = malloc(tamanioItemStack);
-
-		t_list * argumentosStack = list_create();
-		uint32_t cantidadArgumentosStack;
-		memcpy(&cantidadArgumentosStack,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		int j;
-		for(j=0;j<cantidadArgumentosStack;j++){
-			t_posicion_memoria *argStack = malloc(sizeof(t_posicion_memoria));
-			memcpy(&argStack->pagina,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(&argStack->offsetInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(&argStack->longitudInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			list_add(argumentosStack, argStack);
-		}
-		stack_item->argumentos = argumentosStack;
-
-		t_list * variablesStack = list_create();
-		uint32_t cantidadVariablesStack;
-		memcpy(&cantidadVariablesStack,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		for(j=0;j<cantidadVariablesStack;j++){
-			t_variable *varStack = malloc(sizeof(t_variable));
-			memcpy(&varStack->identificador,serialized + offset,tmp_size=sizeof(char));
-			offset+=tmp_size;
-			memcpy(&varStack->posicionMemoria.pagina,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(&varStack->posicionMemoria.offsetInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			memcpy(&varStack->posicionMemoria.longitudInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-			offset+=tmp_size;
-			list_add(variablesStack, varStack);
-		}
-		stack_item->variables = variablesStack;
-
-		uint32_t direcRetorno;
-		memcpy(&direcRetorno,serialized + offset,tmp_size=sizeof(uint32_t));
-		stack_item->retPos = direcRetorno;
-		offset+=tmp_size;
-
-		t_posicion_memoria * retVarStack = malloc(sizeof(t_posicion_memoria));
-		memcpy(&retVarStack->pagina,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(&retVarStack->offsetInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		memcpy(&retVarStack->longitudInstruccion,serialized + offset,tmp_size=sizeof(uint32_t));
-		offset+=tmp_size;
-		if(retVarStack->pagina == 0 && retVarStack->offsetInstruccion == 0 && retVarStack->longitudInstruccion == 0){
-			retVarStack=NULL;
-		}
-		stack_item->retVar = retVarStack;
-
-		list_add(stack,stack_item);
-	}
-
-	return stack;
-}
-

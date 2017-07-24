@@ -267,7 +267,7 @@ void manejarKernel(int socketKernel){
 				int PID = ((t_struct_malloc* )structRecibido)->PID;
 				int tamanioSegmento = ((t_struct_malloc* )structRecibido)->tamano_segmento;
 
-				bool sePudoAsignar = reservarFramesProceso(PID,tamanioSegmento,0);
+				bool sePudoAsignar = reservarFramesProceso(PID,tamanioSegmento,1);
 
 				//Le comunico al kernel si se pudo realizar operacion
 				t_struct_numero* respuestaAsignacion = malloc(sizeof(t_struct_numero));
@@ -311,6 +311,53 @@ void manejarKernel(int socketKernel){
 				free(solicitudEscritura);
 				free(codigoPrograma);
 
+				break;
+
+			case D_STRUCT_COMPACTAR_HEAP:
+			case D_STRUCT_LIBERAR_HEAP:
+			case D_STRUCT_ESCRIBIR_HEAP: ;
+
+				t_struct_sol_escritura * solicitudEscrituraHeap = malloc(sizeof(t_struct_sol_escritura));
+
+				solicitudEscrituraHeap = (t_struct_sol_escritura* )structRecibido;
+
+				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
+
+				t_struct_metadataHeap * metadata = malloc(sizeof(t_struct_metadataHeap));
+
+				metadata = (t_struct_metadataHeap* )structRecibido;
+
+				bool sePudoEscribirHeap = escribirPagina(solicitudEscrituraHeap->pagina,solicitudEscrituraHeap->PID,
+						solicitudEscrituraHeap->offset,solicitudEscrituraHeap->contenido, metadata);
+
+				if(!sePudoEscribirHeap){
+					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", solicitudEscrituraHeap->PID);
+				} else {
+					log_info(logger, "Se escribio correctamente el codigo del proceso PID %d en memoria", solicitudEscrituraHeap->PID);
+				}
+
+				free(solicitudEscrituraHeap);
+				free(metadata);
+
+				break;
+
+			case D_STRUCT_LIBERAR_PAGINA: ;
+
+				t_struct_sol_heap * liberarPaginaHeap = malloc(sizeof(t_struct_sol_heap));
+
+				liberarPaginaHeap = (t_struct_sol_heap* )structRecibido;
+
+				bool sePudoLiberar = liberarPagina(liberarPaginaHeap->pointer,liberarPaginaHeap->pid);
+
+				if(!sePudoLiberar){
+					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", liberarPaginaHeap->pid);
+				} else {
+					log_info(logger, "Se escribio correctamente el codigo del proceso PID %d en memoria", liberarPaginaHeap->pid);
+				}
+
+				free(liberarPaginaHeap);
+
+				break;
 			}
 		}
 	}
@@ -360,6 +407,7 @@ void crearEstructurasAdministrativas(){
 
 int buscarEnTabla(int pagina, int pid){
 	int i = aplicarFuncionHash(pid, pagina);
+	int frameInicialBusqueda = i;
 	int indice = -1;
 	int cantidadFrames = configuracion->marcos;
 	while(indice < 0){
@@ -367,6 +415,7 @@ int buscarEnTabla(int pagina, int pid){
 			indice = i;
 		} else {
 			i = aplicarManejoColisiones(i);
+			if(i==frameInicialBusqueda) break;
 		}
 	}
 	return indice;
@@ -385,6 +434,20 @@ bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * conteni
 	bool resultado;
 	if(numeroFrame > -1){
 		escribirEnMemoria(numeroFrame,contenido,tamanio,offset);
+		resultado = true;
+	} else {
+		resultado = false;
+	}
+	return resultado;
+}
+
+bool liberarPagina(int pagina, int pid){
+	//TODO REVISAR
+	int numeroFrame = buscarEnTabla(pagina,pid);
+	bool resultado;
+	if(numeroFrame > -1){
+		tablaInvertida[numeroFrame].pid=FRAME_LIBRE;
+		tablaInvertida[numeroFrame].pagina=0;
 		resultado = true;
 	} else {
 		resultado = false;
@@ -417,11 +480,13 @@ int obtenerPrimerFrameLibre(int pid, int pagina){
 	int primeroLibre = -1;
 	int limite = configuracion->marcos;
 	i = aplicarFuncionHash(pid, pagina);
+	int frameInicialBusqueda = i;
 	while(primeroLibre < 0){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			primeroLibre = i;
 		} else {
 			i = aplicarManejoColisiones(i);
+			if(i==frameInicialBusqueda) break;
 		}
 	}
 	return primeroLibre;

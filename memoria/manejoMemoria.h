@@ -103,6 +103,8 @@ void imprimirCache();
 
 int obtenerPrimerosNFramesLibres(int pid, int cantidad);
 
+bool liberarPagina(int pagina, int pid);
+
 t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio);
 
 bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido);

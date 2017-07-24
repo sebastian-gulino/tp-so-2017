@@ -346,7 +346,6 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_SOL_HEAP: ;
 
-			// La cpu quiere escribir en un archivo
 			t_struct_sol_heap * solicitudHeap = ((t_struct_sol_heap*) structRecibido);
 			reservarHeap(socketCPU, solicitudHeap);
 
@@ -605,21 +604,21 @@ t_struct_pcb* crearPCB(int PID, t_struct_pcb* pcb){
 
 }
 
-int solicitarSegmentoCodigo(int pid, int tamanioPrograma){
+int solicitarSegmentoCodigoStack(int pid, int tamanio){
 
 	// Pido a la memoria un segmento para el código
-	t_struct_malloc* seg_codigo = malloc(sizeof(t_struct_malloc));
-	seg_codigo->PID = pid;
-	seg_codigo->tamano_segmento = tamanioPrograma;
+	t_struct_malloc* segmento = malloc(sizeof(t_struct_malloc));
+	segmento->PID = pid;
+	segmento->tamano_segmento = tamanio;
 
 	// Envío la solicitud de memoria con el tamaño del programa que quiero ejecutar
-	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, seg_codigo);
+	int resultado = socket_enviar(socketMemoria, D_STRUCT_MALC, segmento);
 
 	if(resultado != 1){
 		printf("No se pudo crear segmento de codigo\n");
 		return -1;
 	}
-	free(seg_codigo);
+	free(segmento);
 
 	void * structRecibido;
 	t_tipoEstructura tipoStruct;
@@ -764,16 +763,17 @@ void agregarColaListos(t_struct_pcb* pcb){
 
 int reservarPaginas(t_struct_pcb * pcb, char* programa, int tamanioPrograma){
 
-	if(solicitarSegmentoCodigo(pcb->PID,tamanioPrograma)==MEMORIA_OK
-			&& solicitarSegmentoStack(pcb->PID)==MEMORIA_OK){
+	int cantidadPaginasCodigo = tamanioPrograma / tamanio_pagina;
 
-		int cantidadPaginasCodigo = tamanioPrograma / tamanio_pagina;
+	if(tamanioPrograma%tamanio_pagina>0) cantidadPaginasCodigo++;
 
-		if(tamanioPrograma%tamanio_pagina>0) cantidadPaginasCodigo++;
+	int tamanioReservar = (cantidadPaginasCodigo + configuracion->stackSize) * tamanio_pagina;
+
+	if(solicitarSegmentoCodigoStack(pcb->PID, tamanioReservar)==MEMORIA_OK){
 
 		pcb->paginaActualStack=cantidadPaginasCodigo;
 		pcb->primerPaginaStack=pcb->paginaActualStack;
-		pcb->stackPointer=cantidadPaginasCodigo;
+		pcb->stackPointer=0;
 		pcb->paginasStack=configuracion->stackSize;
 		pcb->paginasCodigo=cantidadPaginasCodigo;
 
@@ -2365,7 +2365,6 @@ int compactar(t_registroTablaHeap * paginaCompactar){
 
 				t_tipoEstructura tipoEstructura;
 				void * structRecibido;
-				//TODO Ver en la memoria que hace y responde
 
 				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
@@ -2437,12 +2436,10 @@ void revisarPaginaslibres(t_registroTablaHeap * paginaRevisar){
 		paginaLiberar->pid=paginaRevisar->PID;
 		paginaLiberar->pointer=paginaRevisar->numeroPagina;
 
-
 		socket_enviar(socketMemoria,D_STRUCT_LIBERAR_PAGINA,paginaLiberar);
 
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
-		//TODO Ver en la memoria que hace y responde
 
 		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
@@ -2516,7 +2513,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 			t_tipoEstructura tipoEstructura;
 			void * structRecibido;
-			//TODO Ver en la memoria que hace y responde
+
 			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 
 			//t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
@@ -2556,7 +2553,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
-		//TODO Ver en la memoria que hace y responde
+
 		bool rtaMemoria = false;
 		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
@@ -2595,7 +2592,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 	} else {
 
-		int respuesta = solicitarSegmentoCodigo(solicitudHeap->pid,tamanio_pagina);
+		int respuesta = solicitarSegmentoCodigoStack(solicitudHeap->pid,tamanio_pagina);
 
 		if(respuesta==MEMORIA_OK){
 
@@ -2639,7 +2636,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 			t_tipoEstructura tipoEstructura;
 			void * structRecibido;
-			//TODO Ver en la memoria que hace y responde
+
 			bool rtaMemoria = false;
 			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
@@ -2748,7 +2745,6 @@ void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
-	//TODO Ver en la memoria que hace y responde
 
 	socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 	t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);

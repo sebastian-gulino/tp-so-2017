@@ -55,7 +55,7 @@ void desconectarCPU ();
 
 void inicializarEstructuras ();
 
-void prepararInstruccion(char * instruccion);
+char * prepararInstruccion(char * instruccion);
 
 void liberarRecursosCPU();
 
