@@ -313,6 +313,26 @@ void manejarKernel(int socketKernel){
 
 				break;
 
+			case D_STRUCT_LIBERAR_MEMORIA: ;
+
+				t_struct_numero * pidFinalizar = malloc(sizeof(t_struct_numero));
+
+				pidFinalizar = (t_struct_numero* )structRecibido;
+
+				finalizarPrograma(pidFinalizar->numero);
+
+				//Le comunico al kernel si se pudo realizar operacion
+				t_struct_numero* respuestaFinalizar = malloc(sizeof(t_struct_numero));
+				respuestaFinalizar->numero = MEMORIA_OK;
+
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaFinalizar);
+
+				log_info(logger, "Se finalizo el proceso PID %d en memoria", pidFinalizar->numero);
+
+				free(pidFinalizar);
+
+				break;
+
 			case D_STRUCT_COMPACTAR_HEAP:
 			case D_STRUCT_LIBERAR_HEAP:
 			case D_STRUCT_ESCRIBIR_HEAP: ;
@@ -330,14 +350,21 @@ void manejarKernel(int socketKernel){
 				bool sePudoEscribirHeap = escribirPagina(solicitudEscrituraHeap->pagina,solicitudEscrituraHeap->PID,
 						solicitudEscrituraHeap->offset,solicitudEscrituraHeap->contenido, metadata);
 
+				//Le comunico al kernel si se pudo realizar operacion
+				t_struct_numero* respuestaHeap = malloc(sizeof(t_struct_numero));
+				respuestaHeap->numero = sePudoEscribirHeap ? MEMORIA_OK : MEMORIA_ERROR;
+
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaHeap);
+
 				if(!sePudoEscribirHeap){
 					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", solicitudEscrituraHeap->PID);
 				} else {
 					log_info(logger, "Se escribio correctamente el codigo del proceso PID %d en memoria", solicitudEscrituraHeap->PID);
 				}
 
-				free(solicitudEscrituraHeap);
-				free(metadata);
+//				free(solicitudEscrituraHeap);
+				free(respuestaHeap);
+//				free(metadata);
 
 				break;
 
@@ -422,7 +449,8 @@ int buscarEnTabla(int pagina, int pid){
 }
 
 void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
-	void* punteroFrame = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
+	void* punteroFrame = malloc(size);
+	punteroFrame =	memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	memcpy(punteroFrame + offset,contenido,size);
 	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
@@ -512,6 +540,20 @@ int obtenerPrimerosNFramesLibres(int pid, int cantidadDeFrames){
 	return indice;
 }
 
+int buscarMaxPaginaProceso (int pid){
+
+	int cant = 0;
+	int indice;
+	int cantidadFrames = configuracion->marcos;
+
+	for (indice=0; indice < configuracion->marcos-1 ; indice ++){
+		if(tablaInvertida[indice].pid == pid) cant++;
+	}
+
+	return cant;
+
+}
+
 bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1 TRUE 0 FALSE
 	int i = 0;
 	int bytesPorFrame = configuracion->marcoSize;
@@ -519,11 +561,13 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 	if(cantidadBytes%bytesPorFrame != 0){
 		framesNecesarios++;
 	}
+	int numeroPaginaAsignar = buscarMaxPaginaProceso(pid);
 	if(bytesContiguos > 0){
 		int primerFrameLibre = obtenerPrimerosNFramesLibres(pid,framesNecesarios);
 		if(primerFrameLibre > 0){ //Tiene N frames libres contiguos
 			for(i = 0; i < framesNecesarios;i++){
-				registrarUsoDeFrame(pid,primerFrameLibre+i,i);
+				registrarUsoDeFrame(pid,primerFrameLibre+i,numeroPaginaAsignar);
+				numeroPaginaAsignar++;
 			}
 			return true;
 		} else {
@@ -537,7 +581,8 @@ bool reservarFramesProceso(int pid, int cantidadBytes, int bytesContiguos){ // 1
 		if(framesNecesarios <= framesLibres){
 			for(i = 0; i < framesNecesarios;i++){
 				int numeroFrame = obtenerPrimerFrameLibre(pid,i);
-				registrarUsoDeFrame(pid,numeroFrame,i);
+				registrarUsoDeFrame(pid,numeroFrame,numeroPaginaAsignar);
+				numeroPaginaAsignar++;
 			}
 			return true;
 		} else {

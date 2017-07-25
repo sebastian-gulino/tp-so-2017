@@ -203,6 +203,7 @@ void iniciarPrograma(char* pathArchivo){
 
 	t_proceso* proceso = malloc(sizeof(t_proceso));
 
+	proceso->pid = malloc(sizeof(int));
 	proceso->pid = ((t_struct_numero *)structRecibido)->numero;
 	proceso->inicioEjec = time(&rawtime);
 	proceso->cantImpresiones = 0;
@@ -354,8 +355,8 @@ void terminarProceso(t_proceso* proceso){
 
 	printf("Inicio de ejecución: %s", asctime(localtime(&proceso->inicioEjec)));
 	printf("Fin de ejecución: %s", asctime(localtime(&proceso->finEjec)));
-	printf("Cantidad de impresiones: %d",proceso->cantImpresiones);
-	printf("Tiempo total de ejecución: %f segundos",tiempoEjecucion);
+	printf("Cantidad de impresiones: %d \n",proceso->cantImpresiones);
+	printf("Tiempo total de ejecución: %f segundos \n",tiempoEjecucion);
 
 	// Cierro el socket correspondiente al hilo programa y mato el thread
 	close(proceso->socketKernel);

@@ -200,8 +200,7 @@ t_valor_variable obtenerValorCompartida(t_nombre_compartida variableCompartida) 
 
 	t_struct_string* obtenerVarCompartida = malloc(sizeof(t_struct_string));
 
-	strcpy(obtenerVarCompartida->string,"!\0");
-	strcat(obtenerVarCompartida->string,variableLimpia);
+	obtenerVarCompartida->string = variableLimpia;
 
 	socket_enviar(socketKernel, D_STRUCT_OBTENER_COMPARTIDA, obtenerVarCompartida);
 
@@ -239,8 +238,8 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variableCompartida, 
 
 	varCompartida->valor = valor;
 
-	strcpy(varCompartida->nombre,"!\0");
-	strcat(varCompartida->nombre,variableLimpia);
+//	strcpy(varCompartida->nombre,"!\0");
+	varCompartida->nombre = variableLimpia;
 
 	socket_enviar(socketKernel,D_STRUCT_GRABAR_COMPARTIDA,varCompartida);
 
@@ -350,9 +349,11 @@ void retornar(t_valor_variable retorno) {
 //FUNCIONES KERNEL
 void s_wait(t_nombre_semaforo semaforo) {
 
-	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
-
 	char * semaforoLimpio = prepararInstruccion(semaforo);
+
+	log_info(logger,"Se ingreso a la funcion kernel Wait para el semaforo %s",semaforoLimpio);
+
+	t_struct_string * waitSemaforo = malloc(sizeof(t_struct_string));
 
 	waitSemaforo->string=semaforoLimpio;
 
@@ -392,6 +393,8 @@ void s_signal(t_nombre_semaforo semaforo) {
 
 	char * semaforoLimpio = prepararInstruccion(semaforo);
 
+	log_info(logger,"Se ingreso a la funcion kernel Signal para el semaforo %s",semaforoLimpio);
+
 	t_struct_string * signalSemaforo = malloc(sizeof(t_struct_string));
 	signalSemaforo->string=semaforoLimpio;
 
@@ -427,7 +430,7 @@ void s_signal(t_nombre_semaforo semaforo) {
 
 t_puntero reservar(t_valor_variable espacio) {
 
-	log_info(logger,"Se ingreso a la primitiva reservar con el valor %d",espacio);
+	log_info(logger,"Se ingreso a la funcion kernel Reservar con el valor %d",espacio);
 
 	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
 
@@ -500,7 +503,7 @@ t_puntero reservar(t_valor_variable espacio) {
 
 void liberar(t_puntero puntero) {
 
-	log_info(logger,"Se ingreso a la primitiva liberar con el valor %d",puntero);
+	log_info(logger,"Se ingreso a la funcion kernel Liberar con el valor %d",puntero);
 
 	t_struct_sol_heap * heap = malloc(sizeof(t_struct_sol_heap));
 
@@ -535,14 +538,16 @@ void liberar(t_puntero puntero) {
 
 t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
+//	char * direccionLimpia = prepararInstruccion(direccion);
+
+	log_info(logger,"Se ingreso a la funcion kernel Abrir archivo para el path %s",direccion);
+
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
-	char * direccionLimpia = prepararInstruccion(direccion);
-
 	archivo->fileDescriptor=0;
-	archivo->tamanio=strlen(direccionLimpia)+1;
-	archivo->informacion=malloc(strlen(direccionLimpia)+1);
-	archivo->informacion=direccionLimpia;
+	archivo->tamanio=strlen(direccion)+1;
+	archivo->informacion=malloc(strlen(direccion)+1);
+	archivo->informacion=direccion;
 	archivo->pid=pcbEjecutando->PID;
 	archivo->flags.creacion=flags.creacion;
 	archivo->flags.escritura=flags.escritura;
@@ -560,7 +565,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
-		free(direccionLimpia);
+//		free(direccionLimpia);
 		return -1;
 
 	} else {
@@ -574,7 +579,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 			free(structRecibido);
 			structRecibido = NULL;
-			free(direccionLimpia);
+//			free(direccionLimpia);
 			return -1;
 		}
 
@@ -582,13 +587,14 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 		free(structRecibido);
 		structRecibido = NULL;
-		free(direccionLimpia);
 		return archivo;
 
 	}
 }
 
 void borrar(t_descriptor_archivo fdArchivo) {
+
+	log_info(logger,"Se ingreso a la funcion kernel Borrar archivo para el FD %d",fdArchivo);
 
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
@@ -633,6 +639,8 @@ void borrar(t_descriptor_archivo fdArchivo) {
 
 void cerrar(t_descriptor_archivo fdArchivo) {
 
+	log_info(logger,"Se ingreso a la funcion kernel Cerrar archivo para el FD %d",fdArchivo);
+
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
 	archivo->fileDescriptor=fdArchivo;
@@ -674,6 +682,8 @@ void cerrar(t_descriptor_archivo fdArchivo) {
 }
 
 void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
+
+	log_info(logger,"Se ingreso a la funcion kernel Mover Cursor Archivo para el FD %d",fdArchivo);
 
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
@@ -718,11 +728,14 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 
 void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variable tamanio) {
 
+	log_info(logger,"Se ingreso a la funcion kernel Escribir archivo para el FD %d",fdArchivo);
+
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 
 	archivo->fileDescriptor=fdArchivo;
 	archivo->informacion=malloc(tamanio);
-	archivo->informacion=informacion;
+	//archivo->informacion=informacion;
+	memcpy(archivo->informacion,informacion,tamanio);
 	archivo->tamanio=tamanio;
 	archivo->pid=pcbEjecutando->PID;
 
@@ -741,11 +754,11 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 		int resultado = ((t_struct_numero*) structRecibido)->numero;
 
 		if(resultado==KERNEL_ERROR){
-			log_trace(logger, "Error de escritura de archivo para el PID %d",pcbEjecutando->PID);
+			log_info(logger, "Error de escritura de archivo para el PID %d",pcbEjecutando->PID);
 			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_ESCRITURA;
+		} else {
+			log_info(logger, "Escritura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 		}
-
-		log_trace(logger, "Escritura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 
 		free(structRecibido);
 		structRecibido = NULL;
@@ -754,6 +767,8 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 }
 
 void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variable tamanio) {
+
+	log_info(logger,"Se ingreso a la funcion kernel Leer archivo para el FD %d",fdArchivo);
 
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
 

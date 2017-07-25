@@ -96,10 +96,7 @@ void crearServidorMonocliente(){
 
 			t_tipoEstructura tipoStruct;
 
-			//Recibo el mensaje para identificar quien es y hacer el handshake
-			int resultado = socket_recibir(socketCliente, &tipoStruct, &structRecibido);
-
-			if(resultado == -1 || tipoStruct != D_STRUCT_NUMERO){
+			if(socket_recibir(socketCliente, &tipoStruct, &structRecibido) == -1 || tipoStruct != D_STRUCT_NUMERO){
 				log_info(logger,"No se recibio correctamente a quien atendio el Filesystem");
 
 			} else if ((((t_struct_numero*) structRecibido)->numero) == ES_KERNEL){
@@ -115,8 +112,6 @@ void crearServidorMonocliente(){
 				//Ciero el FD del cliente que había aceptado
 				close(socketCliente);
 			}
-
-			free(structRecibido);
 	}
 
 }
@@ -185,7 +180,7 @@ int asignarBloque(t_config * data){
 
 	sprintf(bloque, "[%d]", offset);
 
-	config_set_value(data, "BLOCKS", bloque);
+	config_set_value(data, "BLOQUES", bloque);
 	config_save(data);
 
 	fclose(file);

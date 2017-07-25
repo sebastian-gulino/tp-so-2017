@@ -120,6 +120,8 @@ void enviarConfiguracion(int socketCliente, int valor);
 
 t_struct_pcb* crearPCB(int PID, t_struct_pcb * pcb);
 
+char * prepararInstruccion(char * instruccion);
+
 int solicitarSegmentoCodigo(int pid, int tam_programa);
 
 int solicitarSegmentoStack(int pid);

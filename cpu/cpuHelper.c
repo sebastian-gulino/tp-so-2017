@@ -47,10 +47,7 @@ int conectarAKernel (){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	// Se recibe el tamaño de stack
-	int resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
-
-	if(resultado == -1){
+	if(socket_recibir(socketCliente, &tipoEstructura, &structRecibido) == -1){
 		log_info(logger,"No se recibió el tamaño de stack");
 	} else{
 		tamanio_stack = ((t_struct_numero*) structRecibido)->numero;
@@ -58,17 +55,13 @@ int conectarAKernel (){
 		log_info(logger,"El tamaño de stack es %d",tamanio_stack);
 	}
 
-	resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
-
-	if(resultado == -1){
-		log_info(logger,"No se recibió el tamaño de stack");
+	if(socket_recibir(socketCliente, &tipoEstructura, &structRecibido) == -1){
+		log_info(logger,"No se recibió el quantum");
 	} else{
 		quantum = ((t_struct_numero*) structRecibido)->numero;
 
 		log_info(logger,"El quantum para la planificacion es %d",quantum);
 	}
-
-	free(structRecibido);
 
 	return socketCliente;
 }
@@ -89,12 +82,12 @@ int conectarAMemoria (){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	// Se recibe el tamaño de pagina de la memoria
-	int resultado = socket_recibir(socketCliente, &tipoEstructura, &structRecibido);
-
-	if(resultado == -1){
+	if(socket_recibir(socketCliente, &tipoEstructura, &structRecibido) == -1){
 		log_info(logger,"No se recibió el tamaño de pagina");
 	} else{
+
+		tamanio_pagina = malloc(sizeof(int32_t));
+
 		tamanio_pagina = ((t_struct_numero*) structRecibido)->numero;
 
 		log_info(logger,"El tamaño de pagina es %d",tamanio_pagina);
@@ -348,6 +341,7 @@ void inicializarEstructuras(){
 	finPrograma = false;
 	seguirEjecutando = true;
 
+	pcbEjecutando = malloc(sizeof(t_struct_pcb));
 
 }
 
@@ -373,15 +367,15 @@ void desconectarCPU(){
 
 char * pedirSiguienteInstruccion(){
 
-	t_intructions * instruccion = list_get(pcbEjecutando->indiceCodigo,pcbEjecutando->programCounter);
+	t_intructions * instruccion = (t_intructions*) list_get(pcbEjecutando->indiceCodigo,pcbEjecutando->programCounter);
 
-	int start = instruccion->start;
+	int inicio = instruccion->start;
 	int offset = instruccion->offset;
 
 	// Armo la direccion lógica con la instruccion
 	t_struct_sol_lectura* direccion = malloc(sizeof(t_struct_sol_lectura));
-	direccion->pagina = start / tamanio_pagina;
-	direccion->offset = start % tamanio_pagina;
+	direccion->pagina = inicio / tamanio_pagina;
+	direccion->offset = inicio % tamanio_pagina;
 	direccion->contenido = offset;
 	direccion->PID = pcbEjecutando->PID;
 
@@ -404,8 +398,8 @@ char * pedirSiguienteInstruccion(){
 
 		} else {
 
-			char* instruccion = ((t_struct_string*) structRecibido)->string;
-			return instruccion;
+			char* instruccion2 = ((t_struct_string*) structRecibido)->string;
+			return instruccion2;
 		}
 
 	}

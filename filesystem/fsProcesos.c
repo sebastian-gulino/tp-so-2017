@@ -55,7 +55,7 @@ int crearArchivo(char * path){
 
 	char pathFile[260];
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, path);//Se usa sprintf para obtener el path
+	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, path);//Se usa sprintf para obtener el path
 																			//completo en el punto de montaje especificado
 
 	char inexPaths[20][260];
@@ -114,7 +114,7 @@ void borrarArchivo(t_struct_borrar * archivo){
 	t_struct_borrar * toSend = malloc(sizeof(t_struct_borrar));
 	toSend = archivo;
 
-		sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
+		sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path);
 
 		if(fopen(pathFile, "r")==NULL){ //Se verifica que el archivo a borrarse exista.
 
@@ -192,7 +192,7 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 	toSend = archivo;
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
+	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path);
 
 	if(archivo->modo_lectura==0){ //Verifico que el archivo este en modo lectura
 
@@ -313,7 +313,7 @@ void guardarDatos(t_struct_guardar * archivo){
 	t_struct_guardar * toSend = malloc(sizeof(t_struct_guardar));
 	toSend = archivo;
 
-	sprintf(pathFile, "%s/Archivos/%s", configuracion->puntoMontaje, archivo->path);
+	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path);
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
 		log_info(logger, "El archivo del path: %s no existe", pathFile);

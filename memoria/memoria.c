@@ -4,6 +4,9 @@ int main(void) {
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
+	//Limpio la consola del terminal antes de empezar
+	system("clear");
+
 	//Genera archivo log pars poder escribir el trace de toda la ejecución
 	crearLog("/MEMORIA");
 

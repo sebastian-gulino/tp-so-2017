@@ -252,7 +252,6 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_PCB_FIN_OK: ;
 
-			// La cpu quiere obtener el valor de una variable compartida
 			t_struct_pcb * pcbFinOk = ((t_struct_pcb*) structRecibido);
 			finalizarProcesoOK(socketCPU, pcbFinOk);
 
@@ -382,8 +381,9 @@ void manejarConsola(int socketConsola){
 		case D_STRUCT_PROG: ;
 			// La consola envia un programa para ejecutar
 
-			int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
-			char * programa = malloc(tamanio_programa);
+			int tamanio_programa = malloc(sizeof(int));
+			tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
+			char * programa = malloc(tamanio_programa+1);
 			memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
 
 			inicializarProceso(socketConsola,programa,tamanio_programa);
@@ -686,8 +686,10 @@ void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb
 
 	for(indice=0; indice < cantidadPaginasCodigo; indice++ ){
 
-		char * codigoPendiente=string_new();
-		char * codigoEnviar=string_new();
+		char * codigoPendiente = malloc(tamanioPrograma);
+		codigoPendiente = string_new();
+		char * codigoEnviar = malloc(tamanioPrograma);
+		codigoEnviar = string_new();
 
 		t_struct_sol_escritura * escrituraCodigo = malloc(sizeof(t_struct_sol_escritura));
 		escrituraCodigo->PID=pcb->PID;
@@ -810,7 +812,7 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 		} else {
 
-			// Si pude rechazarlas envio a la consola el process ID
+			// Si pude reservarlas envio a la consola el process ID
 			t_registroTablaProcesos * registroProceso = malloc(sizeof(t_registroTablaProcesos));
 			registroProceso->PID = pcb->PID;
 			registroProceso->socket = socketConsola;
@@ -823,7 +825,8 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 			enviarCodigoMemoria(programa,tamanio_programa,pcb);
 
-			t_metadata_program* datosPrograma = metadata_desde_literal(programa);
+			t_metadata_program* datosPrograma = malloc(sizeof(t_metadata_program));
+			datosPrograma = metadata_desde_literal(programa);
 
 			pcb->quantum_sleep=configuracion->quantumSleep;
 			pcb->programCounter=datosPrograma->instruccion_inicio;
@@ -1100,6 +1103,9 @@ void informarLiberarHeap(t_struct_pcb * pcb){
 	t_registroTablaHeap * registroHeapRecuperado;
 
 	for(indice=0; indice < list_size(tablaHeap); indice++){
+
+		registroHeapRecuperado = list_get(tablaHeap,indice);
+
 		if(registroHeapRecuperado->PID==pcb->PID){
 			log_info(logger,"El proceso %d no libero la pagina de heap %d, la libero..",pcb->PID,registroHeapRecuperado->numeroPagina);
 			list_clean(registroHeapRecuperado->listaBloques);
@@ -1186,7 +1192,7 @@ void obtenerVariableCompartida(int socketCPU, char * varCompartida){
 	for(indice=0; indice < list_size(listaVarCompartidas); indice++){
 		variableRecuperada = list_get(listaVarCompartidas,indice);
 
-		if(string_equals_ignore_case(variableRecuperada->nombre,varCompartida)){
+		if(string_equals_ignore_case(variableRecuperada->nombre,string_from_format("!%s",varCompartida))){
 
 			t_struct_numero * valorCompartida = malloc(sizeof(t_struct_numero));
 			valorCompartida->numero=variableRecuperada->valor;
@@ -1197,9 +1203,6 @@ void obtenerVariableCompartida(int socketCPU, char * varCompartida){
 			break;
 		}
 	}
-
-	free(variableRecuperada);
-
 }
 
 void grabarVariableCompartida(int socketCPU, t_struct_var_compartida * grabarVarCompartida){
@@ -1210,7 +1213,7 @@ void grabarVariableCompartida(int socketCPU, t_struct_var_compartida * grabarVar
 	for(indice=0; indice < list_size(listaVarCompartidas); indice++){
 		variableRecuperada = list_get(listaVarCompartidas,indice);
 
-		if(string_equals_ignore_case(variableRecuperada->nombre,grabarVarCompartida->nombre)){
+		if(string_equals_ignore_case(variableRecuperada->nombre,string_from_format("!%s",grabarVarCompartida->nombre))){
 
 			variableRecuperada->valor = grabarVarCompartida->valor;
 
@@ -1398,7 +1401,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 	for(indice=0; indice < list_size(listaSemaforos); indice++){
 		semaforoRecuperado = list_get(listaSemaforos,indice);
 
-		if(string_equals_ignore_case(semaforoRecuperado->nombre,waitSemaforo)){
+		if(string_equals_ignore_case(*semaforoRecuperado->nombre,waitSemaforo)){
 
 			log_info(logger,"CPU %d realiza wait sobre el semaforo %s",socketCPU,waitSemaforo);
 			encontreSemaforo = true;
@@ -1465,7 +1468,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 }
 
-void realizarSignalSemaforo(socketCPU,signalSemaforo){
+void realizarSignalSemaforo(int socketCPU,char * signalSemaforo){
 	t_struct_semaforo * semaforoRecuperado;
 	bool encontreSemaforo = false;
 	t_struct_numero * respuesta = malloc(sizeof(t_struct_numero));
@@ -1474,7 +1477,7 @@ void realizarSignalSemaforo(socketCPU,signalSemaforo){
 	for(indice=0; indice < list_size(listaSemaforos); indice++){
 		semaforoRecuperado = list_get(listaSemaforos,indice);
 
-		if(string_equals_ignore_case(semaforoRecuperado->nombre,signalSemaforo)){
+		if(string_equals_ignore_case(*semaforoRecuperado->nombre,signalSemaforo)){
 
 			log_info(logger,"CPU %d realiza signal sobre el semaforo %s",socketCPU,signalSemaforo);
 			encontreSemaforo = true;
@@ -1510,12 +1513,12 @@ t_descriptor_archivo obtenerArchivoTablaGlobal(t_struct_archivo * archivo){
 
 t_registroArchivosProc * obtenerRegistroTablaProceso(t_struct_archivo * archivo){
 
-	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+	t_list * archivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
 
-	if(tablaArchivosProceso==NULL || archivo->fileDescriptor<3){
+	if(archivosProceso==NULL || archivo->fileDescriptor<3){
 		return NULL;
 	} else {
-		t_registroArchivosProc * registroArchivoProceso =list_get(tablaArchivosProceso,archivo->fileDescriptor);
+		t_registroArchivosProc * registroArchivoProceso =list_get(archivosProceso,archivo->fileDescriptor);
 
 		if(registroArchivoProceso==NULL){
 			return NULL;
@@ -1541,12 +1544,12 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
 
-	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+	t_list * archivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
 
 	t_registroArchivosProc * registroArchivoProceso = malloc(sizeof(t_registroArchivosProc));
 
 	registroArchivoProceso->flags=archivo->flags;
-	registroArchivoProceso->fd_TablaGlobal = obtenerArchivoTablaGlobal(archivo);
+	int existeEnTablaGlobal = obtenerArchivoTablaGlobal(archivo);
 
 	socket_enviar(socketFS,D_STRUCT_ARCHIVO_ABR,archivo);
 
@@ -1560,19 +1563,19 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 	if(respuestaAbrir->confirmacion==FS_ABRIR_CREAR_OK ||
 			respuestaAbrir->confirmacion==FS_ABRIR_NO_CREAR_OK){
 		//Existia y lo abri ok o no existia pero lo pude crear
-		if(registroArchivoProceso->fd_TablaGlobal==-1){
+		if(existeEnTablaGlobal==-1){
 			//Si no existe en la tabla global de archivos
 			t_registroArchivosGlobal * registroGlobal = malloc(sizeof(t_registroArchivosGlobal));
 			registroGlobal->cantidadAbierto = 1;
 			registroGlobal->nombre = string_new();
-			string_append(registroGlobal->nombre,archivo->informacion);
+			string_append(&(registroGlobal->nombre),archivo->informacion);
 			int fd_TablaGlobal = list_add(tablaArchivosGlobal,registroGlobal);
 
 			registroArchivoProceso->fd_TablaGlobal = fd_TablaGlobal;
 			registroArchivoProceso->cursor=0;
 
-			t_descriptor_archivo newFDProceso = list_size(tablaArchivosProceso);
-			list_add(tablaArchivosProceso,registroArchivoProceso);
+			t_descriptor_archivo newFDProceso = list_size(archivosProceso);
+			list_add(archivosProceso,registroArchivoProceso);
 
 			resultadoAbrir->numero = newFDProceso;
 
@@ -1586,7 +1589,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 		} else {
 			//SI existe en la tabla global de archivos
 			t_registroArchivosGlobal * registroGlobal =
-					list_get(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
+					list_get(tablaArchivosGlobal,existeEnTablaGlobal);
 
 			registroGlobal->cantidadAbierto++;
 
@@ -1689,7 +1692,7 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
 
-	t_list * tablaArchivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
+	t_list * archivosProceso = dictionary_get(tablaArchivosProceso,string_itoa(archivo->pid));
 
 	t_registroArchivosProc * registroArchivoProceso = obtenerRegistroTablaProceso(archivo);
 
@@ -1712,7 +1715,7 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		return;
 	}
 
-	list_remove(tablaArchivosProceso,archivo->fileDescriptor);
+	list_remove(archivosProceso,archivo->fileDescriptor);
 
 	if(registroGlobal->cantidadAbierto==1){
 		list_remove(tablaArchivosGlobal,registroArchivoProceso->fd_TablaGlobal);
@@ -1812,7 +1815,10 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 		t_registroArchivosGlobal * registroGlobal = obtenerRegistroTablaGlobal(registroArchivoProceso);
 
 		t_struct_string * path = malloc(sizeof(t_struct_string));
-		path->string = registroGlobal->nombre;
+
+		char * nombreLimpio = prepararInstruccion(registroGlobal->nombre);
+
+		path->string = nombreLimpio;
 
 		t_struct_numero * offset = malloc(sizeof(t_struct_numero));
 
@@ -1980,7 +1986,9 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 
 void ejecutarProximoProceso(t_cpu * cpuEjecutar){
 
-	t_struct_pcb * pcbEjecutar = list_get(cola_ready,0);
+	t_struct_pcb * pcbEjecutar = malloc(sizeof(t_struct_pcb));
+
+	pcbEjecutar = list_get(cola_ready,0);
 
 	if(pcbEjecutar==NULL){
 		log_info(logger,"No hay procesos en la cola de listos para ejecutar");
@@ -2172,6 +2180,7 @@ t_bloqueHeap * buscarUltimoBloque(t_list* listaBloques) {
 
 	int maxBloque = 0;
 	t_bloqueHeap * bloqueRetorno = malloc(sizeof(t_bloqueHeap));
+	bloqueRetorno->numeroBloque = 0;
 
 	int indice ;
 	for (indice=0; indice < list_size(listaBloques); indice++) {
@@ -2187,15 +2196,15 @@ t_bloqueHeap * buscarUltimoBloque(t_list* listaBloques) {
 	return bloqueRetorno;
 }
 
-t_bloqueHeap * crearBloqueHeap(t_struct_sol_heap * solHeap, t_bloqueHeap * bloque, t_list* listaBloques){
+t_bloqueHeap * crearBloqueHeap(uint32_t pointer, t_bloqueHeap * bloque, t_list* listaBloques){
 
 	t_bloqueHeap * bloqueNuevo = malloc(sizeof(t_bloqueHeap));
 
 	bloqueNuevo->isFree=false;
-	bloqueNuevo->size=solHeap->pointer;
+	bloqueNuevo->size=pointer;
 	bloqueNuevo->numeroBloque=buscarUltimoBloque(listaBloques)->numeroBloque;
 	bloqueNuevo->offset=bloque->offset;
-	bloqueNuevo->fin=bloqueNuevo->offset+solHeap->pointer;
+	bloqueNuevo->fin=bloqueNuevo->offset+pointer;
 
 	return bloqueNuevo;
 }
@@ -2290,7 +2299,7 @@ int posicionBloqueMetadata(t_list * listaBloques){
 
 t_struct_metadataHeap * generarHeapMetadata(int bytes, bool free){
 
-	t_struct_metadataHeap * metadata = malloc(5);
+	t_struct_metadataHeap * metadata = malloc(sizeof(t_struct_metadataHeap));
 	metadata->isFree = free;
 	metadata->size = bytes;
 
@@ -2352,13 +2361,13 @@ int compactar(t_registroTablaHeap * paginaCompactar){
 
 			if (bloque1->isFree && bloque2->isFree) {
 
-				t_struct_sol_escritura * solCompactar;
+				t_struct_sol_escritura * solCompactar = malloc(sizeof(t_struct_sol_escritura));
 				solCompactar->PID = paginaCompactar->PID;
 				solCompactar->pagina = paginaCompactar->numeroPagina;
 				solCompactar->contenido = 5;
 				solCompactar->offset = bloque1->offset- 5;
 
-				t_struct_metadataHeap* metadata = generarHeapMetadata(bloque1->size+bloque2->size+5, false);
+				t_struct_metadataHeap* metadata = generarHeapMetadata(bloque1->size+bloque2->size+5, true);
 
 				socket_enviar(socketMemoria,D_STRUCT_COMPACTAR_HEAP,solCompactar);
 				socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,metadata);
@@ -2472,8 +2481,8 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 	registro->total_heap_solicitado += solicitudHeap->pointer;
 
 	t_bloqueHeap * bloqueAsignado;
-	t_struct_sol_escritura * punteroStruct;
-	t_struct_sol_escritura * punteroStructEspecial;
+	t_struct_sol_escritura * punteroStruct = malloc(sizeof(t_struct_sol_escritura));
+	t_struct_sol_escritura * punteroStructEspecial = malloc(sizeof(t_struct_sol_escritura));
 
 	int paginaHeap = verificarPaginaHeapDisponible(solicitudHeap);
 
@@ -2506,7 +2515,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			punteroStructParticionado->contenido = 5;
 			punteroStructParticionado->offset = bloqueParticionado->offset- 5;
 
-			t_struct_metadataHeap* heapMetadataParticionada = generarHeapMetadata(bloqueParticionado->size, false);
+			t_struct_metadataHeap* heapMetadataParticionada = generarHeapMetadata(bloqueParticionado->size, true);
 
 			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructParticionado);
 			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataParticionada);
@@ -2598,7 +2607,7 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 			paginaHeap = calcularNuevoNumeroPagina(solicitudHeap->pid);
 
-			log_info(logger,"Se creo una nueva pagina de heap %d para el proceso %d",paginaHeap,solicitudHeap);
+			log_info(logger,"Se creo una nueva pagina de heap %d para el proceso %d",paginaHeap,solicitudHeap->pid);
 
 			t_registroTablaHeap* nuevaPagina = crearNuevaPagina(solicitudHeap->pointer,solicitudHeap->pid,paginaHeap);
 
@@ -2622,14 +2631,14 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			punteroStruct->offset = bloqueAsignado->offset - 5;
 			punteroStruct->contenido = 5;
 
-			t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, true);
+			t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, false);
 
 			punteroStructEspecial->PID = solicitudHeap->pid;
 			punteroStructEspecial->pagina = paginaHeap;
 			punteroStructEspecial->contenido = 5;
 			punteroStructEspecial->offset = bloque_especial->offset- 5;
 
-			t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, false);
+			t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, true);
 
 			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStruct);
 			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataActual);
@@ -2642,8 +2651,8 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 
 			if(respuestaMemoria->numero==MEMORIA_OK){
-				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
-				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+//				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
+//				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 				rtaMemoria=true;
 			}
 
@@ -2658,8 +2667,8 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 
 			if(respuestaMemoriaEspecial->numero==MEMORIA_OK){
-				socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
-				t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
+//				socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
+//				t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 				rtaMemoriaEspecial=true;
 			}
 
@@ -2738,7 +2747,7 @@ void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 	solLiberar->contenido = 5;
 	solLiberar->offset= solLiberar->offset-5;
 
-	t_struct_metadataHeap* heap = generarHeapMetadata(size,false);
+	t_struct_metadataHeap* heap = generarHeapMetadata(size,true);
 
 	socket_enviar(socketMemoria,D_STRUCT_LIBERAR_HEAP,solLiberar);
 	socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heap);
@@ -3044,4 +3053,27 @@ void finalizarProcesoConsola(int pid){
 		informarLiberarHeap(pcbRecuperado);
 		informarFinalizacionConsola(pcbRecuperado);
 	}
+}
+
+char * prepararInstruccion(char * instruccion){
+
+	char* instruccionLimpia = string_new();
+	int size  = 0;
+
+	while (instruccion[size] != '\0' && instruccion[size] != '\n') {
+
+		char* caracter = malloc(sizeof(char) * 2);
+		caracter[0] = instruccion[size];
+		caracter[1] = '\0';
+
+		string_append(&instruccionLimpia, caracter);
+
+		free(caracter);
+		size++;
+
+	}
+
+	instruccionLimpia[size] = '\0';
+
+	return instruccionLimpia;
 }

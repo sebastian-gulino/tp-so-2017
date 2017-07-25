@@ -283,19 +283,23 @@ t_stream* serializeStruct_prog(t_struct_programa * estructuraOrigen, int headerO
 int calcularTamanioIndiceStack(t_struct_pcb * pcb){
 
 	int tamanio = 0;
+	int indice;
+	registroStack * registro = malloc(sizeof(registroStack));
 
-	void calcularTamanoRegistro(registroStack * registro){
+	for(indice=0;indice<list_size(pcb->indiceStack);indice++){
+
+		registro = list_get(pcb->indiceStack,indice);
+
 		int tamanioFijo = (3 * sizeof(uint32_t)) + sizeof(t_posicion_memoria);
 
-		int tamanioVariable = (registro->args->elements_count * sizeof(t_posicion_memoria)) + (registro->vars->elements_count * sizeof(t_variable));
+		int tamanioVariable = (registro->args->elements_count * sizeof(t_posicion_memoria)) +
+				(registro->vars->elements_count * (sizeof(char) + sizeof(t_posicion_memoria)));
 
 		int tamanioRegistro = tamanioFijo + tamanioVariable;
 
 		tamanio += tamanioRegistro;
 
 	}
-
-	list_iterate(pcb->indiceStack, (void*) calcularTamanoRegistro);
 
 	return tamanio;
 
@@ -308,7 +312,7 @@ t_stream * serializeStruct_pcb(t_struct_pcb * estructuraOrigen, int headerOperac
 	uint32_t tamanioStack = calcularTamanioIndiceStack(estructuraOrigen);
 	uint32_t tamanioCodigo = sizeof(t_intructions) * (estructuraOrigen->cantidadInstrucciones);
 
-	paquete->length = sizeof(t_header) + sizeof(t_struct_pcb) + estructuraOrigen->tamanioIndiceEtiquetas
+	paquete->length = sizeof(t_header) + 15*sizeof(uint32_t)+ estructuraOrigen->tamanioIndiceEtiquetas
 			+ tamanioCodigo	+ tamanioStack;
 
 	char* data = crearDataConHeader(headerOperacion, paquete->length);
@@ -546,7 +550,7 @@ t_stream * serializeStruct_metadataHeap(t_struct_metadataHeap * estructuraOrigen
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
-	paquete->length = sizeof(t_header) + sizeof(bool) + sizeof(uint32_t);
+	paquete->length = sizeof(t_header) + sizeof(bool) + sizeof(int32_t);
 
 	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
@@ -593,7 +597,7 @@ t_stream* serializeStruct_archivo_esc(t_struct_archivo * estructuraOrigen, int h
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
-	paquete->length = sizeof(t_header) + sizeof(uint32_t) + estructuraOrigen->tamanio +  sizeof(uint32_t) + sizeof(uint32_t) + sizeof(t_flags) ;
+	paquete->length = sizeof(t_header) + sizeof(uint32_t) + estructuraOrigen->tamanio + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(t_flags) ;
 
 	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
@@ -892,6 +896,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_LIBERAR_HEAP:
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				break;
+			case D_STRUCT_COMPACTAR_HEAP:
 				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_ABORT:
@@ -1292,7 +1299,7 @@ t_struct_metadataHeap * deserializeStruct_metadataHeap(char* dataPaquete, uint16
 
 	tamanoTotal+= tamanoDato;
 
-	memcpy(&estructuraDestino->size,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+	memcpy(&estructuraDestino->size,dataPaquete+tamanoTotal,tamanoDato=sizeof(int32_t));
 
 	tamanoTotal+= tamanoDato;
 

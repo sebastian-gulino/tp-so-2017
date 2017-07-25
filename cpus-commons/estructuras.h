@@ -105,15 +105,15 @@ typedef struct RegistroTablaHeap {
 
 typedef struct BloqueHeap {
 	bool isFree;
-	uint32_t size;
-	uint32_t numeroBloque;
-	uint32_t offset;
-	uint32_t fin;
+	int32_t size;
+	int32_t numeroBloque;
+	int32_t offset;
+	int32_t fin;
 } t_bloqueHeap;
 
 typedef struct MetadataHeap {
 	bool isFree;
-	uint32_t size;
+	int32_t size;
 } t_struct_metadataHeap;
 
 enum{
