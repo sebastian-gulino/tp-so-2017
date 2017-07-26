@@ -262,8 +262,12 @@ typedef struct struct_env_bytes{
 
 typedef struct semaforo{
 	t_nombre_semaforo * nombre;
-	uint32_t valor;
+	int valor;
 }__attribute__ ((__packed__)) t_struct_semaforo;
+
+typedef struct procesoDestruir{
+	int pid;
+}__attribute__ ((__packed__)) t_registroProcesoDestruir;
 
 enum {
 	E_NEW=1,

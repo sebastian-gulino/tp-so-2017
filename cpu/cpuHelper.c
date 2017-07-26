@@ -181,6 +181,7 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 			if(pcbEjecutando->retornoPCB!=0 || signalFinalizarCPU){
 				salirProceso();
+				return;
 			}
 
 			free(instruccionLimpia);

@@ -234,7 +234,8 @@ void manejarCpu(int socketCPU){
 		switch(tipoEstructura){
 		case D_STRUCT_SIGUSR1: ;
 
-			// La cpu quiere obtener el valor de una variable compartida
+			log_info(logger,"La CPU %d recibio un signal SIGUSR1",socketCPU);
+
 			t_struct_pcb * pcbSIGUSR = ((t_struct_pcb*) structRecibido);
 			actualizarPCBExec(pcbSIGUSR);
 			matarProcesoEnEjecucion(socketCPU, true);
@@ -243,8 +244,10 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_PCB_FIN_ERROR: ;
 
-			// La cpu quiere obtener el valor de una variable compartida
 			t_struct_pcb * pcbFinError = ((t_struct_pcb*) structRecibido);
+
+			log_info(logger,"La CPU %d informa que el PID %d finaliza con error",socketCPU, pcbFinError->PID);
+
 			actualizarPCBExec(pcbFinError);
 			matarProcesoEnEjecucion(socketCPU, false);
 
@@ -253,22 +256,30 @@ void manejarCpu(int socketCPU){
 		case D_STRUCT_PCB_FIN_OK: ;
 
 			t_struct_pcb * pcbFinOk = ((t_struct_pcb*) structRecibido);
+
+			log_info(logger,"La CPU %d informa que el PID %d finaliza OK",socketCPU, pcbFinOk->PID);
+
 			finalizarProcesoOK(socketCPU, pcbFinOk);
 
 			break;
 
 		case D_STRUCT_OBTENER_COMPARTIDA: ;
 
-			// La cpu quiere obtener el valor de una variable compartida
 			char * obtenerVarCompartida = ((t_struct_string*) structRecibido)->string ;
+
+			log_info(logger,"La CPU %d solicita el valor de la variable compartida %s",socketCPU, obtenerVarCompartida);
+
 			obtenerVariableCompartida(socketCPU, obtenerVarCompartida);
 
 			break;
 
 		case D_STRUCT_GRABAR_COMPARTIDA: ;
 
-			// La cpu quiere asignar el valor de una variable compartida
 			t_struct_var_compartida * grabarVarCompartida = ((t_struct_var_compartida*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere grabar el valor %d en la variable compartida %s",socketCPU,
+					grabarVarCompartida->valor,grabarVarCompartida->nombre);
+
 			grabarVariableCompartida(socketCPU, grabarVarCompartida);
 
 			break;
@@ -277,6 +288,7 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere realizar wait de un semaforo
 			char * waitSemaforo = ((t_struct_string*) structRecibido)->string ;
+
 			realizarWaitSemaforo(socketCPU,waitSemaforo);
 
 			break;
@@ -291,6 +303,8 @@ void manejarCpu(int socketCPU){
 
 		case D_STRUCT_FIN_INSTRUCCION: ;
 
+			log_info(logger,"La CPU %d finalizo una instruccion reejecuto la logica de planificacion",socketCPU);
+
 			ejecutarPlanificacion(socketCPU);
 
 			break;
@@ -299,6 +313,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere abrir un archivo
 			t_struct_archivo * archivoAbrir = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere abrir un archivo para el proceso %d",socketCPU,archivoAbrir->pid);
+
 			abrirArchivo(socketCPU,archivoAbrir);
 
 			break;
@@ -307,6 +324,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere borrar un archivo
 			t_struct_archivo * archivoBorrar = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere borrar un archivo para el proceso %d",socketCPU,archivoBorrar->pid);
+
 			borrarArchivo(socketCPU,archivoBorrar);
 
 			break;
@@ -315,6 +335,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere cerrar un archivo
 			t_struct_archivo * archivoCerrar = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere cerrar un archivo para el proceso %d",socketCPU,archivoCerrar->pid);
+
 			cerrarArchivo(socketCPU, archivoCerrar);
 
 			break;
@@ -323,6 +346,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere mover el cursor dentro de un archivo
 			t_struct_archivo * archivoMover = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere mover el cursor para un archivo para el proceso %d",socketCPU,archivoMover->pid);
+
 			moverCursorArchivo(socketCPU, archivoMover);
 
 			break;
@@ -331,6 +357,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere escribir en un archivo
 			t_struct_archivo * archivoEscribir = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere escribir en un archivo para el proceso %d",socketCPU,archivoEscribir->pid);
+
 			escribirArchivo(socketCPU, archivoEscribir);
 
 			break;
@@ -339,6 +368,9 @@ void manejarCpu(int socketCPU){
 
 			// La cpu quiere escribir en un archivo
 			t_struct_archivo * archivoLeer = ((t_struct_archivo*) structRecibido);
+
+			log_info(logger,"La CPU %d quiere leer en un archivo para el proceso %d",socketCPU,archivoLeer->pid);
+
 			leerArchivo(socketCPU, archivoLeer);
 
 			break;
@@ -346,14 +378,19 @@ void manejarCpu(int socketCPU){
 		case D_STRUCT_SOL_HEAP: ;
 
 			t_struct_sol_heap * solicitudHeap = ((t_struct_sol_heap*) structRecibido);
+
+			log_info(logger,"La CPU %d solicita alocar heap para el proceso %d",socketCPU,solicitudHeap->pid);
+
 			reservarHeap(socketCPU, solicitudHeap);
 
 			break;
 
 		case D_STRUCT_LIB_HEAP: ;
 
-			// La cpu quiere escribir en un archivo
 			t_struct_sol_heap * heapLiberar = ((t_struct_sol_heap*) structRecibido);
+
+			log_info(logger,"La CPU %d solicita liberar heap para el proceso %d",socketCPU,heapLiberar->pid);
+
 			liberarHeap(socketCPU, heapLiberar);
 
 			break;
@@ -1172,8 +1209,8 @@ void abortarPrograma(int socketConsola, bool finalizarPrograma){
 	}
 
 	if(pcbRecuperado->estado == E_EXEC){
-		int * pidFinalizar = malloc(sizeof(t_registroTablaProcesos));
-		pidFinalizar=PID;
+		t_registroProcesoDestruir * pidFinalizar = malloc(sizeof(t_registroProcesoDestruir));
+		pidFinalizar->pid=PID;
 		list_add(listaProcesosFinalizar,pidFinalizar);
 	} else {
 		pasarColaExit(pcbRecuperado);
@@ -1234,8 +1271,8 @@ bool verificarProcesoFinalizar(t_struct_pcb * pcb){
 	int indice;
 
 	for(indice=0; indice < list_size(listaProcesosFinalizar); indice++){
-		int * PIDRecuperado = list_get(listaProcesosFinalizar,indice);
-		if(&PIDRecuperado == pcb->PID){
+		t_registroProcesoDestruir * PIDRecuperado = list_get(listaProcesosFinalizar,indice);
+		if(PIDRecuperado->pid == pcb->PID){
 			list_remove(listaProcesosFinalizar,indice);
 			return true;
 		}
@@ -1378,7 +1415,9 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 		pcbRecuperado = list_get(cola_block,indice);
 		t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbRecuperado->PID);
 
-		if(string_equals_ignore_case(registro->semaforo_bloqueo,semaforoRecuperado->nombre)){
+		if(string_equals_ignore_case(registro->semaforo_bloqueo,*semaforoRecuperado->nombre)){
+			pcbRecuperado->retornoPCB = 0;
+
 			removerDeCola(cola_block,cola_ready,E_READY,pcbRecuperado->PID,false,false,false);
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
@@ -1418,7 +1457,9 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				t_tipoEstructura tipoEstructura;
 				void * structRecibido;
 
-				log_info(logger,"El semaforo se bloquea, verifico si corresponde matar el proceso o pasarlo a block");
+				log_info(logger,"El semaforo %s se bloquea, verifico si corresponde matar el proceso o pasarlo a block",waitSemaforo);
+
+				socket_recibir(socketCPU,&tipoEstructura,&structRecibido);
 
 				t_struct_pcb * pcbBloqueado = ((t_struct_pcb*) structRecibido);
 
@@ -1456,6 +1497,10 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				if (list_size(cola_ready) > 0) {
 					ejecutarPlanificacion(NULL);
 				}
+			} else {
+
+				log_info(logger,"El semaforo %s no se bloquea, valor actual %d",waitSemaforo,semaforoRecuperado->valor);
+
 			}
 		}
 	}
@@ -1479,10 +1524,13 @@ void realizarSignalSemaforo(int socketCPU,char * signalSemaforo){
 
 		if(string_equals_ignore_case(*semaforoRecuperado->nombre,signalSemaforo)){
 
-			log_info(logger,"CPU %d realiza signal sobre el semaforo %s",socketCPU,signalSemaforo);
+
 			encontreSemaforo = true;
 			semaforoRecuperado->valor++;
 			respuesta->numero = KERNEL_OK;
+
+			log_info(logger,"CPU %d realiza signal sobre el semaforo %s el nuevo valor es %d",
+					socketCPU,signalSemaforo,semaforoRecuperado->valor);
 
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
 			free(respuesta);
@@ -2218,7 +2266,7 @@ void recalcularOffset(t_bloqueHeap* bloqueEspecial, t_bloqueHeap* bloqueNuevo) {
 
 int buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
 
-	int indice;
+	int indice, indice2;
 	t_bloqueHeap * bloqueHeap;
 
 	for(indice=0; indice < list_size(tablaHeap); indice++){
@@ -2226,15 +2274,18 @@ int buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
 		t_registroTablaHeap * registroHeap = list_get(tablaHeap,indice);
 		if(registroHeap->numeroPagina==pagina){
 
-			for(indice=0; indice < list_size(registroHeap->listaBloques); indice++){
+			for(indice2=0; indice2 < list_size(registroHeap->listaBloques); indice2++){
 
-				bloqueHeap = list_get(registroHeap->listaBloques,indice);
+				bloqueHeap = list_get(registroHeap->listaBloques,indice2);
 
 				if(bloqueHeap->isFree && bloqueHeap->size >= solicitudHeap->pointer && bloqueHeap->numeroBloque >= 0){
 
 					bloqueEspecial=0;
 					bloqueHeap->isFree=false;
 					bloqueHeap->fin=solicitudHeap->pointer;
+
+					indice = list_size(tablaHeap);
+					indice2 = list_size(registroHeap->listaBloques);
 
 				}
 
@@ -2244,12 +2295,15 @@ int buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
 					t_bloqueHeap * bloqueNuevo = crearBloqueHeap(solicitudHeap->pointer, bloqueHeap, registroHeap->listaBloques);
 					recalcularOffset(bloqueHeap,bloqueNuevo);
 
-					t_bloqueHeap * bloqueMetadata = list_remove(registroHeap->listaBloques,indice);
+					t_bloqueHeap * bloqueMetadata = list_remove(registroHeap->listaBloques,indice2);
 
-					list_add(registroHeap,bloqueNuevo);
-					list_add(registroHeap,bloqueMetadata);
+					list_add(registroHeap->listaBloques,bloqueNuevo);
+					list_add(registroHeap->listaBloques,bloqueMetadata);
 
 					bloqueHeap=bloqueNuevo;
+
+					indice = list_size(tablaHeap);
+					indice2 = list_size(registroHeap->listaBloques);
 				}
 			}
 		}
@@ -2568,8 +2622,6 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 
 		if(respuestaMemoria->numero==MEMORIA_OK){
-			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
-			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 			rtaMemoria=true;
 		}
 
@@ -2584,8 +2636,6 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 		t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 
 		if(respuestaMemoriaEspecial->numero==MEMORIA_OK){
-			socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
-			t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 			rtaMemoriaEspecial=true;
 		}
 
@@ -2842,7 +2892,7 @@ void mensajeConsolaKernel(){
 				break;
 			case 5:
 
-				puts("Ingrese el Process ID del que desea obtener informacion");
+				puts("Ingrese el Process ID que desea finalizar");
 				int pidFinalizar;
 				scanf("%i",&pidFinalizar);
 
@@ -3043,8 +3093,8 @@ void finalizarProcesoConsola(int pid){
 
 	if(pcbRecuperado->estado==E_EXEC){
 		printf("El proceso esta ejecutando, se marca para finalizar luego de la rafaga actual");
-		int * pidFinalizar = malloc(sizeof(t_registroTablaProcesos));
-		pidFinalizar=pid;
+		t_registroProcesoDestruir * pidFinalizar = malloc(sizeof(t_registroProcesoDestruir));
+		pidFinalizar->pid=pcbRecuperado->PID;
 		list_add(listaProcesosFinalizar,pidFinalizar);
 	} else {
 		printf("El proceso no esta ejecutando, se finaliza");
