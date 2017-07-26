@@ -678,12 +678,30 @@ int obtenerLRUElementoCache(){
 	return menor;
 }
 
+int calcularAparicionesCache(int pid){
+	int i = 0;
+	int cantidad = 0;
+	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
+		if(cache[i].pid == pid){
+			cantidad++;
+		}
+	}
+	return cantidad;
+}
+
 void actualizarCache(int pid,int pagina,void* punteroMarco){
-	int indiceCache = obtenerLRUElementoCache();
-	cache[indiceCache].contadorDeUso = 1;
-	cache[indiceCache].contenido = punteroMarco;
-	cache[indiceCache].pagina = pagina;
-	cache[indiceCache].pid = pid;
+	int apariciones = calcularAparicionesCache(pid);
+	if(apariciones < configuracion->cacheXProc){
+		int indiceCache = obtenerLRUElementoCache();
+		cache[indiceCache].contadorDeUso = 1;
+		cache[indiceCache].contenido = punteroMarco;
+		cache[indiceCache].pagina = pagina;
+		cache[indiceCache].pid = pid;
+	} else {
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger,"El proceso con PID d% no se guardo en la cache por alcanzar el maximo de Procesos x Cache.", pid);
+		pthread_mutex_unlock(&mutex_log);
+	}
 }
 
 void borrarProcesoCache(int pid){
