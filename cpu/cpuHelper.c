@@ -294,7 +294,7 @@ void salirProceso(){
 	}
 
 	//Libero los recursos del pcb
-	liberarPCB();
+	//liberarPCB();
 
 	if (signalFinalizarCPU){
 

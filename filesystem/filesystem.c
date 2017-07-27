@@ -14,7 +14,9 @@ int main(int arc, char * argv[]){
 	system("clear");
 
 	//Genera archivo log para poder escribir el trace de toda la ejecución
-	crearLog("/FILESYSTEM");
+	//crearLog("/FILESYSTEM");
+	remove("./FILESYSTEM.log");
+	logger = log_create("./FILESYSTEM.log", "FILESYSTEM", 0, LOG_LEVEL_TRACE);
 
 	//Levanta la configuración del proceso filesystem
 	cargarConfiguracion();

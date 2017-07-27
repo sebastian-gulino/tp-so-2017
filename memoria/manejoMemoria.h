@@ -24,6 +24,7 @@ pthread_t threadAtenderConexiones;
 pthread_t threadCommandHandler;
 int consolaConectada;
 pthread_mutex_t mutex_log;
+pthread_mutex_t mutex_memoria;
 
 typedef struct config_t {
 

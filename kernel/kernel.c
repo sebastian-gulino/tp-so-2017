@@ -6,7 +6,9 @@ int main(int arc, char * argv[]) {
 	system("clear");
 
 	//Genera archivo log para poder escribir el trace de toda la ejecución
-	crearLog("/KERNEL");
+	//crearLog("/KERNEL");
+	remove("./KERNEL.log");
+	logger = log_create("./KERNEL.log", "KERNEL", 0, LOG_LEVEL_TRACE);
 
 	//Levanta la configuración del proceso kernel
 	cargarConfiguracion();
