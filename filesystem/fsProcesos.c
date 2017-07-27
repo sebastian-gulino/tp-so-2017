@@ -142,8 +142,6 @@ void borrarArchivo(t_struct_borrar * archivo){
 
 			sprintf(blockPath, "%s/Bloques/%zu.bin", configuracion->puntoMontaje, bloque); //Se obtiene el path absoluto del bloque
 
-			remove(blockPath); //Se elimina el bloque
-
 			bitarray_clean_bit(bitarray, bloque); //Se setea a 0 el bloque
 
 			if(msync(bmap, mystat.st_size, MS_SYNC) < 0){ //Se actualiza el archivo bitmap.bin mapeado
@@ -182,7 +180,8 @@ void obtenerDatos(t_struct_obtener * archivo){
 	int var = 0, bloq = 0, cantBloques = 0;
 	int end_flag = 0;
 	char *dataObtenida = string_new();
-	void * bufferToSend = malloc(archivo->size);
+	char * bufferToSend = malloc(archivo->size);
+	bufferToSend = string_new();
 	char blockPath[260];
 	int readSize;
 	FILE * file;
@@ -286,8 +285,8 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		}
 
-
-		memcpy(bufferToSend, dataObtenida, tamanioTotal);
+		string_append(&bufferToSend, dataObtenida);
+//		memcpy(bufferToSend, dataObtenida, tamanioTotal);
 
 		toSend->obtenido = bufferToSend;
 

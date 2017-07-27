@@ -174,6 +174,9 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 				free(instruccionLimpia);
 				instruccionLimpia = NULL;
 				salirProceso(0);
+
+				finPrograma = false;
+
 				return;
 			}
 

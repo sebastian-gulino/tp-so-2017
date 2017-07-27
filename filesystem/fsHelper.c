@@ -239,10 +239,11 @@ void manejarKernel(int i){
 
 			case D_STRUCT_ARCHIVO_BOR: ;
 
-				t_struct_archivo * archivoBo = ((t_struct_archivo*) structRecibido);
+				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
+				t_struct_string * pathBorrar = ((t_struct_string*) structRecibido);
 
-				t_struct_borrar * archivoBorrar = malloc(sizeof(t_struct_abrir));
-				archivoBorrar->path=archivoBo->informacion;
+				t_struct_borrar * archivoBorrar = malloc(sizeof(t_struct_borrar));
+				archivoBorrar->path=pathBorrar->string;
 
 				borrarArchivo(archivoBorrar);
 

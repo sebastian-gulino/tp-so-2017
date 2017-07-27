@@ -1704,8 +1704,16 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		free(resultadoBorrar);
 
 	} else {
+
+		char * nombreLimpio = prepararInstruccion(registroGlobal->nombre);
+
+		t_struct_string * pathBorrar = malloc(sizeof(t_struct_string));
+		pathBorrar->string = nombreLimpio;
+
 		//Puedo borrarlo, se lo pido al FS..
 		socket_enviar(socketFS,D_STRUCT_ARCHIVO_BOR,archivo);
+
+		socket_enviar(socketFS,D_STRUCT_STRING,pathBorrar);
 
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
