@@ -1956,6 +1956,10 @@ void leerArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	offset->numero=registroArchivoProceso->cursor;
 
+	archivo->flags.creacion = registroArchivoProceso->flags.creacion;
+	archivo->flags.escritura = registroArchivoProceso->flags.escritura;
+	archivo->flags.lectura = registroArchivoProceso->flags.lectura;
+
 	//Envio el archivo que tengo que escribir al filesystem
 	socket_enviar(socketFS,D_STRUCT_ARCHIVO_LEC,archivo);
 

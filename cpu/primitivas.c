@@ -737,7 +737,6 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 
 	archivo->fileDescriptor=fdArchivo;
 	archivo->informacion=malloc(tamanio);
-	//archivo->informacion=informacion;
 	memcpy(archivo->informacion,informacion,tamanio);
 	archivo->tamanio=tamanio;
 	archivo->pid=pcbEjecutando->PID;
