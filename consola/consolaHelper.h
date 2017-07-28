@@ -24,7 +24,9 @@ typedef struct config_t {
 typedef struct t_program {
 	int pid;
 	int socketKernel;
-	pthread_t hilo;
+	char* path;
+	int tamanio;
+	pthread_t hiloPrograma;
 	time_t inicioEjec;
 	time_t finEjec;
 	int cantImpresiones;
@@ -62,7 +64,7 @@ void finalizarPrograma(int pid);
 
 void inicializarEstructuras();
 
-void iniciarPrograma(char* pathArchivo);
+void iniciarPrograma(void* procesoCreado);
 
 void manejarSignal(int sign);
 

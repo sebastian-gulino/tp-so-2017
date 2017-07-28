@@ -60,10 +60,12 @@ void commandHandler(){
 				char * path = malloc(200);
 				scanf("%s", path);
 
-				pthread_t hiloPrograma;
+				t_proceso * proceso = malloc(sizeof(t_proceso));
 
-				pthread_create(&hiloPrograma, NULL, (void*)&iniciarPrograma, path);
-				pthread_join(hiloPrograma, NULL);
+				proceso->path = string_new();
+				string_append(&(proceso->path), path);
+
+				pthread_create(&proceso->hiloPrograma, NULL, iniciarPrograma, proceso);
 
 				free(path);
 
@@ -130,31 +132,37 @@ void manejarSignal(int sign){
 	}
 }
 
-void iniciarPrograma(char* pathArchivo){
+void iniciarPrograma(void* procesoCreado){
 
 	int socketKernel = conectarAKernel();
 
-	// Estructura que voy a utilizar para enviar el programa
-	t_struct_programa* programa = malloc(sizeof(t_struct_programa));
+	t_proceso * proceso = procesoCreado;
 
 	// Abro el script a ejecutar en la ruta especificada
-	FILE * archivo = fopen(pathArchivo, "r");
+	FILE * archivo = fopen(proceso->path, "rb");
 
 	// Calculo el tamaño del archivo
 	fseek(archivo, 0L, SEEK_END);
 	int tamanio_archivo = ftell(archivo);
 
 	// Leo el contenido del archivo
-	void * codigo = malloc(tamanio_archivo);
+	char * codigo = malloc(tamanio_archivo+1);
 	fseek(archivo, SEEK_SET, 0);
 	fread(codigo, 1, tamanio_archivo, archivo);
 
+	codigo[tamanio_archivo]='\0';
+
+	// Estructura que voy a utilizar para enviar el programa
+	t_struct_programa* programa = malloc(sizeof(t_struct_programa));
+
 	// Preparo la estructura programa que voy a enviar
-	programa->tamanio = tamanio_archivo;
-	programa->buffer = malloc(tamanio_archivo);
+	programa->tamanio = tamanio_archivo+1;
+	programa->buffer = malloc(tamanio_archivo+1);
 	programa->base = 1;
 	programa->PID = 1 ;
-	memcpy(programa->buffer,codigo,tamanio_archivo);
+	memcpy(programa->buffer,codigo,tamanio_archivo+1);
+
+	proceso->tamanio=tamanio_archivo+1;
 
 	int resultado = socket_enviar(socketKernel, D_STRUCT_PROG, programa);
 
@@ -201,28 +209,19 @@ void iniciarPrograma(char* pathArchivo){
 		socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
 	}
 
-	t_proceso* proceso = malloc(sizeof(t_proceso));
+	free(programa->buffer);
+	free(programa);
 
-	proceso->pid = malloc(sizeof(int));
 	proceso->pid = ((t_struct_numero *)structRecibido)->numero;
 	proceso->inicioEjec = time(&rawtime);
 	proceso->cantImpresiones = 0;
 	proceso->socketKernel = socketKernel;
-	proceso->hilo = pthread_self();
 
 	pthread_mutex_lock(&mutex_log);
 	log_info(logger, "Inicia el proceso PID %d",proceso->pid);
 	pthread_mutex_unlock(&mutex_log);
 
 	free(structRecibido);
-
-	// Cierro el archivo utilizado
-	fclose(archivo);
-
-	// Libero la memoria solicitada con malloc
-	free(programa->buffer);
-	free(codigo);
-	free(programa);
 
 	list_add(listaProcesos, proceso);
 
@@ -232,7 +231,7 @@ void iniciarPrograma(char* pathArchivo){
 
 void recibirMensajes(t_proceso* proceso){
 
-	int programaEjecutando = 1;
+	bool programaEjecutando = true;
 
 	while(programaEjecutando){
 
@@ -262,8 +261,8 @@ void recibirMensajes(t_proceso* proceso){
 				printf("El proceso con PID:%d informa %s\n",proceso->pid, texto);
 
 				pthread_mutex_lock(&mutex_log);
-				log_info(logger,"El proceso con PID: %d ejecutando en el hilo: %d informa %s\n",
-						proceso->pid, proceso->hilo, texto);
+				log_info(logger,"El proceso con PID: %d informa %s\n",
+						proceso->pid, texto);
 				pthread_mutex_unlock(&mutex_log);
 
 				free(structRecibido2);
@@ -292,7 +291,7 @@ void recibirMensajes(t_proceso* proceso){
 
 				terminarProceso(proceso);
 
-				programaEjecutando = 0;
+				programaEjecutando = false;
 			}
 		}
 	}
@@ -352,15 +351,16 @@ void terminarProceso(t_proceso* proceso){
 	proceso->finEjec =time(&rawtime);
 
 	double tiempoEjecucion = difftime(proceso->finEjec, proceso->inicioEjec);
-
+	printf("=========FIN DE EJECUCION DE PROCESO=========");
 	printf("Inicio de ejecución: %s", asctime(localtime(&proceso->inicioEjec)));
 	printf("Fin de ejecución: %s", asctime(localtime(&proceso->finEjec)));
 	printf("Cantidad de impresiones: %d \n",proceso->cantImpresiones);
 	printf("Tiempo total de ejecución: %f segundos \n",tiempoEjecucion);
+	printf("=========Datos de ejecucion=========");
 
 	// Cierro el socket correspondiente al hilo programa y mato el thread
 	close(proceso->socketKernel);
-	pthread_cancel(proceso->hilo);
+	pthread_cancel(proceso->hiloPrograma);
 }
 
 void manejarDesconexion(){
