@@ -99,6 +99,8 @@ void administrarConexiones();
 void inicializarListas();
 
 void cargarConfiguracion();
+void cargarSemaforos();
+void cargarVariablesCompartidas();
 
 void crearThreadAtenderConexiones();
 
@@ -133,5 +135,51 @@ void agregarColaListos(t_struct_pcb* pcb);
 void crearArchivosPorProceso(int PID);
 
 void abrirArchivo(int socketCPU,t_struct_archivo * archivo);
+void leerArchivo(int socketCPU,t_struct_archivo * archivo);
+void escribirArchivo(int socketCPU,t_struct_archivo * archivo);
+void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo);
+void borrarArchivo(int socketCPU,t_struct_archivo * archivo);
+void cerrarArchivo(int socketCPU,t_struct_archivo * archivo);
+
+void grabarVariableCompartida(int socketCPU, t_struct_var_compartida * grabarVarCompartida);
+void obtenerVariableCompartida(int socketCPU, char * varCompartida);
+
+void realizarWaitSemaforo(int socketCPU,char * waitSemaforo);
+void realizarSignalSemaforo(int socketCPU,char * signalSemaforo);
+
+void inicializarProceso(int socketConsola, char * programa, int tamanio_programa);
+void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU);
+void abortarPrograma(int socketConsola, bool finalizarPrograma);
+void finalizarProcesoConsola(int pid);
+void actualizarPCBExec(t_struct_pcb * pcbBuscado);
+
+void crearInformacionProcesoInicial(int PID);
+void imprimirTablaGlobalArchivos();
+void imprimirArchivosProceso(int pid);
+void imprimirSyscallProceso(int pid);
+void imprimirRafagasProceso(int pid);
+
+void recuperarInformacion(int pid, char * info);
+
+void listarProcesosEnCola(t_list * cola, char * estado);
+
+void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap);
+
+void imprimirHeapProceso(int pid);
+
+void revisarPaginaslibres(t_registroTablaHeap * paginaRevisar);
+
+
+void modificacionArchConf(int fdInotify);
+
+int commandParser(char* operacion);
+
+void mensajeConsolaKernel();
+
+void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap);
+
+void imprimirProcesos(char* estado);
+
+void ejecutarPlanificacion(int socketCPU);
 
 #endif /* KERNELHELPER_H_ */

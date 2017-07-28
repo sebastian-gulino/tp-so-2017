@@ -75,7 +75,7 @@ void cargarVariablesCompartidas(){
 	while (configuracion->sharedVars[indice] != NULL){
 		varCompartida = malloc(sizeof(t_struct_var_compartida));
 
-		varCompartida->nombre = (t_nombre_compartida*) configuracion->sharedVars[indice];
+		varCompartida->nombre = (t_nombre_variable*) configuracion->sharedVars[indice];
 		varCompartida->valor=0;
 
 		list_add(listaVarCompartidas, varCompartida);
@@ -189,6 +189,10 @@ void manejarNuevaConexion(int listener, int *fdmax){
 			enviarConfiguracion(socketCliente,configuracion->quantum);
 
 			log_info(logger,"El CPU %d se conectó.",socketCliente);
+
+			if(list_size(cola_ready)>0){
+				ejecutarPlanificacion(0);
+			}
 
 			break;
 
@@ -417,9 +421,7 @@ void manejarConsola(int socketConsola){
 		switch(tipoEstructura){
 		case D_STRUCT_PROG: ;
 			// La consola envia un programa para ejecutar
-
-			int tamanio_programa = malloc(sizeof(int));
-			tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
+			int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
 			char * programa = malloc(tamanio_programa+1);
 			memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
 
@@ -904,7 +906,7 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 	}
 
 	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
-		ejecutarPlanificacion(NULL);
+		ejecutarPlanificacion(0);
 	}
 
 }
@@ -1012,7 +1014,7 @@ t_registroInformacionProceso * recuperarInformacionProceso(int PID){
 	return NULL;
 }
 
-void liberarSemaforo(t_nombre_semaforo* semaforo){
+void liberarSemaforo(char* semaforo){
 
 	int indice;
 
@@ -1069,7 +1071,6 @@ void liberarMemoriaProceso(t_struct_pcb * pcb){
 
 	PID->numero = pcb->PID;
 
-	//TODO manejar en memoria para liberar
 	socket_enviar(socketMemoria,D_STRUCT_LIBERAR_MEMORIA, PID);
 
 	t_tipoEstructura tipoEstructura;
@@ -1348,7 +1349,7 @@ void traerProcesoColaNew(){
 
 	t_struct_numero* pid_struct = malloc(sizeof(t_struct_numero));
 
-	if (reservarPaginas(programa,pcbNew,tamanio_programa) == -1) {
+	if (reservarPaginas(pcbNew,programa,tamanio_programa) == -1) {
 
 		// Si no pude asignarlas aviso al a consola del rechazo
 		pid_struct->numero = -1;
@@ -1393,7 +1394,7 @@ void traerProcesoColaNew(){
 	free(structRecibido);
 
 	if(list_size(listaCpuLibres)>0){
-		ejecutarPlanificacion(NULL);
+		ejecutarPlanificacion(0);
 	}
 
 }
@@ -1414,7 +1415,7 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
 			if(list_size(listaCpuLibres)>0){
-				ejecutarPlanificacion(NULL);
+				ejecutarPlanificacion(0);
 			}
 			break;
 		}
@@ -1467,6 +1468,9 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 					traerProcesoColaNew();
 
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
+
+					cpuProcesando->PID=-1;
+
 					list_add(listaCpuLibres,cpuProcesando);
 
 					semaforoRecuperado->valor++;
@@ -1481,13 +1485,15 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 					string_append(&(registro->semaforo_bloqueo),waitSemaforo);
 
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
+					cpuProcesando->PID=-1;
+
 					list_add(listaCpuLibres,cpuProcesando);
 
 					removerDeCola(cola_exec,cola_block,E_BLOCK,pcbBloqueado->PID,false,false,false);
 				}
 
 				if (list_size(cola_ready) > 0) {
-					ejecutarPlanificacion(NULL);
+					ejecutarPlanificacion(0);
 				}
 			} else {
 
@@ -1814,6 +1820,15 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 
 void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
+	int crear,escribir,leer = 0;
+	if(archivo->flags.creacion) crear=1;
+	if(archivo->flags.escritura) escribir=1;
+	if(archivo->flags.lectura) leer=1;
+
+	log_info(logger,"El flag de crear vino en %d",crear);
+	log_info(logger,"El flag de escribir vino en %d",escribir);
+	log_info(logger,"El flag de leer vino en %d",leer);
+
 	t_struct_numero * resultadoEscribir = malloc(sizeof(t_struct_numero));
 
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
@@ -1823,7 +1838,7 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 		t_registroTablaProcesos* registroProceso = obtenerConsolaPorPID(archivo->pid);
 
-		if(registroProceso->socket!=NULL){
+		if(registroProceso!=NULL){
 
 			t_struct_string * textoImprimir = malloc(sizeof(t_struct_string));
 			textoImprimir->string = archivo->informacion;
@@ -1837,7 +1852,7 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 			resultadoEscribir->numero = KERNEL_OK;
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
-			log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+			log_info(logger,"El proceso %d solicita escribir por consola", &(archivo->pid));
 			free(resultadoEscribir);
 			return;
 
@@ -1845,7 +1860,7 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 			resultadoEscribir->numero = KERNEL_ERROR;
 			socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoEscribir);
-			log_info(logger,"El proceso %d no el archivo abierto", &(archivo->pid));
+			log_info(logger,"El proceso %d solicita escribir por consola pero no puedo determinar a cual corresponde", &(archivo->pid));
 			free(resultadoEscribir);
 			return;
 
@@ -2025,7 +2040,7 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 
 	t_cpu * cpu = obtenerCPUporSocket(socketCPU,desconectarCPU);
 
-	if(cpu->PID!=0 && cpu->PID!=NULL){
+	if(cpu->PID!=-1){
 		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
 
 		if(pcb->estado==E_EXEC){
@@ -2069,7 +2084,7 @@ void ejecutarPlanificacion(int socketCPU){
 
 	log_info(logger,"Se ejecuta la logica de planificacion");
 
-	if(socketCPU != 0 || socketCPU != NULL){
+	if(socketCPU != 0){
 
 		log_info(logger, "Se comienza a planificar para la cpu %d",socketCPU);
 
@@ -2100,6 +2115,9 @@ void ejecutarPlanificacion(int socketCPU){
 			traerProcesoColaNew();
 
 			t_cpu* cpu = obtenerCPUporSocket(socketCPU,true);
+
+			cpu->PID = -1;
+
 			list_add(listaCpuLibres,cpu);
 
 			ejecutarProximoProceso(cpu);
@@ -2185,7 +2203,9 @@ void ejecutarPlanificacion(int socketCPU){
 void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 
 	t_cpu * cpu = obtenerCPUporSocket(socketCPU,true);
+	cpu->PID = -1;
 	list_add(listaCpuLibres,cpu);
+
 	pcbFinalizado->exitcode=EC_FINALIZO_OK;
 	actualizarPCBExec(pcbFinalizado);
 	liberarMemoriaProceso(pcbFinalizado);
@@ -2193,7 +2213,7 @@ void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 	informarFinalizacionConsola(pcbFinalizado);
 	removerDeCola(cola_exec,cola_exit,E_EXIT,pcbFinalizado->PID,true,true,true);
 	traerProcesoColaNew();
-	if(list_size(cola_ready)>0) ejecutarPlanificacion(NULL);
+	if(list_size(cola_ready)>0) ejecutarPlanificacion(0);
 
 }
 
@@ -2271,7 +2291,7 @@ void recalcularOffset(t_bloqueHeap* bloqueEspecial, t_bloqueHeap* bloqueNuevo) {
 
 }
 
-int buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
+t_bloqueHeap * buscarPrimerBloqueHeap(t_struct_sol_heap * solicitudHeap, int pagina){
 
 	int indice, indice2;
 	t_bloqueHeap * bloqueHeap;
@@ -2515,7 +2535,7 @@ void revisarPaginaslibres(t_registroTablaHeap * paginaRevisar){
 		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 
-		if (respuestaMemoria == MEMORIA_OK) {
+		if (respuestaMemoria->numero == MEMORIA_OK) {
 
 			log_info(logger,"Se liberó la pagina %d utilizada por el proceso %d \n ",paginaRevisar->numeroPagina, paginaRevisar->PID);
 			borrarPaginaKernel(paginaRevisar);
@@ -2533,8 +2553,8 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 	if((solicitudHeap->pointer + 10) > tamanio_pagina){
 
 		respuesta->numero=KERNEL_ERROR;
-
 		socket_enviar(socketCPU,D_STRUCT_ERROR_HEAP_MAX,respuesta);
+		log_info(logger,"La solicitud de heap realizada por el PID %d supera el maximo permitido",solicitudHeap->pid);
 
 	}
 
@@ -2571,23 +2591,22 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			t_registroTablaHeap * estructuraPagina = buscarPagina(paginaHeap, solicitudHeap->pid);
 			list_add_in_index(estructuraPagina->listaBloques, indice+1, bloqueParticionado);
 
-			t_struct_sol_lectura* punteroStructParticionado;
+			t_struct_sol_escritura * punteroStructParticionado = malloc(sizeof(t_struct_sol_escritura));
 			punteroStructParticionado->PID = solicitudHeap->pid;
 			punteroStructParticionado->pagina = paginaHeap;
-			punteroStructParticionado->contenido = 5;
+			punteroStructParticionado->tamanio = 5;
 			punteroStructParticionado->offset = bloqueParticionado->offset- 5;
 
 			t_struct_metadataHeap* heapMetadataParticionada = generarHeapMetadata(bloqueParticionado->size, true);
 
+			punteroStructParticionado->contenido = heapMetadataParticionada;
+
 			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructParticionado);
-			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataParticionada);
 
 			t_tipoEstructura tipoEstructura;
 			void * structRecibido;
 
 			socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
-
-			//t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
 
 			}else {
 				log_info(logger, "No se encontró el indice del bloque para agregar el bloque particionado");
@@ -3027,7 +3046,7 @@ void imprimirRafagasProceso(int pid){
 
 void imprimirArchivosProceso(int pid){
 	
-	t_list* archivosProceso = dictionary_get(tablaArchivosGlobal, string_itoa(pid));
+	t_list* archivosProceso = dictionary_get(tablaArchivosProceso, string_itoa(pid));
 
 	if(list_size(archivosProceso)==0){
 		printf("El pid ingresado no existe");

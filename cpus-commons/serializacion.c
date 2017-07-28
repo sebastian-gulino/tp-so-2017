@@ -96,6 +96,9 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_LIBERAR_HEAP:
 				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_LIBERAR_HEAP);
 				break;
+			case D_STRUCT_ERROR_HEAP_MAX:
+				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_ERROR_HEAP_MAX);
+				break;
 			case D_STRUCT_ABORT:
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_ABORT);
 				break;
@@ -832,6 +835,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				break;
 			case D_STRUCT_COMPACTAR_HEAP:
 				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
+				break;
+			case D_STRUCT_ERROR_HEAP_MAX:
+				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
 				break;
 			case D_STRUCT_ABORT:
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);

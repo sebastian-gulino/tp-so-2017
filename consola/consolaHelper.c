@@ -134,12 +134,18 @@ void manejarSignal(int sign){
 
 void iniciarPrograma(void* procesoCreado){
 
-	int socketKernel = conectarAKernel();
-
 	t_proceso * proceso = procesoCreado;
 
 	// Abro el script a ejecutar en la ruta especificada
-	FILE * archivo = fopen(proceso->path, "rb");
+	FILE * archivo = fopen(proceso->path, "r");
+
+	if (archivo == NULL){
+		puts("El archivo ingresado no existe, por favor ingrese iniciar nuevamente y vuelva a intentarlo");
+		pthread_cancel(proceso->hiloPrograma);
+		return;
+	}
+
+	int socketKernel = conectarAKernel();
 
 	// Calculo el tamaño del archivo
 	fseek(archivo, 0L, SEEK_END);
@@ -173,7 +179,7 @@ void iniciarPrograma(void* procesoCreado){
 		pthread_mutex_unlock(&mutex_log);
 
 		close(socketKernel);
-		pthread_cancel(pthread_self());
+		pthread_cancel(proceso->hiloPrograma);
 
 	}
 
@@ -187,7 +193,7 @@ void iniciarPrograma(void* procesoCreado){
 		pthread_mutex_unlock(&mutex_log);
 
 		close(socketKernel);
-		pthread_cancel(pthread_self());
+		pthread_cancel(proceso->hiloPrograma);
 
 	} else if (((t_struct_numero *)structRecibido)->numero == -1) {
 
@@ -196,7 +202,7 @@ void iniciarPrograma(void* procesoCreado){
 		pthread_mutex_unlock(&mutex_log);
 
 		close(socketKernel);
-		pthread_cancel(pthread_self());
+		pthread_cancel(proceso->hiloPrograma);
 	} else if (((t_struct_numero *)structRecibido)->numero == KERNEL_MULTIPROG){
 		pthread_mutex_lock(&mutex_log);
 		log_info(logger, "El proceso queda en la cola de new por el grado de multiprogramacion, espero la solicitud");
@@ -351,12 +357,12 @@ void terminarProceso(t_proceso* proceso){
 	proceso->finEjec =time(&rawtime);
 
 	double tiempoEjecucion = difftime(proceso->finEjec, proceso->inicioEjec);
-	printf("=========FIN DE EJECUCION DE PROCESO=========");
+	printf("=========FIN DE EJECUCION DE PROCESO=========\n");
 	printf("Inicio de ejecución: %s", asctime(localtime(&proceso->inicioEjec)));
 	printf("Fin de ejecución: %s", asctime(localtime(&proceso->finEjec)));
 	printf("Cantidad de impresiones: %d \n",proceso->cantImpresiones);
 	printf("Tiempo total de ejecución: %f segundos \n",tiempoEjecucion);
-	printf("=========Datos de ejecucion=========");
+	printf("=========Datos de ejecucion=========\n");
 
 	// Cierro el socket correspondiente al hilo programa y mato el thread
 	close(proceso->socketKernel);
