@@ -9,6 +9,7 @@ void cargarConfiguracion() {
 	consolaConectada = 1;
 
 	pthread_mutex_init(&mutex_log, NULL);
+	pthread_mutex_init(&mutex_memoria, NULL);
 
 	t_config * config;
 
@@ -436,12 +437,21 @@ int buscarEnTabla(int pagina, int pid){
 }
 
 void escribirEnMemoria(int numeroFrame,void* contenido, int size, int offset){
-	void* punteroFrame = malloc(size);
-	punteroFrame =	memoriaPrincipal + numeroFrame * configuracion->marcoSize;
+	pthread_mutex_lock(&mutex_memoria);
+	void * punteroFrame =	memoriaPrincipal + numeroFrame * configuracion->marcoSize;
 	memcpy(punteroFrame + offset,contenido,size);
 	pthread_mutex_lock(&mutex_log);
 	log_info(logger,"Se escribio la pagina %d", numeroFrame);
 	pthread_mutex_unlock(&mutex_log);
+	pthread_mutex_unlock(&mutex_memoria);
+}
+
+void * leerMemoria(int pagina, int pid){
+	int numeroFrame = buscarEnTabla(pagina,pid);
+	aplicarRetardo();
+	void * posicion = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
+	actualizarCache(pid,pagina,posicion);
+	return posicion;
 }
 
 bool escribirPagina(int pagina, int pid, int offset, int tamanio, void * contenido){
@@ -593,16 +603,8 @@ int buscarProcesoCache(int pagina, int pid){
 }
 
 
-void * leerMemoria(int pagina, int pid){
-	int numeroFrame = buscarEnTabla(pagina,pid);
-	aplicarRetardo();
-	void * posicion = memoriaPrincipal + numeroFrame * configuracion->marcoSize;
-	actualizarCache(pid,pagina,posicion);
-	return posicion;
-}
-
-
 t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio){
+	pthread_mutex_lock(&mutex_memoria);
 	int indiceCache = buscarProcesoCache(pagina, pid);
 	t_resultadoLectura resultado;
 	void * lectura;
@@ -623,6 +625,7 @@ t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio){
 		log_info(logger,"Se leyo la pagina %d del proceso %d, de la Memoria.",pagina,pid);
 		pthread_mutex_unlock(&mutex_log);
 	}
+	pthread_mutex_unlock(&mutex_memoria);
 	return resultado;
 }
 

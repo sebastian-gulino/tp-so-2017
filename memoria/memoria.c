@@ -8,7 +8,9 @@ int main(void) {
 	system("clear");
 
 	//Genera archivo log pars poder escribir el trace de toda la ejecución
-	crearLog("/MEMORIA");
+	//crearLog("/MEMORIA");
+	remove("./MEMORIA.log");
+	logger = log_create("./MEMORIA.log", "MEMORIA", 0, LOG_LEVEL_TRACE);
 
 	//Levanta la configuración del proceso memoria
 	cargarConfiguracion();

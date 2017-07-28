@@ -295,8 +295,8 @@ void salirProceso(){
 		socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, pcbEjecutando);
 	}
 
-//	//Libero los recursos del pcb
-//	liberarPCB();
+	//Libero los recursos del pcb
+	//liberarPCB();
 
 	if (signalFinalizarCPU){
 
