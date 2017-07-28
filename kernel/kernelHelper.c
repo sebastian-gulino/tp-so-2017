@@ -1598,11 +1598,14 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	socket_recibir(socketFS,&tipoEstructura,&structRecibido);
 
-	t_struct_abrir * respuestaAbrir = ((t_struct_abrir*) structRecibido);
+	t_struct_numero * respuestaAbrir = malloc(sizeof(t_struct_numero));
+	respuestaAbrir = ((t_struct_numero*) structRecibido);
 
-	if(respuestaAbrir->confirmacion==FS_ABRIR_CREAR_OK ||
-			respuestaAbrir->confirmacion==FS_ABRIR_NO_CREAR_OK){
+	if(respuestaAbrir->numero==FS_ABRIR_CREAR_OK ||
+			respuestaAbrir->numero==FS_ABRIR_NO_CREAR_OK){
+
 		//Existia y lo abri ok o no existia pero lo pude crear
+
 		if(existeEnTablaGlobal==-1){
 			//Si no existe en la tabla global de archivos
 			t_registroArchivosGlobal * registroGlobal = malloc(sizeof(t_registroArchivosGlobal));
@@ -1623,6 +1626,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 			log_info(logger, "El archivo solicitado por el proceso %d es fd %d", archivo->pid,newFDProceso);
 
 			free(resultadoAbrir);
+			free(respuestaAbrir);
 
 			return;
 
@@ -1635,8 +1639,8 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 			registroArchivoProceso->cursor=0;
 
-			t_descriptor_archivo newFDProceso = list_size(tablaArchivosProceso);
-			list_add(tablaArchivosProceso,registroArchivoProceso);
+			t_descriptor_archivo newFDProceso = list_size(archivosProceso);
+			list_add(archivosProceso,registroArchivoProceso);
 
 			resultadoAbrir->numero = newFDProceso;
 
@@ -1887,9 +1891,10 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 		socket_recibir(socketFS,&tipoEstructura,&structRecibido);
 
-		t_struct_guardar * respuestaGuardar = ((t_struct_guardar*) structRecibido);
+		t_struct_numero * respuestaGuardar = malloc(sizeof(t_struct_numero));
+		respuestaGuardar = ((t_struct_numero*) structRecibido);
 
-		if(respuestaGuardar->confirmacion==FS_ESCRIBIR_OK){
+		if(respuestaGuardar->numero==FS_ESCRIBIR_OK){
 
 			registroArchivoProceso->cursor+=archivo->tamanio;
 			resultadoEscribir->numero = KERNEL_OK;
@@ -2435,7 +2440,7 @@ int compactar(t_registroTablaHeap * paginaCompactar){
 				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 
-				if(respuestaMemoria==MEMORIA_OK){
+				if(respuestaMemoria->numero==MEMORIA_OK){
 
 					bloque1->size += bloque2->size + 5;
 

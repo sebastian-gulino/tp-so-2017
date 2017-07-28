@@ -5,48 +5,37 @@
 void  validarArchivo(t_struct_abrir * archivo){
 
 	char pathFile[260];
-	t_struct_abrir * toSend = malloc(sizeof(t_struct_abrir));
-	toSend = archivo;
 	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path); //Se usa sprintf para obtener el path
-																					//completo en el punto de montaje especificado
+
+	t_struct_numero * respuestaAbrir = malloc(sizeof(t_struct_numero));
 
 	FILE * file = fopen(pathFile, "r"); //Se abre el archivo, de esta manera verificamos que exista.
 
-	if (file == NULL){ //Si no existe:
+	if (file == NULL){
 
-		if (archivo->modo_creacion==1){ //Verificación del modo creación
+		if (archivo->modo_creacion==1){
 
 			if(crearArchivo(archivo->path) == 1){ //Se crea el archivo en el path especificado
-
-				//fclose(file);
-				toSend->confirmacion = FS_ABRIR_CREAR_OK;
+				respuestaAbrir->numero = FS_ABRIR_CREAR_OK;
 				log_info(logger, "Se creo el archivo en: %s", pathFile);
-				socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-				return;
 
+			} else {
+				respuestaAbrir->numero = FS_ABRIR_CREAR_ERROR;
+				log_error(logger, "Hubo un error al crear el archivo en: %s", pathFile);
 			}
 
-			toSend->confirmacion = FS_ABRIR_CREAR_ERROR;
-			log_error(logger, "No se pudo crear el archivo en: %s", pathFile);
-			socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-			return;
-
+		} else {
+			respuestaAbrir->numero = FS_ABRIR_NO_CREAR_ERROR;
+			log_error(logger, "El archivo no existe y no posee permisos para crearlo");
 		}
 
-		fclose(file);
-		log_error(logger, "El archivo en el path: %s no existe", pathFile);
-		toSend->confirmacion = FS_ABRIR_NO_CREAR_ERROR;
-		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-		return;
-
 	} else{
-
+		respuestaAbrir->numero = FS_ABRIR_NO_CREAR_OK;
+		log_info(logger, "El archivo existia y pudo abrirse en el path: %s", pathFile);
 		fclose(file);
-		log_error(logger, "Se verifico el archivo del path: %s", pathFile);
-		toSend->confirmacion = FS_ABRIR_NO_CREAR_OK;
-		socket_enviar(socketCliente, D_STRUCT_ABRIR, toSend);
-		return;
 	}
+
+	socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaAbrir);
 }
 
 //Creación de un archivo, en caso que al abrir uno este no exista y se haya abierto en modo creación
@@ -318,21 +307,25 @@ void guardarDatos(t_struct_guardar * archivo){
 	char * bloques_array = string_new();
 	char * block;
 	char *char_size;
-	t_struct_guardar * toSend = malloc(sizeof(t_struct_guardar));
-	toSend = archivo;
+
+	t_struct_numero * respuestaGuardar = malloc(sizeof(t_struct_numero));
 
 	sprintf(pathFile, "%s/Archivos%s", configuracion->puntoMontaje, archivo->path);
 
 	if(fopen(pathFile, "r")==NULL){ //Verifico que el archivo exista
+
 		log_info(logger, "El archivo del path: %s no existe", pathFile);
-		toSend->confirmacion = FS_ESCRIBIR_ERROR;
-		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
+		respuestaGuardar->numero = FS_ESCRIBIR_ERROR;
+		socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaGuardar);
 		return;
+
 	}	if(archivo->modo_escritura == 0){ //Verifico que el modo escritura este activo
+
 		log_info(logger, "El archivo del path: %s no tiene permisos de escritura", pathFile);
-		toSend->confirmacion = FS_ESCRIBIR_ERROR;
-		socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
+		respuestaGuardar->numero = FS_ESCRIBIR_ERROR;
+		socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaGuardar);
 		return;
+
 	}
 
 	fileData = config_create(pathFile); //Cargo el config para manejar datos
@@ -392,8 +385,8 @@ void guardarDatos(t_struct_guardar * archivo){
 						if(bloquesLibres()==0){
 
 							log_error(logger, "No se pueden guardar los datos en el archivo: %s, por falta de bloques", pathFile);
-							toSend->confirmacion = FS_ESCRIBIR_ERROR;
-							socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
+							respuestaGuardar->numero = FS_ESCRIBIR_ERROR;
+							socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaGuardar);
 							return;
 
 						}
@@ -453,9 +446,8 @@ void guardarDatos(t_struct_guardar * archivo){
 			//Escribo en el bloque
 			if(pwrite(fd, block_buffer, writeSize, archivo->offset)<0){
 				log_error(logger, "Error de escritura (%s) del archivo en el path: %s ", strerror(errno), pathFile);
-
-						toSend->confirmacion = FS_ESCRIBIR_ERROR;
-						socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
+						respuestaGuardar->numero = FS_ESCRIBIR_ERROR;
+						socket_enviar(socketCliente, D_STRUCT_OBTENER, respuestaGuardar);
 					break;
 			}
 
@@ -516,13 +508,13 @@ void guardarDatos(t_struct_guardar * archivo){
 			if(archivo->size>0){
 
 				log_error(logger, "No se guardaron %d bytes en el archivo del path: %s.", archivo->size, pathFile);
-				toSend->confirmacion = FS_ESCRIBIR_ERROR;
-				socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
+				respuestaGuardar->numero = FS_ESCRIBIR_ERROR;
+				socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaGuardar);
 				return;
 			}
 
-			toSend->confirmacion = FS_ESCRIBIR_OK;
-			socket_enviar(socketCliente, D_STRUCT_GUARDAR, toSend);
+			respuestaGuardar->numero = FS_ESCRIBIR_OK;
+			socket_enviar(socketCliente, D_STRUCT_NUMERO, respuestaGuardar);
 
 	return;
 

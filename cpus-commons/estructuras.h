@@ -191,9 +191,7 @@ enum{
 
 	//Comunicacion Kernel - Filesystem
 	D_STRUCT_BORRAR = 29,
-	D_STRUCT_ABRIR = 30,
 	D_STRUCT_OBTENER = 31,
-	D_STRUCT_GUARDAR = 32,
 
 	//Handshake
 	ES_KERNEL=100,

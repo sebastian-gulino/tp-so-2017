@@ -265,8 +265,11 @@ void manejarKernel(int i){
 				archivoGuardar->offset=desplazamiento->numero;
 				archivoGuardar->size = archivoEsc->tamanio;
 				archivoGuardar->buffer = archivoEsc->informacion;
+				archivoGuardar->confirmacion = -1;
 
 				guardarDatos(archivoGuardar);
+
+				free(archivoGuardar);
 
 			break;
 

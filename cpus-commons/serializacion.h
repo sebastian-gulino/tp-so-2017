@@ -26,9 +26,7 @@
 	t_stream * serializeStruct_solHeap(t_struct_sol_heap * estructuraOrigen);
 	t_stream * serializeStruct_libHeap(t_struct_sol_heap * estructuraOrigen, int headerOperacion);
 	t_stream * serializeStruct_borrar(t_struct_borrar * estructuraOrigen);
-	t_stream * serializeStruct_abrir(t_struct_abrir * estructuraOrigen);
 	t_stream * serializeStruct_obtener(t_struct_obtener * estructuraOrigen);
-	t_stream * serializeStruct_guardar(t_struct_guardar * estructuraOrigen);
 	t_stream * serializeStruct_metadataHeap(t_struct_metadataHeap * estructuraOrigen, int headerOperacion);
 
 	t_header desempaquetarHeader(char * header);
@@ -48,9 +46,7 @@
 	t_struct_sol_heap * deserializeStruct_solHeap(char* dataPaquete, uint16_t length);
 	t_struct_sol_heap * deserializeStruct_libHeap(char* dataPaquete, uint16_t length);
 	t_struct_borrar * deserializeStruct_borrar(char * dataPaquete, uint16_t length);
-	t_struct_abrir * deserializeStruct_abrir(char * dataPaquete, uint16_t length);
 	t_struct_obtener * deserializeStruct_obtener(char * dataPaquete, uint16_t length);
-	t_struct_guardar * deserializeStruct_guardar(char * dataPaquete, uint16_t length);
 	t_struct_metadataHeap * deserializeStruct_metadataHeap(char* dataPaquete, uint16_t length);
 
 #endif /* SERIALIZACION_H_ */

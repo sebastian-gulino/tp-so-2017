@@ -132,4 +132,6 @@ void agregarColaListos(t_struct_pcb* pcb);
 
 void crearArchivosPorProceso(int PID);
 
+void abrirArchivo(int socketCPU,t_struct_archivo * archivo);
+
 #endif /* KERNELHELPER_H_ */

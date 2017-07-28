@@ -13,8 +13,6 @@ int main(int arc, char * argv[]){
 	//Limpio la consola del terminal antes de empezar
 	system("clear");
 
-	//Genera archivo log para poder escribir el trace de toda la ejecución
-	//crearLog("/FILESYSTEM");
 	remove("./FILESYSTEM.log");
 	logger = log_create("./FILESYSTEM.log", "FILESYSTEM", 0, LOG_LEVEL_TRACE);
 
