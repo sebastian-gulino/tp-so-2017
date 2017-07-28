@@ -318,7 +318,8 @@ typedef struct struct_pcb {
 } __attribute__ ((__packed__)) t_struct_pcb;
 
 typedef struct {
-	int pagina, offset, contenido, PID;
+	int pagina, offset, tamanio, PID;
+	void * contenido;
 } __attribute__((packed)) t_struct_sol_escritura;
 
 typedef struct {

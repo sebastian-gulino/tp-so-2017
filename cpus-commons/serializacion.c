@@ -91,10 +91,10 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_LECT_VAR);
 				break;
 			case D_STRUCT_ESCRIBIR_HEAP:
-				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_ESCRIBIR_HEAP);
+				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_ESCRIBIR_HEAP);
 				break;
 			case D_STRUCT_LIBERAR_HEAP:
-				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_LIBERAR_HEAP);
+				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_LIBERAR_HEAP);
 				break;
 			case D_STRUCT_ABORT:
 				paquete = serializeStruct_numero((t_struct_numero *) estructuraOrigen, D_STRUCT_ABORT);
@@ -486,7 +486,7 @@ t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen, in
 
 	t_stream* paquete = malloc(sizeof(t_stream));
 
-	paquete->length = sizeof(t_header) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t);
+	paquete->length = sizeof(t_header) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + estructuraOrigen->tamanio;
 
 	char* data = crearDataConHeader(headerOperacion, paquete->length);
 
@@ -500,11 +500,15 @@ t_stream * serializeStruct_solEscr(t_struct_sol_escritura * estructuraOrigen, in
 
 	tamanoTotal+=tamanoDato;
 
-	memcpy(data + tamanoTotal, &estructuraOrigen->contenido, tamanoDato= sizeof(uint32_t));
+	memcpy(data + tamanoTotal, &estructuraOrigen->tamanio, tamanoDato= sizeof(uint32_t));
 
 	tamanoTotal+=tamanoDato;
 
 	memcpy(data + tamanoTotal, &estructuraOrigen->PID, tamanoDato= sizeof(uint32_t));
+
+	tamanoTotal+=tamanoDato;
+
+	memcpy(data + tamanoTotal, estructuraOrigen->contenido, tamanoDato = estructuraOrigen->tamanio);
 
 	tamanoTotal+=tamanoDato;
 
@@ -893,13 +897,13 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_ESCRIBIR_HEAP:
-				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
 				break;
 			case D_STRUCT_LIBERAR_HEAP:
-				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
 				break;
 			case D_STRUCT_COMPACTAR_HEAP:
-				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
+				estructuraDestino = deserializeStruct_solEscr(dataPaquete, length);
 				break;
 			case D_STRUCT_ABORT:
 				estructuraDestino = deserializeStruct_numero(dataPaquete, length);
@@ -1255,11 +1259,16 @@ t_struct_sol_escritura * deserializeStruct_solEscr(char* dataPaquete, uint16_t l
 
 	tamanoTotal+= tamanoDato;
 
-	memcpy(&estructuraDestino->contenido,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+	memcpy(&estructuraDestino->tamanio,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
 
 	tamanoTotal+= tamanoDato;
 
 	memcpy(&estructuraDestino->PID,dataPaquete+tamanoTotal,tamanoDato=sizeof(uint32_t));
+
+	tamanoTotal+= tamanoDato;
+
+	estructuraDestino->contenido = malloc(estructuraDestino->tamanio);
+	memcpy(estructuraDestino->contenido,dataPaquete+tamanoTotal,tamanoDato = estructuraDestino->tamanio);
 
 	tamanoTotal+= tamanoDato;
 

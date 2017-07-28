@@ -112,6 +112,8 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 			if (tipoEstructura == D_STRUCT_PCB){
 
+				pcbEjecutando = malloc(sizeof(t_struct_pcb));
+
 				pcbEjecutando = (t_struct_pcb*) structRecibido;
 
 				seguirEjecutando=true;
@@ -293,8 +295,8 @@ void salirProceso(){
 		socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, pcbEjecutando);
 	}
 
-	//Libero los recursos del pcb
-	liberarPCB();
+//	//Libero los recursos del pcb
+//	liberarPCB();
 
 	if (signalFinalizarCPU){
 

@@ -728,30 +728,22 @@ void enviarCodigoMemoria(char * programa,int tamanioPrograma, t_struct_pcb * pcb
 		char * codigoEnviar = malloc(tamanioPrograma);
 		codigoEnviar = string_new();
 
+		tamanioEnvio = cantCodigoPendiente>tamanio_pagina ? tamanio_pagina : cantCodigoPendiente;
+
 		t_struct_sol_escritura * escrituraCodigo = malloc(sizeof(t_struct_sol_escritura));
 		escrituraCodigo->PID=pcb->PID;
 		escrituraCodigo->offset=0;
 		escrituraCodigo->pagina=indice;
-		escrituraCodigo->contenido=tamanio_pagina;
-
-		socket_enviar(socketMemoria,D_STRUCT_ESCRITURA_CODIGO,escrituraCodigo);
-
-		tamanioEnvio = cantCodigoPendiente>tamanio_pagina ? tamanio_pagina : cantCodigoPendiente;
+		escrituraCodigo->tamanio=tamanioEnvio;
+		escrituraCodigo->contenido = malloc(tamanioEnvio);
 
 		codigoPendiente = string_substring_from(programa,cantCodigoEnviado);
 		codigoEnviar = string_substring_until(codigoPendiente,tamanioEnvio);
 
-		t_struct_programa* programa = malloc(sizeof(t_struct_programa));
-		programa->tamanio = tamanioEnvio;
-		programa->buffer = malloc(tamanioEnvio);
-		programa->base = 1;
-		programa->PID = 1 ;
-		memcpy(programa->buffer,codigoEnviar,tamanioEnvio);
+		memcpy(escrituraCodigo->contenido,codigoEnviar,tamanioEnvio);
 
-		socket_enviar(socketMemoria,D_STRUCT_CODIGO,programa);
+		socket_enviar(socketMemoria,D_STRUCT_ESCRITURA_CODIGO,escrituraCodigo);
 
-		free(programa->buffer);
-		free(programa);
 		free(codigoPendiente);
 		free(codigoEnviar);
 
@@ -1965,6 +1957,12 @@ void leerArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	if(respuestaLeer->confirmacion==FS_LEER_OK){
 
+
+		socket_recibir(socketFS,&tipoEstructura,&structRecibido);
+
+		t_struct_string * lecturaArchivo = malloc(sizeof(t_struct_string));
+		lecturaArchivo = ((t_struct_string *) structRecibido);
+
 		registroArchivoProceso->cursor+=archivo->tamanio;
 
 		resultadoLeer->numero = KERNEL_OK;
@@ -1973,13 +1971,9 @@ void leerArchivo(int socketCPU,t_struct_archivo * archivo){
 
 		free(resultadoLeer);
 
-		t_struct_string * lectura = malloc(sizeof(t_struct_string));
+		socket_enviar(socketCPU, D_STRUCT_STRING, lecturaArchivo);
 
-		lectura->string = respuestaLeer->obtenido;
-
-		socket_enviar(socketCPU, D_STRUCT_STRING, lectura);
-
-		free(lectura);
+		free(lecturaArchivo);
 
 	} else {
 
@@ -2426,13 +2420,14 @@ int compactar(t_registroTablaHeap * paginaCompactar){
 				t_struct_sol_escritura * solCompactar = malloc(sizeof(t_struct_sol_escritura));
 				solCompactar->PID = paginaCompactar->PID;
 				solCompactar->pagina = paginaCompactar->numeroPagina;
-				solCompactar->contenido = 5;
+				solCompactar->tamanio = 5;
 				solCompactar->offset = bloque1->offset- 5;
 
 				t_struct_metadataHeap* metadata = generarHeapMetadata(bloque1->size+bloque2->size+5, true);
 
+				solCompactar->contenido = metadata;
+
 				socket_enviar(socketMemoria,D_STRUCT_COMPACTAR_HEAP,solCompactar);
-				socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,metadata);
 
 				t_tipoEstructura tipoEstructura;
 				void * structRecibido;
@@ -2596,15 +2591,17 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 		punteroStruct->PID = solicitudHeap->pid;
 		punteroStruct->pagina = paginaHeap;
-		punteroStruct->contenido = solicitudHeap->pointer;
+		punteroStruct->tamanio = solicitudHeap->pointer;
 		punteroStruct->offset = bloqueAsignado->offset;
 
 		t_puntero puntero = punteroStruct->pagina*tamanio_pagina + punteroStruct->offset;
 
 		punteroStruct->offset = bloqueAsignado->offset - 5;
-		punteroStruct->contenido = 5;
+		punteroStruct->tamanio = 5;
 
 		t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, true);
+
+		punteroStruct->contenido = heapMetadataActual;
 
 		t_registroTablaHeap * paginaStruct = buscarPagina(paginaHeap, solicitudHeap->pid);
 
@@ -2614,13 +2611,14 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 		punteroStructEspecial->PID = solicitudHeap->pid;
 		punteroStructEspecial->pagina = paginaHeap;
-		punteroStructEspecial->contenido = 5;
+		punteroStructEspecial->tamanio = 5;
 		punteroStructEspecial->offset = bloque_especial->offset- 5;
 
 		t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, false);
 
+		punteroStructEspecial->contenido = heapMetadataEspecial;
+
 		socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStruct);
-		socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataActual);
 
 		t_tipoEstructura tipoEstructura;
 		void * structRecibido;
@@ -2634,7 +2632,6 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 		}
 
 		socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructEspecial);
-		socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataEspecial);
 
 		t_tipoEstructura tipoEstructura2;
 		void * structRecibido2;
@@ -2681,25 +2678,28 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 			punteroStruct->PID = solicitudHeap->pid;
 			punteroStruct->pagina = paginaHeap;
-			punteroStruct->contenido = solicitudHeap->pointer;
+			punteroStruct->tamanio = solicitudHeap->pointer;
 			punteroStruct->offset = bloqueAsignado->offset;
 
 			t_puntero puntero = punteroStruct->pagina*tamanio_pagina + punteroStruct->offset;
 
 			punteroStruct->offset = bloqueAsignado->offset - 5;
-			punteroStruct->contenido = 5;
+			punteroStruct->tamanio = 5;
 
 			t_struct_metadataHeap * heapMetadataActual = generarHeapMetadata(solicitudHeap->pointer, false);
 
+			punteroStruct->contenido = heapMetadataActual;
+
 			punteroStructEspecial->PID = solicitudHeap->pid;
 			punteroStructEspecial->pagina = paginaHeap;
-			punteroStructEspecial->contenido = 5;
+			punteroStructEspecial->tamanio = 5;
 			punteroStructEspecial->offset = bloque_especial->offset- 5;
 
 			t_struct_metadataHeap* heapMetadataEspecial = generarHeapMetadata(bloque_especial->size, true);
 
+			punteroStructEspecial->contenido = heapMetadataEspecial;
+
 			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStruct);
-			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataActual);
 
 			t_tipoEstructura tipoEstructura;
 			void * structRecibido;
@@ -2709,13 +2709,10 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 
 			if(respuestaMemoria->numero==MEMORIA_OK){
-//				socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
-//				t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
 				rtaMemoria=true;
 			}
 
 			socket_enviar(socketMemoria,D_STRUCT_ESCRIBIR_HEAP,punteroStructEspecial);
-			socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heapMetadataEspecial);
 
 			t_tipoEstructura tipoEstructura2;
 			void * structRecibido2;
@@ -2725,8 +2722,6 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 			t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 
 			if(respuestaMemoriaEspecial->numero==MEMORIA_OK){
-//				socket_recibir(socketMemoria,&tipoEstructura2,&structRecibido2);
-//				t_struct_numero * respuestaMemoriaEspecial = ((t_struct_numero*) structRecibido2);
 				rtaMemoriaEspecial=true;
 			}
 
@@ -2752,14 +2747,14 @@ void reservarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
 void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 
-	t_struct_sol_lectura * solLiberar = malloc(sizeof(t_struct_sol_lectura));
+	t_struct_sol_escritura * solLiberar = malloc(sizeof(t_struct_sol_escritura));
 	t_struct_numero * rtaLiberar = malloc(sizeof(t_struct_numero));
 	t_registroInformacionProceso * registro;
 	bool pudeLiberar = false;
 
 	solLiberar->PID=solicitudHeap->pid;
 	solLiberar->offset=solicitudHeap->pointer % tamanio_pagina;
-	solLiberar->contenido=4;
+	solLiberar->tamanio=4;
 	solLiberar->pagina = solicitudHeap->pointer / tamanio_pagina;
 
 	int numeroPagina, nroBloque;
@@ -2802,13 +2797,14 @@ void liberarHeap(int socketCPU, t_struct_sol_heap * solicitudHeap){
 		return;
 	}
 
-	solLiberar->contenido = 5;
+	solLiberar->tamanio = 5;
 	solLiberar->offset= solLiberar->offset-5;
 
 	t_struct_metadataHeap* heap = generarHeapMetadata(size,true);
 
+	solLiberar->contenido = heap;
+
 	socket_enviar(socketMemoria,D_STRUCT_LIBERAR_HEAP,solLiberar);
-	socket_enviar(socketMemoria,D_STRUCT_METADATA_HEAP,heap);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;

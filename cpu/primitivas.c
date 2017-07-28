@@ -175,11 +175,14 @@ void asignar(t_puntero direccion, t_valor_variable valor) {
 
 	var_escritura->pagina = direccion / tamanio_pagina;
 	var_escritura->offset = direccion % tamanio_pagina;
-	var_escritura->contenido = valor;
+	var_escritura->tamanio = sizeof(t_valor_variable);
 	var_escritura->PID = pcbEjecutando->PID;
+	var_escritura->contenido = malloc(sizeof(t_valor_variable));
 
-	log_trace(logger, "Solicitud Escritura -> Página: %i, Offset: %i, Contenido: %d.",
-			var_escritura->pagina, var_escritura->offset, valor);
+	memcpy(var_escritura->contenido, &valor, sizeof(t_valor_variable));
+
+	log_trace(logger, "Solicitud Escritura -> Página: %i, Offset: %i, Size: %i, Contenido: %s.",
+			var_escritura->pagina, var_escritura->offset, var_escritura->tamanio, var_escritura->contenido);
 
 	socket_enviar(socketMemoria, D_STRUCT_SOL_ESCR, var_escritura);
 
@@ -805,7 +808,7 @@ void leer(t_descriptor_archivo fdArchivo, t_puntero informacion, t_valor_variabl
 
 		t_struct_string * lectura = ((t_struct_string*) structRecibido);
 
-		asignar(informacion,atoi(lectura->string));
+		asignar(informacion,&lectura->string);
 
 		log_trace(logger, "Lectura de archivo exitosa por el PID %d",pcbEjecutando->PID);
 

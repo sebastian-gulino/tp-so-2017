@@ -189,7 +189,7 @@ void manejarCpu(int socketCPU){
 			t_struct_sol_escritura * direccionEscribir = ((t_struct_sol_escritura* )structRecibido);
 
 			bool resultadoEscribir = escribirPagina(direccionEscribir->pagina, direccionEscribir->PID,
-					direccionEscribir->offset, sizeof(int), &direccionEscribir->contenido);
+					direccionEscribir->offset, direccionEscribir->tamanio, direccionEscribir->contenido);
 
 			if(resultadoEscribir){
 
@@ -293,14 +293,8 @@ void manejarKernel(int socketKernel){
 
 				solicitudEscritura = (t_struct_sol_escritura* )structRecibido;
 
-				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
-
-				t_struct_programa * codigoPrograma = malloc(sizeof(t_struct_programa));
-
-				codigoPrograma = (t_struct_programa* )structRecibido;
-
 				bool sePudoEscribir = escribirPagina(solicitudEscritura->pagina,solicitudEscritura->PID,
-						solicitudEscritura->offset,solicitudEscritura->contenido, codigoPrograma->buffer);
+						solicitudEscritura->offset,solicitudEscritura->tamanio, solicitudEscritura->contenido);
 
 				if(!sePudoEscribir){
 					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", solicitudEscritura->PID);
@@ -309,7 +303,6 @@ void manejarKernel(int socketKernel){
 				}
 
 				free(solicitudEscritura);
-				free(codigoPrograma);
 
 				break;
 
@@ -341,14 +334,8 @@ void manejarKernel(int socketKernel){
 
 				solicitudEscrituraHeap = (t_struct_sol_escritura* )structRecibido;
 
-				socket_recibir(socketKernel,&tipoEstructura,&structRecibido);
-
-				t_struct_metadataHeap * metadata = malloc(sizeof(t_struct_metadataHeap));
-
-				metadata = (t_struct_metadataHeap* )structRecibido;
-
 				bool sePudoEscribirHeap = escribirPagina(solicitudEscrituraHeap->pagina,solicitudEscrituraHeap->PID,
-						solicitudEscrituraHeap->offset,solicitudEscrituraHeap->contenido, metadata);
+						solicitudEscrituraHeap->offset,solicitudEscrituraHeap->tamanio, solicitudEscrituraHeap->contenido);
 
 				//Le comunico al kernel si se pudo realizar operacion
 				t_struct_numero* respuestaHeap = malloc(sizeof(t_struct_numero));
@@ -699,7 +686,7 @@ void actualizarCache(int pid,int pagina,void* punteroMarco){
 		cache[indiceCache].pid = pid;
 	} else {
 		pthread_mutex_lock(&mutex_log);
-		log_info(logger,"El proceso con PID d% no se guardo en la cache por alcanzar el maximo de Procesos x Cache.", pid);
+		log_info(logger,"El proceso con PID %d no se guardo en la cache por alcanzar el maximo de Procesos x Cache.", pid);
 		pthread_mutex_unlock(&mutex_log);
 	}
 }

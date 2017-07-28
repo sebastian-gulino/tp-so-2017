@@ -285,13 +285,22 @@ void obtenerDatos(t_struct_obtener * archivo){
 
 		}
 
-		string_append(&bufferToSend, dataObtenida);
+
+		t_struct_string * lecturaArchivo = malloc(sizeof(t_struct_string));
+		lecturaArchivo->string = dataObtenida;
+
+//		string_append(&bufferToSend, dataObtenida);
 //		memcpy(bufferToSend, dataObtenida, tamanioTotal);
 
-		toSend->obtenido = bufferToSend;
+//		toSend->obtenido = bufferToSend;
 
 		toSend->confirmacion = FS_LEER_OK;
 		socket_enviar(socketCliente, D_STRUCT_OBTENER, toSend);
+
+		socket_enviar(socketCliente, D_STRUCT_STRING, lecturaArchivo);
+
+		free(lecturaArchivo);
+
 		log_info(logger, "Se leyeron %d bytes de datos del archivo en el path: %s", tamanioTotal, pathFile);
 		return;
 
