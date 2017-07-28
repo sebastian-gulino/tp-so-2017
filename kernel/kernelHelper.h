@@ -137,9 +137,9 @@ void crearArchivosPorProceso(int PID);
 void abrirArchivo(int socketCPU,t_struct_archivo * archivo);
 void leerArchivo(int socketCPU,t_struct_archivo * archivo);
 void escribirArchivo(int socketCPU,t_struct_archivo * archivo);
-void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo);
-void borrarArchivo(int socketCPU,t_struct_archivo * archivo);
-void cerrarArchivo(int socketCPU,t_struct_archivo * archivo);
+void moverCursorArchivo(int socketCPU,t_struct_sol_lectura * archivoMover);
+void borrarArchivo(int socketCPU,t_struct_sol_lectura * archivoBorrar);
+void cerrarArchivo(int socketCPU,t_struct_sol_lectura * archivoCerrar);
 
 void grabarVariableCompartida(int socketCPU, t_struct_var_compartida * grabarVarCompartida);
 void obtenerVariableCompartida(int socketCPU, char * varCompartida);

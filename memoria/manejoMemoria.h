@@ -102,6 +102,9 @@ void imprimirTablaPaginas();
 
 void imprimirCache();
 
+int aplicarFuncionHash(int pid, int pagina);
+int aplicarManejoColisiones(int frame);
+
 int obtenerPrimerosNFramesLibres(int pid, int cantidad);
 
 bool liberarPagina(int pagina, int pid);

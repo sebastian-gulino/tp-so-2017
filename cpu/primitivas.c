@@ -541,8 +541,6 @@ void liberar(t_puntero puntero) {
 
 t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
-//	char * direccionLimpia = prepararInstruccion(direccion);
-
 	log_info(logger,"Se ingreso a la funcion kernel Abrir archivo para el path %s",direccion);
 
 	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
@@ -568,21 +566,25 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags) {
 
 		log_error(logger, "El kernel se desconecto del sistema");
 		pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
-//		free(direccionLimpia);
 		return -1;
 
 	} else {
 
 		int archivo = ((t_struct_numero*) structRecibido)->numero;
 
-		if(archivo==KERNEL_ERROR){
+		if(archivo==FS_ABRIR_CREAR_ERROR){
 
-			log_trace(logger, "Error de apertura de archivo para el PID %d",pcbEjecutando->PID);
-			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_APERTURA;
-
+			log_error(logger, "El archivo para el PID %d no se pudo crear por falta de espacio",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_ESPACIO_ARCHIVO;
 			free(structRecibido);
 			structRecibido = NULL;
-//			free(direccionLimpia);
+			return -1;
+
+		} else if (archivo==FS_ABRIR_NO_CREAR_ERROR){
+			log_error(logger, "El archivo para el PID %d no se pudo crear por falta de permisos",pcbEjecutando->PID);
+			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_ABRIR;
+			free(structRecibido);
+			structRecibido = NULL;
 			return -1;
 		}
 
@@ -599,15 +601,14 @@ void borrar(t_descriptor_archivo fdArchivo) {
 
 	log_info(logger,"Se ingreso a la funcion kernel Borrar archivo para el FD %d",fdArchivo);
 
-	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	t_struct_sol_lectura * archivo = malloc(sizeof(t_struct_sol_lectura));
 
-	archivo->fileDescriptor=fdArchivo;
-	archivo->pid=pcbEjecutando->PID;
-	archivo->tamanio=0;
+	archivo->pagina=fdArchivo;
+	archivo->PID=pcbEjecutando->PID;
+	archivo->contenido=0;
+	archivo->offset=0;
 
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_BOR,archivo);
-
-	free(archivo);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -638,21 +639,21 @@ void borrar(t_descriptor_archivo fdArchivo) {
 		}
 
 	}
+	free(archivo);
 }
 
 void cerrar(t_descriptor_archivo fdArchivo) {
 
 	log_info(logger,"Se ingreso a la funcion kernel Cerrar archivo para el FD %d",fdArchivo);
 
-	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	t_struct_sol_lectura * archivo = malloc(sizeof(t_struct_sol_lectura));
 
-	archivo->fileDescriptor=fdArchivo;
-	archivo->pid=pcbEjecutando->PID;
-	archivo->tamanio=0;
+	archivo->pagina=fdArchivo;
+	archivo->PID=pcbEjecutando->PID;
+	archivo->offset=0;
+	archivo->contenido=0;
 
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_CER,archivo);
-
-	free(archivo);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -679,24 +680,23 @@ void cerrar(t_descriptor_archivo fdArchivo) {
 
 			free(structRecibido);
 			structRecibido = NULL;
-
 		}
 	}
+	free(archivo);
 }
 
 void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 
 	log_info(logger,"Se ingreso a la funcion kernel Mover Cursor Archivo para el FD %d",fdArchivo);
 
-	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	t_struct_sol_lectura * moverCursor = malloc(sizeof(t_struct_sol_lectura));
 
-	archivo->fileDescriptor=fdArchivo;
-	archivo->pid=pcbEjecutando->PID;
-	archivo->tamanio=posicion;
+	moverCursor->pagina=fdArchivo;
+	moverCursor->PID=pcbEjecutando->PID;
+	moverCursor->offset=posicion;
+	moverCursor->contenido=0;
 
-	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_MOV,archivo);
-
-	free(archivo);
+	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_MOV,moverCursor);
 
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
@@ -718,15 +718,13 @@ void moverCursor(t_descriptor_archivo fdArchivo, t_valor_variable posicion) {
 			free(structRecibido);
 			structRecibido = NULL;
 		} else {
-
 			log_trace(logger, "Proceso #%d pudo mover el cursor dentro del archivo %d",pcbEjecutando->PID,fdArchivo);
 
 			free(structRecibido);
 			structRecibido = NULL;
-
 		}
-
 	}
+	free(moverCursor);
 }
 
 void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variable tamanio) {

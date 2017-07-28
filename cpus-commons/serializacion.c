@@ -154,13 +154,16 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_ABR);
 				break;
 			case D_STRUCT_ARCHIVO_BOR:
-				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_BOR);
+				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_ARCHIVO_BOR);
+				break;
+			case D_STRUCT_ARCHIVO_BORRAR:
+				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_BORRAR);
 				break;
 			case D_STRUCT_ARCHIVO_CER:
-				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_CER);
+				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_ARCHIVO_CER);
 				break;
 			case D_STRUCT_ARCHIVO_MOV:
-				paquete = serializeStruct_archivo_esc((t_struct_archivo *) estructuraOrigen, D_STRUCT_ARCHIVO_MOV);
+				paquete = serializeStruct_solLect((t_struct_sol_lectura *) estructuraOrigen, D_STRUCT_ARCHIVO_MOV);
 				break;
 			case D_STRUCT_BORRAR:
 				paquete = serializeStruct_borrar((t_struct_borrar *) estructuraOrigen);
@@ -890,14 +893,17 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 			case D_STRUCT_ARCHIVO_ABR:
 				estructuraDestino = deserializeStruct_archivo_esc(dataPaquete, length);
 				break;
-			case D_STRUCT_ARCHIVO_CER:
+			case D_STRUCT_ARCHIVO_BORRAR:
 				estructuraDestino = deserializeStruct_archivo_esc(dataPaquete, length);
+				break;
+			case D_STRUCT_ARCHIVO_CER:
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_ARCHIVO_BOR:
-				estructuraDestino = deserializeStruct_archivo_esc(dataPaquete, length);
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_ARCHIVO_MOV:
-				estructuraDestino = deserializeStruct_archivo_esc(dataPaquete, length);
+				estructuraDestino = deserializeStruct_solLect(dataPaquete, length);
 				break;
 			case D_STRUCT_BORRAR:
 				estructuraDestino = deserializeStruct_borrar(dataPaquete, length);

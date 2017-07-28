@@ -327,9 +327,9 @@ void manejarCpu(int socketCPU){
 		case D_STRUCT_ARCHIVO_BOR: ;
 
 			// La cpu quiere borrar un archivo
-			t_struct_archivo * archivoBorrar = ((t_struct_archivo*) structRecibido);
+			t_struct_sol_lectura * archivoBorrar = ((t_struct_sol_lectura*) structRecibido);
 
-			log_info(logger,"La CPU %d quiere borrar un archivo para el proceso %d",socketCPU,archivoBorrar->pid);
+			log_info(logger,"La CPU %d quiere borrar un archivo para el proceso %d",socketCPU,archivoBorrar->PID);
 
 			borrarArchivo(socketCPU,archivoBorrar);
 
@@ -338,9 +338,9 @@ void manejarCpu(int socketCPU){
 		case D_STRUCT_ARCHIVO_CER: ;
 
 			// La cpu quiere cerrar un archivo
-			t_struct_archivo * archivoCerrar = ((t_struct_archivo*) structRecibido);
+			t_struct_sol_lectura * archivoCerrar = ((t_struct_sol_lectura*) structRecibido);
 
-			log_info(logger,"La CPU %d quiere cerrar un archivo para el proceso %d",socketCPU,archivoCerrar->pid);
+			log_info(logger,"La CPU %d quiere cerrar un archivo para el proceso %d",socketCPU,archivoCerrar->PID);
 
 			cerrarArchivo(socketCPU, archivoCerrar);
 
@@ -349,9 +349,9 @@ void manejarCpu(int socketCPU){
 		case D_STRUCT_ARCHIVO_MOV: ;
 
 			// La cpu quiere mover el cursor dentro de un archivo
-			t_struct_archivo * archivoMover = ((t_struct_archivo*) structRecibido);
+			t_struct_sol_lectura * archivoMover = ((t_struct_sol_lectura*) structRecibido);
 
-			log_info(logger,"La CPU %d quiere mover el cursor para un archivo para el proceso %d",socketCPU,archivoMover->pid);
+			log_info(logger,"La CPU %d quiere mover el cursor para un archivo para el proceso %d",socketCPU,archivoMover->PID);
 
 			moverCursorArchivo(socketCPU, archivoMover);
 
@@ -1663,7 +1663,7 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	} else {
 
-		resultadoAbrir->numero = KERNEL_ERROR;
+		resultadoAbrir->numero = respuestaAbrir->numero;
 
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoAbrir);
 		log_info(logger,"El archivo solicitado por el proceso %d no se pudo abrir ni crear", archivo->pid);
@@ -1673,9 +1673,14 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 }
 
-void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
+void borrarArchivo(int socketCPU,t_struct_sol_lectura * archivoBorrar){
 
 	t_struct_numero * resultadoBorrar = malloc(sizeof(t_struct_numero));
+
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	archivo->fileDescriptor=archivoBorrar->pagina;
+	archivo->pid=archivoBorrar->PID;
+	archivo->tamanio=archivoBorrar->offset;
 
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
@@ -1685,7 +1690,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
-
+		free(archivo);
 		free(resultadoBorrar);
 		return;
 	}
@@ -1695,7 +1700,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
-
+		free(archivo);
 		free(resultadoBorrar);
 		return;
 	}
@@ -1716,7 +1721,7 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		pathBorrar->string = nombreLimpio;
 
 		//Puedo borrarlo, se lo pido al FS..
-		socket_enviar(socketFS,D_STRUCT_ARCHIVO_BOR,archivo);
+		socket_enviar(socketFS,D_STRUCT_ARCHIVO_BORRAR,archivo);
 
 		socket_enviar(socketFS,D_STRUCT_STRING,pathBorrar);
 
@@ -1744,11 +1749,17 @@ void borrarArchivo(int socketCPU,t_struct_archivo * archivo){
 
 		}
 	}
+	free(archivo);
 }
 
-void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
+void cerrarArchivo(int socketCPU,t_struct_sol_lectura * archivoCerrar){
 
 	t_struct_numero * resultadoBorrar = malloc(sizeof(t_struct_numero));
+
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	archivo->fileDescriptor=archivoCerrar->pagina;
+	archivo->pid=archivoCerrar->PID;
+	archivo->tamanio=archivoCerrar->offset;
 
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
@@ -1761,7 +1772,7 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
-
+		free(archivo);
 		free(resultadoBorrar);
 		return;
 	}
@@ -1771,7 +1782,7 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoBorrar->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
-
+		free(archivo);
 		free(resultadoBorrar);
 		return;
 	}
@@ -1787,15 +1798,20 @@ void cerrarArchivo(int socketCPU,t_struct_archivo * archivo){
 	resultadoBorrar->numero = KERNEL_OK;
 	socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoBorrar);
 	log_info(logger,"El proceso %d pudo cerrar el archivo solicitado", archivo->pid);
-
+	free(archivo);
 	free(resultadoBorrar);
 
 
 }
 
-void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
+void moverCursorArchivo(int socketCPU,t_struct_sol_lectura * archivoMover){
 
 	t_struct_numero * resultadoMover = malloc(sizeof(t_struct_numero));
+
+	t_struct_archivo * archivo = malloc(sizeof(t_struct_archivo));
+	archivo->fileDescriptor=archivoMover->pagina;
+	archivo->pid=archivoMover->PID;
+	archivo->tamanio=archivoMover->offset;
 
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
 	registroInfo->syscall++;
@@ -1806,7 +1822,7 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 		resultadoMover->numero = KERNEL_ERROR;
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
 		log_info(logger,"El proceso %d no tiene archivos abiertos", &(archivo->pid));
-
+		free(archivo);
 		free(resultadoMover);
 		return;
 	}
@@ -1816,7 +1832,7 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 	resultadoMover->numero = KERNEL_OK;
 	socket_enviar(socketCPU,D_STRUCT_NUMERO,resultadoMover);
 	log_info(logger,"El proceso %d movio el cursor dentro del archivo solicitado", archivo->pid);
-
+	free(archivo);
 	free(resultadoMover);
 
 }
@@ -2027,12 +2043,14 @@ int determinarExitCode(t_struct_pcb * pcb){
 
 	if(motivoRetorno==D_STRUCT_ERROR_MEMORIA) return EC_EXCEP_MEMORIA;
 	if(motivoRetorno==D_STRUCT_ERROR_KERNEL) return EC_DESCONEXION_KERNEL;
-	if(motivoRetorno==D_STRUCT_ERROR_ESCRITURA) return EC_ARCHIVO_LE_PERMISOS;
-	if(motivoRetorno==D_STRUCT_ERROR_LECTURA) return EC_ARCHIVO_ES_PERMISOS;
+	if(motivoRetorno==D_STRUCT_ERROR_ESCRITURA) return EC_ARCHIVO_ES_PERMISOS;
+	if(motivoRetorno==D_STRUCT_ERROR_LECTURA) return EC_ARCHIVO_LE_PERMISOS;
 	if(motivoRetorno==D_STRUCT_ERROR_HEAP_MAX) return EC_RESERVA_MAYOR_PAGINA;
 	if(motivoRetorno==D_STRUCT_ERROR_STACK_OVERFLOW) return EC_STACK_OVERFLOW;
 	if(motivoRetorno==D_STRUCT_ERROR_HEAP) return EC_EXCEP_MEMORIA;
 	if(motivoRetorno==D_STRUCT_ERROR_HEAP_LIB) return EC_EXCEP_MEMORIA;
+	if(motivoRetorno==D_STRUCT_ERROR_ABRIR) return EC_ARCHIVO_INEX;
+	if(motivoRetorno==D_STRUCT_ERROR_ESPACIO_ARCHIVO) return EC_ESPACIO_ARCHIVO;
 
 	return EC_SIN_DEFINICION;
 
@@ -2040,10 +2058,16 @@ int determinarExitCode(t_struct_pcb * pcb){
 
 void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 
-	t_cpu * cpu = obtenerCPUporSocket(socketCPU,desconectarCPU);
+	t_cpu * cpu = obtenerCPUporSocket(socketCPU,true);
 
 	if(cpu->PID!=-1){
 		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
+
+		if(!desconectarCPU) {
+			cpu->PID = -1;
+			list_add(listaCpuLibres,cpu);
+			ejecutarPlanificacion(0);
+		}
 
 		if(pcb->estado==E_EXEC){
 			pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
@@ -2536,6 +2560,7 @@ void revisarPaginaslibres(t_registroTablaHeap * paginaRevisar){
 
 		socket_recibir(socketMemoria,&tipoEstructura,&structRecibido);
 		t_struct_numero * respuestaMemoria = ((t_struct_numero*) structRecibido);
+
 
 		if (respuestaMemoria->numero == MEMORIA_OK) {
 

@@ -1,7 +1,7 @@
 #include "consolaHelper.h"
 
 
-cargarConfiguracion(){
+void cargarConfiguracion(){
 
 	t_config * config;
 	pathConfiguracion = "./config.txt";
@@ -288,9 +288,11 @@ void recibirMensajes(t_proceso* proceso){
 				if(pcbFinOk->exitcode==EC_DESCONEXION_KERNEL) printf("El proceso con PID:%d finalizó por desconectarse el kernel \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_EXCEP_MEMORIA) printf("El proceso con PID:%d finalizó por una excepcion de memoria \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_FINALIZADO_CONSOLA) printf("El proceso con PID:%d fue finalizado por consola \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_FINALIZADO_CONSOLA_KERNEL) printf("El proceso con PID:%d fue finalizado por la consola del kernel \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_MAXIMO_PAGINAS) printf("El proceso con PID:%d finalizó por solicitar mas paginas del valor maximo \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_RESERVA_MAYOR_PAGINA) printf("El proceso con PID:%d finalizó por intentar reservar heap mayor al tamano de pagina \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_STACK_OVERFLOW) printf("El proceso con PID:%d finalizó por STACK OVERFLOW \n",proceso->pid);
+				if(pcbFinOk->exitcode==EC_ESPACIO_ARCHIVO) printf("El proceso con PID:%d finalizó por quedarse sin espacio para un archivo \n",proceso->pid);
 				if(pcbFinOk->exitcode==EC_SIN_DEFINICION) printf("El proceso con PID:%d finalizó por un error sin definicion \n",proceso->pid);
 
 				free(structRecibido);

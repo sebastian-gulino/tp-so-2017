@@ -364,13 +364,20 @@ void manejarKernel(int socketKernel){
 
 				bool sePudoLiberar = liberarPagina(liberarPaginaHeap->pointer,liberarPaginaHeap->pid);
 
+				//Le comunico al kernel si se pudo realizar operacion
+				t_struct_numero* respuestaLiberarPagina = malloc(sizeof(t_struct_numero));
+				respuestaLiberarPagina->numero = sePudoLiberar ? MEMORIA_OK : MEMORIA_ERROR;
+
+				socket_enviar(socketKernel, D_STRUCT_NUMERO, respuestaLiberarPagina);
+
 				if(!sePudoLiberar){
-					log_error(logger,"No se pudo escribir el codigo en memoria del proceso PID", liberarPaginaHeap->pid);
+					log_error(logger,"No se pudo liberar la pagina de heap %d del PID %d", liberarPaginaHeap->pointer,liberarPaginaHeap->pid);
 				} else {
-					log_info(logger, "Se escribio correctamente el codigo del proceso PID %d en memoria", liberarPaginaHeap->pid);
+					log_info(logger, "Se pudo liberar la pagina de heap %d del PID %d", liberarPaginaHeap->pointer,liberarPaginaHeap->pid);
 				}
 
 				free(liberarPaginaHeap);
+				free(respuestaLiberarPagina);
 
 				break;
 			}

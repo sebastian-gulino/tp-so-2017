@@ -237,7 +237,7 @@ void manejarKernel(int i){
 
 			break;
 
-			case D_STRUCT_ARCHIVO_BOR: ;
+			case D_STRUCT_ARCHIVO_BORRAR: ;
 
 				socket_recibir(socketCliente,&tipoEstructura,&structRecibido);
 				t_struct_string * pathBorrar = ((t_struct_string*) structRecibido);
