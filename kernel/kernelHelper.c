@@ -1594,7 +1594,10 @@ void abrirArchivo(int socketCPU,t_struct_archivo * archivo){
 
 	t_registroArchivosProc * registroArchivoProceso = malloc(sizeof(t_registroArchivosProc));
 
-	registroArchivoProceso->flags=archivo->flags;
+	registroArchivoProceso->flags.creacion = archivo->flags.creacion;
+	registroArchivoProceso->flags.escritura = archivo->flags.escritura;
+	registroArchivoProceso->flags.lectura = archivo->flags.lectura;
+
 	int existeEnTablaGlobal = obtenerArchivoTablaGlobal(archivo);
 
 	socket_enviar(socketFS,D_STRUCT_ARCHIVO_ABR,archivo);
@@ -1820,15 +1823,6 @@ void moverCursorArchivo(int socketCPU,t_struct_archivo * archivo){
 
 void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 
-	int crear,escribir,leer = 0;
-	if(archivo->flags.creacion) crear=1;
-	if(archivo->flags.escritura) escribir=1;
-	if(archivo->flags.lectura) leer=1;
-
-	log_info(logger,"El flag de crear vino en %d",crear);
-	log_info(logger,"El flag de escribir vino en %d",escribir);
-	log_info(logger,"El flag de leer vino en %d",leer);
-
 	t_struct_numero * resultadoEscribir = malloc(sizeof(t_struct_numero));
 
 	t_registroInformacionProceso * registroInfo = recuperarInformacionProceso(archivo->pid);
@@ -1890,6 +1884,10 @@ void escribirArchivo(int socketCPU,t_struct_archivo * archivo){
 		t_struct_numero * offset = malloc(sizeof(t_struct_numero));
 
 		offset->numero=registroArchivoProceso->cursor;
+
+		archivo->flags.creacion = registroArchivoProceso->flags.creacion;
+		archivo->flags.escritura = registroArchivoProceso->flags.escritura;
+		archivo->flags.lectura = registroArchivoProceso->flags.lectura;
 
 		//Envio el archivo que tengo que escribir al filesystem
 		socket_enviar(socketFS,D_STRUCT_ARCHIVO_ESC,archivo);
