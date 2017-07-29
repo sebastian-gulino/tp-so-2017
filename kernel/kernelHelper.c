@@ -230,7 +230,7 @@ void manejarCpu(int socketCPU){
 
 	if (socket_recibir(socketCPU,&tipoEstructura,&structRecibido) == -1) {
 		log_info(logger,"El Cpu %d cerró la conexión.",socketCPU);
-//		matarProcesoEnEjecucion(socketCPU, true);
+		matarProcesoEnEjecucion(socketCPU, true);
 		removerClientePorCierreDeConexion(socketCPU,&master_cpu);
 
 	} else {
@@ -306,8 +306,6 @@ void manejarCpu(int socketCPU){
 			break;
 
 		case D_STRUCT_FIN_INSTRUCCION: ;
-
-			log_info(logger,"La CPU %d finalizo una instruccion reejecuto la logica de planificacion",socketCPU);
 
 			ejecutarPlanificacion(socketCPU);
 
@@ -1428,9 +1426,6 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 			removerDeCola(cola_block,cola_ready,E_READY,pcbRecuperado->PID,false,false,false);
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
-			if(list_size(listaCpuLibres)>0){
-				ejecutarPlanificacion(0);
-			}
 			break;
 		}
 	}
@@ -1496,13 +1491,15 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 					string_append(&(registro->semaforo_bloqueo),waitSemaforo);
 
+					removerDeCola(cola_exec,cola_block,E_BLOCK,pcbBloqueado->PID,false,false,false);
+
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
 					cpuProcesando->PID=-1;
 					cpuProcesando->quantum=0;
 
 					list_add(listaCpuLibres,cpuProcesando);
 
-					removerDeCola(cola_exec,cola_block,E_BLOCK,pcbBloqueado->PID,false,false,false);
+
 				}
 
 				if (list_size(cola_ready) > 0) {
@@ -2140,11 +2137,9 @@ void ejecutarPlanificacion(int socketCPU){
 		return;
 	}
 
-	log_info(logger,"Se ejecuta la logica de planificacion");
-
 	if(socketCPU != 0){
 
-		log_info(logger, "Se comienza a planificar para la cpu %d",socketCPU);
+		log_info(logger,"La CPU %d finalizo una instruccion reejecuto la logica de planificacion para la misma",socketCPU);
 
 		if(correspondeAbortarProcesoDeCPU(socketCPU)){
 
@@ -2159,6 +2154,8 @@ void ejecutarPlanificacion(int socketCPU){
 			socket_recibir(socketCPU,&tipoEstructura,&structRecibido);
 
 			t_struct_pcb * pcbEjecutando = ((t_struct_pcb*) structRecibido);
+
+			log_info(logger,"Corresponde abortar el PID %d que se encontraba corriendo en la cpu %d",pcbEjecutando->PID,socketCPU);
 
 			actualizarPCBExec(pcbEjecutando);
 
@@ -2179,6 +2176,7 @@ void ejecutarPlanificacion(int socketCPU){
 
 		if(string_equals_ignore_case(configuracion->algoritmo,"FIFO")){
 
+
 			t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
 			quantumSleep->numero=configuracion->quantumSleep;
 
@@ -2188,6 +2186,7 @@ void ejecutarPlanificacion(int socketCPU){
 
 			t_registroInformacionProceso * registro = recuperarInformacionProceso(cpu->PID);
 			registro->rafagas++;
+			log_info(logger,"CPU %d puede continuar la ejecucion del proceso %d - Alg: FIFO",socketCPU,cpu->PID);
 
 		} else {
 
@@ -2197,6 +2196,8 @@ void ejecutarPlanificacion(int socketCPU){
 
 				t_struct_numero * finQuantum = malloc(sizeof(t_struct_numero));
 				finQuantum->numero=1;
+
+				log_info(logger,"CPU %d se quedo sin quantum para el proceso %d - Alg: RR",socketCPU,cpu->PID);
 
 				socket_enviar(socketCPU,D_STRUCT_FIN_QUANTUM,finQuantum);
 
@@ -2211,6 +2212,8 @@ void ejecutarPlanificacion(int socketCPU){
 
 				removerDeCola(cola_exec,cola_ready,E_READY,pcbEjecutando->PID,false,false,false);
 
+				obtenerCPUporSocket(socketCPU,true);
+
 				cpu->PID = -1;
 				cpu->quantum=0;
 				list_add(listaCpuLibres,cpu);
@@ -2222,13 +2225,15 @@ void ejecutarPlanificacion(int socketCPU){
 				t_struct_numero * quantumSleep = malloc(sizeof(t_struct_numero));
 				quantumSleep->numero=configuracion->quantumSleep;
 
-				socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
-
 				t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
 
 				t_registroInformacionProceso * registro = recuperarInformacionProceso(cpu->PID);
 				registro->rafagas++;
 				cpu->quantum++;
+
+				log_info(logger,"CPU %d tiene quantum disponible continuo ejecutando el proceso %d - Alg: RR",socketCPU,cpu->PID);
+
+				socket_enviar(socketCPU,D_STRUCT_CONTINUAR_EJECUCION,quantumSleep);
 
 			}
 		}
