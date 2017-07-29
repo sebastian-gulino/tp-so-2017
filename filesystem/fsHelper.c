@@ -43,7 +43,7 @@ void setPuntoDeMontaje(){
 	}
 
 	sprintf(path,"%s/Metadata",configuracion->puntoMontaje);
-	sprintf(mtdt_command, "mkdir %s", configuracion->puntoMontaje);
+	sprintf(mtdt_command, "mkdir %s/Metadata", configuracion->puntoMontaje);
 	if(!opendir(path)){
 		system(mtdt_command);
 	} else {
@@ -51,7 +51,7 @@ void setPuntoDeMontaje(){
 	}
 
 	sprintf(path,"%s/Archivos",configuracion->puntoMontaje);
-	sprintf(arch_command, "mkdir %s", configuracion->puntoMontaje);
+	sprintf(arch_command, "mkdir %s/Archivos", configuracion->puntoMontaje);
 	if(!opendir(path)){
 		system(arch_command);
 	} else {
@@ -59,7 +59,7 @@ void setPuntoDeMontaje(){
 	}
 
 	sprintf(path,"%s/Bloques",configuracion->puntoMontaje);
-	sprintf(bloque_command, "mkdir %s", configuracion->puntoMontaje);
+	sprintf(bloque_command, "mkdir %s/Bloques", configuracion->puntoMontaje);
 	if(!opendir(path)){
 		system(bloque_command);
 	} else {
