@@ -378,10 +378,10 @@ void s_wait(t_nombre_semaforo semaforo) {
 		int bloqueado = ((t_struct_numero*) structRecibido)->numero;
 
 		if(bloqueado==1){
-			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_WAIT;
-			log_trace(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforoLimpio);
+			bloqueoWait=true;
+			log_info(logger, "Proceso #%d bloqueado al hacer WAIT del semáforo: '%s'.", pcbEjecutando->PID, semaforoLimpio);
 		} else if (bloqueado==0) {
-			log_trace(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", semaforoLimpio);
+			log_info(logger, "WAIT del semáforo: '%s'. No hubo bloqueo.", semaforoLimpio);
 		} else  {
 			pcbEjecutando->retornoPCB = D_STRUCT_ERROR_SEM;
 		}
@@ -738,6 +738,9 @@ void escribir(t_descriptor_archivo fdArchivo, void* informacion, t_valor_variabl
 	memcpy(archivo->informacion,informacion,tamanio);
 	archivo->tamanio=tamanio;
 	archivo->pid=pcbEjecutando->PID;
+	archivo->flags.creacion = false;
+	archivo->flags.escritura = false;
+	archivo->flags.lectura = false;
 
 	socket_enviar(socketKernel,D_STRUCT_ARCHIVO_ESC,archivo);
 

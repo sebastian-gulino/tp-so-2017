@@ -108,6 +108,9 @@ t_stream * serialize(int tipoEstructura, void * estructuraOrigen){
 			case D_STRUCT_FIN_INSTRUCCION:
 				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_FIN_INSTRUCCION);
 				break;
+			case D_STRUCT_BLOQUEO_WAIT:
+				paquete = serializeStruct_pcb((t_struct_pcb *) estructuraOrigen, D_STRUCT_BLOQUEO_WAIT);
+				break;
 			case D_STRUCT_SOL_ESCR:
 				paquete = serializeStruct_solEscr((t_struct_sol_escritura *) estructuraOrigen, D_STRUCT_SOL_ESCR);
 				break;
@@ -849,6 +852,9 @@ void * deserialize(uint8_t tipoEstructura, char * dataPaquete, uint16_t length){
 				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
 				break;
 			case D_STRUCT_FIN_INSTRUCCION:
+				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
+				break;
+			case D_STRUCT_BLOQUEO_WAIT:
 				estructuraDestino = deserializeStruct_pcb(dataPaquete, length);
 				break;
 			case D_STRUCT_SOL_ESCR:

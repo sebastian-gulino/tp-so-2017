@@ -30,7 +30,7 @@ t_configuracion * configuracion;
 char * pathConfiguracion;
 void cargarConfiguracion();
 
-bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma, seguirEjecutando;
+bool cpuLibre, signalFinalizarCPU, stackOverflow, finPrograma, seguirEjecutando, bloqueoWait;
 
 // Estructura que almacenara el pcb del proceso que la CPU esta ejecutando
 t_struct_pcb* pcbEjecutando;

@@ -1,6 +1,6 @@
 #include "cpuHelper.h"
 
-cargarConfiguracion(){
+void cargarConfiguracion(){
 
 	t_config * config;
 
@@ -63,6 +63,14 @@ int conectarAKernel (){
 		log_info(logger,"El quantum para la planificacion es %d",quantum);
 	}
 
+	if(socket_recibir(socketCliente, &tipoEstructura, &structRecibido) == -1){
+		log_info(logger,"No se recibió el quantum");
+	} else{
+		quantum = ((t_struct_numero*) structRecibido)->numero;
+
+		log_info(logger,"El quantum para la planificacion es %d",quantum);
+	}
+
 	return socketCliente;
 }
 
@@ -86,8 +94,6 @@ int conectarAMemoria (){
 		log_info(logger,"No se recibió el tamaño de pagina");
 	} else{
 
-		tamanio_pagina = malloc(sizeof(int32_t));
-
 		tamanio_pagina = ((t_struct_numero*) structRecibido)->numero;
 
 		log_info(logger,"El tamaño de pagina es %d",tamanio_pagina);
@@ -104,7 +110,9 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 		void* structRecibido;
 		t_tipoEstructura tipoEstructura;
 
-		if (socket_recibir(socketKernel, &tipoEstructura, &structRecibido) == -1) {
+		int resultado = socket_recibir(socketKernel, &tipoEstructura, &structRecibido);
+
+		if (resultado == -1) {
 
 			salirErrorCpu();
 
@@ -112,12 +120,11 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 			if (tipoEstructura == D_STRUCT_PCB){
 
-				pcbEjecutando = malloc(sizeof(t_struct_pcb));
-
 				pcbEjecutando = (t_struct_pcb*) structRecibido;
 
 				seguirEjecutando=true;
 				cpuLibre=false;
+				bloqueoWait=false;
 
 				ejecutarProceso(funcionesAnsisop,funciones_kernel);
 
@@ -129,7 +136,7 @@ void recibirProcesoKernel(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel func
 
 void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones_kernel){
 
-	log_info(logger,"Comienza a ejecutar el proceso %d", pcbEjecutando->PID);
+	log_info(logger,"Comienza a ejecutar el proceso %d en la CPU %d", pcbEjecutando->PID, pcbEjecutando->cpuID);
 
 	while(seguirEjecutando){
 
@@ -179,6 +186,16 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 
 				finPrograma = false;
 
+				return;
+			}
+			if(bloqueoWait){
+				log_error(logger, "Hubo bloqueo por wait, freno la ejecucion");
+				pcbEjecutando->programCounter++;
+
+				free(instruccionLimpia);
+				instruccionLimpia = NULL;
+
+				salirProceso();
 				return;
 			}
 
@@ -282,21 +299,20 @@ void liberarRegistroStack(registroStack* registroStack){
 
 void salirProceso(){
 
-	// Marco la cpu como disponible para un nuevo proceso
 	cpuLibre=true;
-	// Corto la condicion del while para no seguir leyendo instrucciones
 	seguirEjecutando=false;
+	stackOverflow=false;
 
 	if (pcbEjecutando->retornoPCB != 0){
 		log_info(logger,"El proceso finalizara por el motivo de retorno pcb %d",pcbEjecutando->retornoPCB);
 		socket_enviar(socketKernel, D_STRUCT_PCB_FIN_ERROR, pcbEjecutando);
 	} else if (signalFinalizarCPU){
 		log_info(logger,"El proceso finalizara por haberse realizado el signal SIGUSR1 en cpu");
-		socket_enviar(socketMemoria, D_STRUCT_SIGUSR1, pcbEjecutando);
+		socket_enviar(socketKernel, D_STRUCT_SIGUSR1, pcbEjecutando);
+	} else if (bloqueoWait){
+		log_info(logger,"El proceso frena su ejecucion por haberse producido un bloqueo por wait");
+		socket_enviar(socketKernel, D_STRUCT_BLOQUEO_WAIT, pcbEjecutando);
 	}
-
-	//Libero los recursos del pcb
-	//liberarPCB();
 
 	if (signalFinalizarCPU){
 
@@ -346,8 +362,7 @@ void inicializarEstructuras(){
 	signalFinalizarCPU = false;
 	finPrograma = false;
 	seguirEjecutando = true;
-
-	pcbEjecutando = malloc(sizeof(t_struct_pcb));
+	bloqueoWait = false;
 
 }
 

@@ -1022,7 +1022,7 @@ void liberarSemaforo(char* semaforo){
 
 	for (indice=0; indice < list_size(listaSemaforos); indice++){
 		semaforoRecuperado = list_get(listaSemaforos,indice);
-		if(string_equals_ignore_case(semaforoRecuperado->nombre,&semaforo)){
+		if(string_equals_ignore_case((char*)semaforoRecuperado->nombre,semaforo)){
 			semaforoRecuperado->valor++;
 			log_info(logger,"Se incrementa el semaforo %s",semaforoRecuperado->nombre);
 		}
@@ -1287,6 +1287,20 @@ void actualizarPCBExec(t_struct_pcb * pcbBuscado){
 	}
 }
 
+void actualizarPCBBlock(t_struct_pcb * pcbBuscado){
+
+	int indice;
+	t_struct_pcb * pcbRecuperado;
+
+	for(indice=0; indice < list_size(cola_block); indice++){
+		pcbRecuperado= list_get(cola_block,indice);
+		if(pcbRecuperado->PID==pcbBuscado->PID){
+			list_remove(cola_block,indice);
+			list_add_in_index(cola_block,indice,pcbBuscado);
+		}
+	}
+}
+
 t_cpu* buscarCPUenLista(t_list * lista, int socketCPU, bool quitarDeLista){
 
 	int indice;
@@ -1409,8 +1423,8 @@ void desbloquearProcesoEnWait(t_struct_semaforo * semaforoRecuperado){
 		t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbRecuperado->PID);
 
 		if(string_equals_ignore_case(registro->semaforo_bloqueo,*semaforoRecuperado->nombre)){
-			pcbRecuperado->retornoPCB = 0;
-
+			log_info(logger,"Con el signal realizado sobre el semaforo %s se desbloquea el proceso %d",
+					semaforoRecuperado->nombre,pcbRecuperado->PID);
 			removerDeCola(cola_block,cola_ready,E_READY,pcbRecuperado->PID,false,false,false);
 			free(registro->semaforo_bloqueo);registro->semaforo_bloqueo = string_new();
 
@@ -1442,19 +1456,17 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 			// Si el semaforo queda menor a 0 el proceso queda bloqueado lo informo con un 1, caso contrario 0
 			respuesta->numero = semaforoRecuperado->valor<0 ? 1 : 0;
 
-			socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
-			free(respuesta);
-
 			if(semaforoRecuperado->valor<0){
+
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+				free(respuesta);
 
 				t_tipoEstructura tipoEstructura;
 				void * structRecibido;
 
-				log_info(logger,"El semaforo %s se bloquea, verifico si corresponde matar el proceso o pasarlo a block",waitSemaforo);
+				socket_recibir(socketCPU,&tipoEstructura, &structRecibido);
 
-				socket_recibir(socketCPU,&tipoEstructura,&structRecibido);
-
-				t_struct_pcb * pcbBloqueado = ((t_struct_pcb*) structRecibido);
+				t_struct_pcb * pcbBloqueado = (t_struct_pcb*) structRecibido;
 
 				if(verificarProcesoFinalizar(pcbBloqueado)){
 
@@ -1470,10 +1482,10 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
 
 					cpuProcesando->PID=-1;
-
+					cpuProcesando->quantum=0;
 					list_add(listaCpuLibres,cpuProcesando);
-
 					semaforoRecuperado->valor++;
+
 				}else{
 					log_info(logger,"Corresponde pasar a block el proceso %d",pcbBloqueado->PID);
 
@@ -1486,6 +1498,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 					t_cpu* cpuProcesando = obtenerCPUporSocket(socketCPU, true);
 					cpuProcesando->PID=-1;
+					cpuProcesando->quantum=0;
 
 					list_add(listaCpuLibres,cpuProcesando);
 
@@ -1495,20 +1508,22 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 				if (list_size(cola_ready) > 0) {
 					ejecutarPlanificacion(0);
 				}
+
 			} else {
 
 				log_info(logger,"El semaforo %s no se bloquea, valor actual %d",waitSemaforo,semaforoRecuperado->valor);
-
+				socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
+				free(respuesta);
 			}
 		}
 	}
 
 	if(!encontreSemaforo){
 		respuesta->numero=-1;
+		log_info(logger,"No se pudo encontrar el semaforo buscado por el cpu %d",socketCPU);
 		socket_enviar(socketCPU,D_STRUCT_NUMERO,respuesta);
 		free(respuesta);
 	}
-
 }
 
 void realizarSignalSemaforo(int socketCPU,char * signalSemaforo){
@@ -2037,6 +2052,18 @@ bool correspondeAbortarProcesoDeCPU(int socketCPU){
 
 }
 
+bool procesoEnWait(int socketCPU){
+
+	t_cpu* cpu = obtenerCPUporSocket(socketCPU,false);
+
+	t_struct_pcb * pcb = buscarEnCola(cola_block,cpu->PID);
+
+	if(pcb!=NULL) return true;
+
+	return false;
+
+}
+
 int determinarExitCode(t_struct_pcb * pcb){
 
 	int motivoRetorno = pcb->retornoPCB;
@@ -2065,7 +2092,9 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 
 		if(!desconectarCPU) {
 			cpu->PID = -1;
+			cpu->quantum = 0;
 			list_add(listaCpuLibres,cpu);
+
 			ejecutarPlanificacion(0);
 		}
 
@@ -2096,6 +2125,9 @@ void ejecutarProximoProceso(t_cpu * cpuEjecutar){
 	t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbEjecutar->PID);
 	registro->rafagas++;
 	cpuEjecutar->PID=pcbEjecutar->PID;
+	cpuEjecutar->quantum=1;
+	list_add(listaCpuOcupadas,cpuEjecutar);
+	pcbEjecutar->cpuID=cpuEjecutar->socket;
 
 	socket_enviar(cpuEjecutar->socket,D_STRUCT_PCB,pcbEjecutar);
 
@@ -2131,19 +2163,14 @@ void ejecutarPlanificacion(int socketCPU){
 			actualizarPCBExec(pcbEjecutando);
 
 			removerDeCola(cola_exec,cola_exit,E_EXIT,pcbEjecutando->PID,true,false,true);
-
 			liberarMemoriaProceso(pcbEjecutando);
-
 			informarFinalizacionConsola(pcbEjecutando);
-
 			informarLiberarHeap(pcbEjecutando);
-
 			traerProcesoColaNew();
 
 			t_cpu* cpu = obtenerCPUporSocket(socketCPU,true);
-
 			cpu->PID = -1;
-
+			cpu->quantum=0;
 			list_add(listaCpuLibres,cpu);
 
 			ejecutarProximoProceso(cpu);
@@ -2184,7 +2211,9 @@ void ejecutarPlanificacion(int socketCPU){
 
 				removerDeCola(cola_exec,cola_ready,E_READY,pcbEjecutando->PID,false,false,false);
 
-				cpu->quantum=1;
+				cpu->PID = -1;
+				cpu->quantum=0;
+				list_add(listaCpuLibres,cpu);
 
 				ejecutarProximoProceso(cpu);
 
@@ -2202,7 +2231,6 @@ void ejecutarPlanificacion(int socketCPU){
 				cpu->quantum++;
 
 			}
-
 		}
 
 	} else {
@@ -2214,7 +2242,6 @@ void ejecutarPlanificacion(int socketCPU){
 
 		t_cpu* cpu = list_get(listaCpuLibres,0);
 		obtenerCPUporSocket(cpu->socket,true);
-		list_add(listaCpuOcupadas,cpu);
 
 		log_info(logger, "La cpu disponible para ejecutar la proxima rafaga es %d",cpu->socket);
 
@@ -2230,6 +2257,7 @@ void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 
 	t_cpu * cpu = obtenerCPUporSocket(socketCPU,true);
 	cpu->PID = -1;
+	cpu->quantum = 0;
 	list_add(listaCpuLibres,cpu);
 
 	pcbFinalizado->exitcode=EC_FINALIZO_OK;
