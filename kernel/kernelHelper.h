@@ -117,6 +117,7 @@ void manejarNuevaConexion(int listener, int *fdmax);
 int obtener_pid();
 
 void removerClientePorCierreDeConexion(int cliente, fd_set *fdSet);
+t_cpu* obtenerCPUporSocket(int socketCPU, bool quitarDeLista);
 
 void enviarConfiguracion(int socketCliente, int valor);
 

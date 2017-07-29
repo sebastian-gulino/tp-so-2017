@@ -410,7 +410,6 @@ void manejarConsola(int socketConsola){
 	if (socket_recibir(socketConsola,&tipoEstructura,&structRecibido) == -1) {
 
 		log_info(logger,"La Consola %d cerró la conexión.",socketConsola);
-		//TODO incluir para eliminar de la lista de consolas
 		abortarPrograma(socketConsola,false);
 		removerClientePorCierreDeConexion(socketConsola,&master_consola);
 
@@ -569,6 +568,7 @@ void crearThreadAtenderConexiones(){
 
 void removerClientePorCierreDeConexion(int cliente, fd_set *fdSet) {
 
+	obtenerCPUporSocket(cliente,true);
 	//Elimino el cliente del fd_set
 	FD_CLR(cliente,fdSet);
 
@@ -903,7 +903,7 @@ void inicializarProceso(int socketConsola, char * programa, int tamanio_programa
 
 	}
 
-	if (list_size(cola_ready) > 0 && list_size(listaCpuLibres) > 0) {
+	if (list_size(cola_ready) > 0) {
 		ejecutarPlanificacion(0);
 	}
 
@@ -1170,8 +1170,7 @@ void eliminarProcesoLista(t_registroTablaProcesos * proceso){
 void informarFinalizacionConsola(t_struct_pcb * pcb){
 
 	t_registroTablaProcesos * proceso = obtenerConsolaPorPID(pcb->PID);
-
-	socket_enviar(proceso->socket,D_STRUCT_FIN_PCB,pcb);
+	if(pcb->exitcode!=EC_DESCONEXION_CONSOLA) socket_enviar(proceso->socket,D_STRUCT_FIN_PCB,pcb);
 	eliminarProcesoLista(proceso);
 }
 
@@ -1410,7 +1409,7 @@ void traerProcesoColaNew(){
 	free(programa);
 	free(structRecibido);
 
-	if(list_size(listaCpuLibres)>0){
+	if(list_size(cola_ready)>0){
 		ejecutarPlanificacion(0);
 	}
 
@@ -1507,7 +1506,7 @@ void realizarWaitSemaforo(int socketCPU,char * waitSemaforo){
 
 				}
 
-				if (list_size(cola_ready) > 0) {
+				if (list_size(cola_ready) > 0 ) {
 					ejecutarPlanificacion(0);
 				}
 
@@ -2089,26 +2088,23 @@ void matarProcesoEnEjecucion(int socketCPU, bool desconectarCPU){
 
 	t_cpu * cpu = obtenerCPUporSocket(socketCPU,true);
 
-	if(cpu->PID!=-1){
-		t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
+	t_struct_pcb * pcb = obtenerPCBActivo(cpu->PID);
 
-		if(!desconectarCPU) {
-			cpu->PID = -1;
-			cpu->quantum = 0;
-			list_add(listaCpuLibres,cpu);
+	cpu->PID = -1;
+	cpu->quantum = 0;
+	list_add(listaCpuLibres,cpu);
 
-			ejecutarPlanificacion(0);
-		}
-
-		if(pcb->estado==E_EXEC){
-			pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
-			liberarMemoriaProceso(pcb);
-			informarLiberarHeap(pcb);
-			informarFinalizacionConsola(pcb);
-			removerDeCola(cola_exec,cola_exit,E_EXIT,pcb->PID,true,true,true);
-			traerProcesoColaNew();
-		}
+	if(pcb->estado==E_EXEC){
+		pcb->exitcode= desconectarCPU ? EC_DESCONEXION_CPU : determinarExitCode(pcb);
+		liberarMemoriaProceso(pcb);
+		informarLiberarHeap(pcb);
+		informarFinalizacionConsola(pcb);
+		removerDeCola(cola_exec,cola_exit,E_EXIT,pcb->PID,true,true,true);
+		traerProcesoColaNew();
 	}
+
+	ejecutarPlanificacion(0);
+
 }
 
 void ejecutarProximoProceso(t_cpu * cpuEjecutar){
@@ -2126,11 +2122,14 @@ void ejecutarProximoProceso(t_cpu * cpuEjecutar){
 
 	t_registroInformacionProceso * registro = recuperarInformacionProceso(pcbEjecutar->PID);
 	registro->rafagas++;
+
+	obtenerCPUporSocket(cpuEjecutar->socket,true);
 	cpuEjecutar->PID=pcbEjecutar->PID;
 	cpuEjecutar->quantum=1;
 	list_add(listaCpuOcupadas,cpuEjecutar);
 	pcbEjecutar->cpuID=cpuEjecutar->socket;
 
+	log_info(logger,"Voy a enviar a ejecutar el PID %d a la cpu %d",pcbEjecutar->PID,cpuEjecutar->socket);
 	socket_enviar(cpuEjecutar->socket,D_STRUCT_PCB,pcbEjecutar);
 
 }
@@ -2223,6 +2222,7 @@ void ejecutarPlanificacion(int socketCPU){
 				cpu->quantum=0;
 				list_add(listaCpuLibres,cpu);
 
+				log_info(logger,"Vino de que se quedo sin quantum");
 				ejecutarProximoProceso(cpu);
 
 			} else {
@@ -2251,7 +2251,6 @@ void ejecutarPlanificacion(int socketCPU){
 		}
 
 		t_cpu* cpu = list_get(listaCpuLibres,0);
-		obtenerCPUporSocket(cpu->socket,true);
 
 		log_info(logger, "La cpu disponible para ejecutar la proxima rafaga es %d",cpu->socket);
 
