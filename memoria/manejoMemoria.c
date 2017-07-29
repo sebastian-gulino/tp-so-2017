@@ -622,19 +622,19 @@ t_resultadoLectura leerPagina(int pagina, int pid, int offset, int tamanio){
 	resultado.resultado = false;
 	resultado.contenido = malloc(tamanio);
 	if(indiceCache > -1){
-		lectura = cache[indiceCache].contenido;
-		resultado.resultado = true;
-		memcpy(resultado.contenido,lectura + offset,tamanio);
 		pthread_mutex_lock(&mutex_log);
 		log_info(logger,"Se leyo la pagina %d del proceso %d, de la Cache.",pagina,pid);
 		pthread_mutex_unlock(&mutex_log);
-	} else {
-		lectura = leerMemoria(pagina,pid);
+		lectura = cache[indiceCache].contenido;
 		resultado.resultado = true;
 		memcpy(resultado.contenido,lectura + offset,tamanio);
+	} else {
 		pthread_mutex_lock(&mutex_log);
 		log_info(logger,"Se leyo la pagina %d del proceso %d, de la Memoria.",pagina,pid);
 		pthread_mutex_unlock(&mutex_log);
+		lectura = leerMemoria(pagina,pid);
+		resultado.resultado = true;
+		memcpy(resultado.contenido,lectura + offset,tamanio);
 	}
 	pthread_mutex_unlock(&mutex_memoria);
 	return resultado;
@@ -657,7 +657,7 @@ void vaciarCache(){
 void aplicarRetardo(){
 	usleep(retardoLecturaMemoria);
 	pthread_mutex_lock(&mutex_log);
-	log_info(logger,"Durmiendo %d milisegundos...zzzzzzz",retardoLecturaMemoria);
+	log_info(logger,"Aplicando retardo de %d milisegundos, debido a que el frame no estaba en cache.",configuracion->retardoMemoria);
 	pthread_mutex_unlock(&mutex_log);
 }
 
@@ -675,6 +675,11 @@ int obtenerLRUElementoCache(){
 		if(cache[i].contadorDeUso > menor){
 			menor = i;
 		}
+	}
+	if(cache[i].contadorDeUso > 0){
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger,"Se reemplaza al proceso con PID %d, del frame %d de la Cache por LRU.", cache[i].pid, i);
+		pthread_mutex_unlock(&mutex_log);
 	}
 	return menor;
 }
@@ -694,10 +699,13 @@ void actualizarCache(int pid,int pagina,void* punteroMarco){
 	int apariciones = calcularAparicionesCache(pid);
 	if(apariciones < configuracion->cacheXProc){
 		int indiceCache = obtenerLRUElementoCache();
-		cache[indiceCache].contadorDeUso = 1;
+		cache[indiceCache].contadorDeUso = apariciones + 1;
 		cache[indiceCache].contenido = punteroMarco;
 		cache[indiceCache].pagina = pagina;
 		cache[indiceCache].pid = pid;
+		pthread_mutex_lock(&mutex_log);
+		log_info(logger,"Se escribio en el frame %d de la Cache, el PID %d, con la pagina %d.", indiceCache, pid, pagina);
+		pthread_mutex_unlock(&mutex_log);
 	} else {
 		pthread_mutex_lock(&mutex_log);
 		log_info(logger,"El proceso con PID %d no se guardo en la cache por alcanzar el maximo de Procesos x Cache.", pid);
