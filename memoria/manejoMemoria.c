@@ -532,6 +532,7 @@ int obtenerPrimerosNFramesLibres(int pid, int cantidadDeFrames){
 	int i;
 	int contador = 0;
 	i = aplicarFuncionHash(pid, 0);
+	int frameInicialBusqueda = i;
 	while(contador < cantidadDeFrames){
 		if(tablaInvertida[i].pid == FRAME_LIBRE){
 			contador++;
@@ -539,6 +540,8 @@ int obtenerPrimerosNFramesLibres(int pid, int cantidadDeFrames){
 		} else {
 			i = aplicarManejoColisiones(i);
 			contador = 0;
+			if(i==frameInicialBusqueda) break;
+
 		}
 	}
 	int indice = -1;
