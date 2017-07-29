@@ -673,18 +673,32 @@ void establecerRetardoMemoria(int cantidad){
 
 int obtenerLRUElementoCache(){
 	int i = 0;
-	int menor = -1;
+	int posicion = -1;
+
 	for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
-		if(cache[i].contadorDeUso > menor){
-			menor = i;
+		if(cache[i].contadorDeUso == 0){
+			posicion = i;
+			break;
 		}
 	}
-	if(cache[i].contadorDeUso > 0){
+
+	if(posicion==-1){
+		i = 0;
+		int minimo = cache[i].contadorDeUso;
+		for(i = 0; i < CANTIDAD_ELEMENTOS_CACHE; i++){
+			if(cache[i].contadorDeUso < minimo){
+				minimo = cache[i].contadorDeUso;
+				posicion = i;
+			}
+		}
+	}
+
+	if(cache[posicion].contadorDeUso > 0){
 		pthread_mutex_lock(&mutex_log);
-		log_info(logger,"Se reemplaza al proceso con PID %d, del frame %d de la Cache por LRU.", cache[i].pid, i);
+		log_info(logger,"Se reemplaza al proceso con PID %d, del frame %d de la Cache por LRU.", cache[posicion].pid, posicion);
 		pthread_mutex_unlock(&mutex_log);
 	}
-	return menor;
+	return posicion;
 }
 
 int calcularAparicionesCache(int pid){
