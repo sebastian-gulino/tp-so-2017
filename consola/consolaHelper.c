@@ -326,26 +326,6 @@ void finalizarPrograma(int pid){
 	socket_enviar(procesoFinalizar->socketKernel, D_STRUCT_FIN_PROG, pidFinalizar);
 	free(pidFinalizar);
 
-	int programaFinalizo = 0;
-
-	t_tipoEstructura tipoEstructura;
-	void * structRecibido;
-
-	while (programaFinalizo==0){
-
-		if (socket_recibir(procesoFinalizar->socketKernel,&tipoEstructura,&structRecibido) == -1){
-
-			pthread_mutex_lock(&mutex_log);
-			log_info(logger, "No se pudo finalizar el programa");
-			pthread_mutex_unlock(&mutex_log);
-
-		} else {
-			programaFinalizo = 1;
-			terminarProceso(procesoFinalizar);
-		}
-
-	}
-
 }
 
 void terminarProceso(t_proceso* proceso){

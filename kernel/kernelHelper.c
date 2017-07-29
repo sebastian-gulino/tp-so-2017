@@ -1184,8 +1184,6 @@ void abortarPrograma(int socketConsola, bool finalizarPrograma){
 		return;
 	}
 
-//	eliminarRegistroProceso(socketConsola);
-
 	t_struct_pcb * pcbRecuperado = obtenerPCBActivo(PID);
 
 	if(pcbRecuperado == NULL){
