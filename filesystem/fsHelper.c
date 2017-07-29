@@ -2,6 +2,8 @@
 
 cargarConfiguracion() {
 
+	printf("INICIANDO FILESYSTEM\n");
+	printf("\n");
 	t_config * config;
 
 	pathConfiguracion = "./config.txt";
@@ -31,16 +33,40 @@ void setPuntoDeMontaje(){
 	char arch_command[260];
 	char bloque_command[260];
 
+	char * path = malloc(50);
+
 	sprintf(pm_command, "mkdir %s", configuracion->puntoMontaje);
-	sprintf(mtdt_command, "mkdir %s/Metadata", configuracion->puntoMontaje);
-	sprintf(arch_command, "mkdir %s/Archivos", configuracion->puntoMontaje);
-	sprintf(bloque_command, "mkdir %s/Bloques", configuracion->puntoMontaje);
+	if(!opendir(configuracion->puntoMontaje)){
+		system(pm_command);
+	} else {
+		printf("No se creo el archivo %s por que ya existe.\n", configuracion->puntoMontaje);
+	}
 
-	system(pm_command);
-	system(mtdt_command);
-	system(arch_command);
-	system(bloque_command);
+	sprintf(path,"%s/Metadata",configuracion->puntoMontaje);
+	sprintf(mtdt_command, "mkdir %s", configuracion->puntoMontaje);
+	if(!opendir(path)){
+		system(mtdt_command);
+	} else {
+		printf("No se creo el archivo %s por que ya existe.\n", path);
+	}
 
+	sprintf(path,"%s/Archivos",configuracion->puntoMontaje);
+	sprintf(arch_command, "mkdir %s", configuracion->puntoMontaje);
+	if(!opendir(path)){
+		system(arch_command);
+	} else {
+		printf("No se creo el archivo %s por que ya existe.\n", path);
+	}
+
+	sprintf(path,"%s/Bloques",configuracion->puntoMontaje);
+	sprintf(bloque_command, "mkdir %s", configuracion->puntoMontaje);
+	if(!opendir(path)){
+		system(bloque_command);
+	} else {
+		printf("No se creo el archivo %s por que ya existe.\n", path);
+	}
+
+	free(path);
 	log_info(logger, "Las carpetas: Metadata, Archivos y Bloques creadas satisfactoriamente en el punto de montaje: %s", configuracion->puntoMontaje);
 }
 
