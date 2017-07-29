@@ -63,14 +63,6 @@ int conectarAKernel (){
 		log_info(logger,"El quantum para la planificacion es %d",quantum);
 	}
 
-	if(socket_recibir(socketCliente, &tipoEstructura, &structRecibido) == -1){
-		log_info(logger,"No se recibió el quantum");
-	} else{
-		quantum = ((t_struct_numero*) structRecibido)->numero;
-
-		log_info(logger,"El quantum para la planificacion es %d",quantum);
-	}
-
 	return socketCliente;
 }
 
@@ -149,61 +141,46 @@ void ejecutarProceso(AnSISOP_funciones funcionesAnsisop,AnSISOP_kernel funciones
 			if (pcbEjecutando->programCounter >= pcbEjecutando->cantidadInstrucciones-1
 					&& string_starts_with(instruccionLimpia,"end")){
 
-				log_info(logger,"El proceso %d finalizo exitosamente",pcbEjecutando->PID);
-
+				log_info(logger,"El proceso %d finalizo exitosamente en la cpu %d",pcbEjecutando->PID, pcbEjecutando->cpuID);
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
-
-				free(instruccionLimpia);
-				instruccionLimpia=NULL;
-
 				salirProceso(0);
-				return;
+				break;
 			}
 
 			analizadorLinea(instruccionLimpia,&funcionesAnsisop,&funciones_kernel);
 
+			free(instruccionLimpia);
+			instruccionLimpia = NULL;
+
 			if (stackOverflow){
 
-				log_error(logger, "Hubo stackoverflow, aborto el proceso");
-
+				log_error(logger, "Hubo stackoverflow, aborto el proceso %d en la cpu %d",pcbEjecutando->PID, pcbEjecutando->cpuID);
 				pcbEjecutando->retornoPCB=D_STRUCT_ERROR_STACK_OVERFLOW;
-
-				free(instruccionLimpia);
-				instruccionLimpia = NULL;
-
 				salirProceso();
-				return;
+				break;
 			}
 			if(finPrograma){
 
-				log_info(logger, "El proceso finalizo exitosamente");
-
+				log_info(logger, "El proceso %d finalizo exitosamente en la cpu %d",pcbEjecutando->PID, pcbEjecutando->cpuID);
 				socket_enviar(socketKernel, D_STRUCT_PCB_FIN_OK, pcbEjecutando);
-
-				free(instruccionLimpia);
-				instruccionLimpia = NULL;
 				salirProceso(0);
-
 				finPrograma = false;
 
-				return;
+				break;
 			}
 			if(bloqueoWait){
-				log_error(logger, "Hubo bloqueo por wait, freno la ejecucion");
+				log_error(logger, "Hubo bloqueo por wait, freno la ejecucion del proceso %d en la cpu %d",pcbEjecutando->PID, pcbEjecutando->cpuID);
 				pcbEjecutando->programCounter++;
-
-				free(instruccionLimpia);
-				instruccionLimpia = NULL;
-
+				socket_enviar(socketKernel, D_STRUCT_BLOQUEO_WAIT, pcbEjecutando);
 				salirProceso();
-				return;
+				break;
 			}
 
 			pcbEjecutando->programCounter++;
 
 			if(pcbEjecutando->retornoPCB!=0 || signalFinalizarCPU){
 				salirProceso();
-				return;
+				break;
 			}
 
 			free(instruccionLimpia);
@@ -302,16 +279,14 @@ void salirProceso(){
 	cpuLibre=true;
 	seguirEjecutando=false;
 	stackOverflow=false;
+	bloqueoWait=false;
 
 	if (pcbEjecutando->retornoPCB != 0){
-		log_info(logger,"El proceso finalizara por el motivo de retorno pcb %d",pcbEjecutando->retornoPCB);
+		log_info(logger,"El proceso %d finalizara por el motivo de retorno pcb %d",pcbEjecutando->PID, pcbEjecutando->retornoPCB);
 		socket_enviar(socketKernel, D_STRUCT_PCB_FIN_ERROR, pcbEjecutando);
 	} else if (signalFinalizarCPU){
-		log_info(logger,"El proceso finalizara por haberse realizado el signal SIGUSR1 en cpu");
+		log_info(logger,"El proceso %d finalizara por haberse realizado el signal SIGUSR1 en cpu",pcbEjecutando->PID);
 		socket_enviar(socketKernel, D_STRUCT_SIGUSR1, pcbEjecutando);
-	} else if (bloqueoWait){
-		log_info(logger,"El proceso frena su ejecucion por haberse producido un bloqueo por wait");
-		socket_enviar(socketKernel, D_STRUCT_BLOQUEO_WAIT, pcbEjecutando);
 	}
 
 	if (signalFinalizarCPU){

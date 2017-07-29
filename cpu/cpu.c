@@ -33,7 +33,6 @@ int main(int arc, char * argv[]) {
 	system("clear");
 
 	// Genera archivo log para poder escribir el trace de toda la ejecución
-	//crearLog("/CPU");
 	remove("./CPU.log");
 	logger = log_create("./CPU.log", "CPU", 0, LOG_LEVEL_TRACE);
 
