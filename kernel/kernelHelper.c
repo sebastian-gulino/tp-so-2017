@@ -1074,7 +1074,7 @@ void liberarMemoriaProceso(t_struct_pcb * pcb){
 	t_tipoEstructura tipoEstructura;
 	void * structRecibido;
 
-	if(socket_recibir(socketMemoria,&tipoEstructura,&structRecibido) == -1){
+	if(socket_recibir(socketMemoria,&tipoEstructura,&structRecibido) != -1){
 
 		int resultado = ((t_struct_numero*) structRecibido)->numero;
 
@@ -1184,7 +1184,7 @@ void abortarPrograma(int socketConsola, bool finalizarPrograma){
 		return;
 	}
 
-	eliminarRegistroProceso(socketConsola);
+//	eliminarRegistroProceso(socketConsola);
 
 	t_struct_pcb * pcbRecuperado = obtenerPCBActivo(PID);
 
@@ -1342,6 +1342,8 @@ void traerProcesoColaNew(){
 
 	t_struct_pcb * pcbNew = list_remove(cola_new,0);
 
+	log_info(logger, "Por disminuir la cantidad de procesos en sistema, traigo el PID: %d de la cola de NEW",pcbNew->PID);
+
 	t_registroTablaProcesos * proceso = obtenerConsolaPorPID(pcbNew->PID);
 
 	t_struct_numero * pidNew = malloc(sizeof(t_struct_numero));
@@ -1355,7 +1357,7 @@ void traerProcesoColaNew(){
 	socket_recibir(proceso->socket,&tipoEstructura,&structRecibido);
 
 	int tamanio_programa = ((t_struct_programa*) structRecibido)->tamanio ;
-	char * programa = malloc(tamanio_programa);
+	char * programa = malloc(tamanio_programa+1);
 
 	memcpy(programa, ((t_struct_programa*) structRecibido)->buffer, tamanio_programa);
 
@@ -1376,13 +1378,18 @@ void traerProcesoColaNew(){
 
 		enviarCodigoMemoria(programa,tamanio_programa,pcbNew);
 
-		t_metadata_program* datosPrograma = metadata_desde_literal(programa);
+		t_metadata_program* datosPrograma = malloc(sizeof(t_metadata_program));
+		datosPrograma =	metadata_desde_literal(programa);
 
 		pcbNew->quantum_sleep=configuracion->quantumSleep;
 		pcbNew->programCounter=datosPrograma->instruccion_inicio;
 		pcbNew->tamanioIndiceEtiquetas=datosPrograma->etiquetas_size;
+		pcbNew->cantidadInstrucciones = datosPrograma->instrucciones_size;
 
-		memcpy(pcbNew->indiceEtiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+		char * etiquetas = malloc(datosPrograma->etiquetas_size);
+
+		memcpy(etiquetas,datosPrograma->etiquetas,datosPrograma->etiquetas_size);
+		pcbNew->indiceEtiquetas=etiquetas;
 
 		int i;
 		for (i = 0;	i < datosPrograma->instrucciones_size;i++) {
@@ -1398,7 +1405,7 @@ void traerProcesoColaNew(){
 		}
 
 		metadata_destruir(datosPrograma);
-
+		log_info(logger, "Se cargo correctamente la metadata para el proceso PID: %d",pcbNew->PID);
 	}
 
 	agregarColaListos(pcbNew);
@@ -2278,7 +2285,7 @@ void finalizarProcesoOK(int socketCPU, t_struct_pcb * pcbFinalizado){
 
 int verificarPaginaHeapDisponible(t_struct_sol_heap * solHeap){
 
-	int indice;
+	int indice, indice2;
 
 	for(indice=0; indice < list_size(tablaHeap); indice++){
 
@@ -2286,9 +2293,9 @@ int verificarPaginaHeapDisponible(t_struct_sol_heap * solHeap){
 
 		if(registroHeap->PID==solHeap->pid){
 
-			for(indice=0; indice < list_size(registroHeap->listaBloques); indice++){
+			for(indice2=0; indice2 < list_size(registroHeap->listaBloques); indice2++){
 
-				t_bloqueHeap * bloqueHeap = list_get(registroHeap->listaBloques, indice);
+				t_bloqueHeap * bloqueHeap = list_get(registroHeap->listaBloques, indice2);
 
 				if(bloqueHeap->numeroBloque>=0 && bloqueHeap->isFree && bloqueHeap->size >= solHeap->pointer){
 

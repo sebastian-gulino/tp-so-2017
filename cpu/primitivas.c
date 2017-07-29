@@ -493,7 +493,7 @@ t_puntero reservar(t_valor_variable espacio) {
 
 			pcbEjecutando->retornoPCB=D_STRUCT_ERROR_KERNEL;
 
-			log_error(logger,"No se pudo reservar la memoria dinamica");
+			log_error(logger,"No se pudo reservar la memoria dinamica %d",tipoEstructura);
 			free(structRecibido);
 			structRecibido = NULL;
 
