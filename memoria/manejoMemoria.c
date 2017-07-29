@@ -6,6 +6,10 @@ void * memoriaPrincipal;
 
 void cargarConfiguracion() {
 
+	printf("INICIANDO MEMORIA\n");
+	printf("\n");
+	printf("\n");
+
 	consolaConectada = 1;
 
 	pthread_mutex_init(&mutex_log, NULL);
@@ -661,9 +665,9 @@ void aplicarRetardo(){
 }
 
 void establecerRetardoMemoria(int cantidad){
-	retardoLecturaMemoria = cantidad;
+	configuracion->retardoMemoria = cantidad;
 	pthread_mutex_lock(&mutex_log);
-	log_info(logger,"Se cambio el retardo en milisegundos a d%.", retardoLecturaMemoria);
+	log_info(logger,"Se cambio el retardo en milisegundos a d%.", configuracion->retardoMemoria);
 	pthread_mutex_unlock(&mutex_log);
 }
 
@@ -800,6 +804,8 @@ void dumpMemoria(){
 		fprintf(f,"PID: %d\n",list_get(procesosActivos,i));
 	}
 
+	fprintf(f,"(Bonus Track) Retardo de Memoria: %d milisegundos.\n", configuracion->retardoMemoria);
+
 	fclose(f);
 
 }
@@ -816,13 +822,13 @@ void manejoConsola(){
 
 	while(consolaConectada){
 
-		puts("Ingrese algún comando no mayor a 50 caracteres");
+		puts("Ingrese algún comando no mayor a 50 caracteres\n");
 		char * value = malloc(50);
 		scanf("%s", value);
 
 		switch(commandParser(value)){
 			case 1:;
-				puts("Ingrese el nuevo retardo en milisegundos...");
+				puts("Ingrese el nuevo retardo en milisegundos...\n");
 				char * path = malloc(200);
 				scanf("%s", path);
 
@@ -857,12 +863,14 @@ void manejoConsola(){
 					printf("PID: %d\n",list_get(procesosActivos,i));
 				}
 
+				printf("(Bonus Track) Retardo de Memoria: %d milisegundos.\n", configuracion->retardoMemoria);
+
 				dumpMemoria();
 
 				break;
 			case 3:
 
-				puts("Ingrese opción MEMORY o PID...");
+				puts("Ingrese opción MEMORY o PID...\n");
 				char * otro = malloc(200);
 				scanf("%s", otro);
 
@@ -879,7 +887,7 @@ void manejoConsola(){
 
 						break;
 					case 7:
-						puts("Ingrese PID");
+						puts("Ingrese PID\n");
 						char * pid = malloc(200);
 						scanf("%s", pid);
 
