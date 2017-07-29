@@ -6,6 +6,10 @@ void * memoriaPrincipal;
 
 void cargarConfiguracion() {
 
+	printf("INICIANDO MEMORIA\n");
+	printf("\n");
+	printf("\n");
+
 	consolaConectada = 1;
 
 	pthread_mutex_init(&mutex_log, NULL);
