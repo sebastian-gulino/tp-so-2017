@@ -31,3 +31,8 @@
 # Debug files
 *.dSYM/
 *.su
+/Debug/
+/Release/
+
+# Log files
+*.log
